@@ -1,0 +1,15 @@
+.tmp/
+/log/
+/predict/
+/model/
+
+/data/v0
+/data/btW_1
+
+
+*.egg-info/
+__pycache__/
+
+*.DS*
+*.log
+*.pt

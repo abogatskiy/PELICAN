@@ -1,0 +1,8 @@
+Prerequisite packages:
+
+python >=3.9
+pytorch >=1.10
+h5py
+colorlog
+scikit-learn
+tensorboard (if using --summarize)
