@@ -6,6 +6,11 @@
 /data/v0
 /data/btW_1
 
+/slurm/out
+/slurm/err
+/slurm/log
+/slurm/predict
+/slurm/model
 
 *.egg-info/
 __pycache__/

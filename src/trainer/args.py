@@ -75,6 +75,8 @@ def setup_argparse():
     # Job prefix is used to name checkpoint/best file
     parser.add_argument('--prefix', '--jobname', type=str, default='nosave',
                         help='Prefix to set load, save, and logfile. (default: nosave)')
+    parser.add_argument('--study-name', type=str, default='nosave',
+                        help='Name for the optuna study. (default: nosave)')
 
     # Allow to manually specify file to load
     parser.add_argument('--loadfile', type=str, default='',
@@ -133,8 +135,8 @@ def setup_argparse():
                         help='Force download and processing of dataset.')
 
     # Computation options
-    parser.add_argument('--device', type=str, default=None,
-                    help='Which device to use (cpu | gpu/cuda | mps/m1) (default = gpu)')
+    parser.add_argument('--device', type=str, default='cuda',
+                    help='Which device to use (cpu | gpu/cuda | mps/m1) (default = cuda)')
     parser.add_argument('--cuda', '--gpu', dest='device', action='store_const', const='cuda',
                         help='Use CUDA (default)')
     parser.add_argument('--cpu', dest='device', action='store_const', const='cpu',
