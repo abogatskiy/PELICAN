@@ -84,7 +84,7 @@ class Eq2to2(nn.Module):
         self.device = device
         self.dtype = dtype
         self.activation_fn = get_activation_fn(activation)
-        self.basis_dim = 7 if sym else 15
+        self.basis_dim = (7 if sym else 15) * 2
 
         self.out_dim = out_dim
         self.in_dim = in_dim
@@ -101,8 +101,9 @@ class Eq2to2(nn.Module):
 
     def forward(self, inputs, mask=None):
 
-        nobj = mask[:,:,0].sum(1).squeeze()
-        ops = self.ops_func(inputs, nobj, aggregation='mean') * (1+nobj).log().view([-1,1,1,1,1])
+        nobj = mask[:,:,0].sum(1).squeeze()  # nobj.shape=[B]
+        ops = [self.ops_func(inputs, nobj, aggregation='mean'), self.ops_func(inputs, nobj, aggregation='mean') * (1+nobj).log().view([-1,1,1,1,1]) / 3.845]
+        ops = torch.cat(ops, dim=2)
         # ops = [self.ops_func(inputs, nobj, aggregation='mean'), self.ops_func(inputs, nobj, aggregation='max'), self.ops_func(inputs, nobj, aggregation='max')]
         # ops = torch.cat(ops, dim=2)
 
