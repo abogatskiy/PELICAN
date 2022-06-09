@@ -18,3 +18,4 @@ __pycache__/
 *.DS*
 *.log
 *.pt
+*.db
