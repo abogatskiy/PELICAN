@@ -66,12 +66,13 @@ class Trainer:
         self.minibatch_metrics_string_fn = minibatch_metrics_string_fn
         self.optimizer = optimizer
         self.scheduler = scheduler
-        warmup_epochs = int(self.args.num_epoch/9)
-        cooldown_epochs = int(self.args.num_epoch/12)
-        self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=4*len(dataloaders['train']), after_scheduler=scheduler)
-        coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
-        cooldown_length = cooldown_epochs*len(dataloaders['train'])
-        self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
+        if args.lr_decay_type == 'warm':
+            warmup_epochs = int(self.args.num_epoch/9)
+            cooldown_epochs = int(self.args.num_epoch/12)
+            self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=4*len(dataloaders['train']), after_scheduler=scheduler)
+            coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
+            cooldown_length = cooldown_epochs*len(dataloaders['train'])
+            self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
         self.restart_epochs = restart_epochs
 
 
@@ -165,7 +166,7 @@ class Trainer:
             # Loop over splits, predict, and output/log predictions
             for split in splits:
                 predict, targets = self.predict(set=split)
-                loss = self.log_predict(predict, targets, split, description='Final')
+                best_loss = self.log_predict(predict, targets, split, description='Final')
 
         # Evaluate best model as determined by validation error
         if best:
@@ -177,14 +178,14 @@ class Trainer:
                 # Loop over splits, predict, and output/log predictions
                 for split in splits:
                     predict, targets = self.predict(split)
-                    loss = self.log_predict(predict, targets, split, description='Best')
+                    best_loss = self.log_predict(predict, targets, split, description='Best')
             else:
                 if checkpoint['epoch'] == final_epoch:
                     logger.info('BEST MODEL IS SAME AS FINAL')
 
         logger.info('Inference phase complete!\n')
 
-        return loss
+        return best_loss
 
     def _warm_restart(self, epoch):
         restart_epochs = self.restart_epochs
@@ -367,7 +368,7 @@ class Trainer:
         predict = predict.cpu().double()
         targets = targets.cpu().double()
 
-        datastrings = {'train': 'Training', 'test': 'Testing', 'valid': 'Validation'}
+        datastrings = {'train': 'Training  ', 'test': 'Testing   ', 'valid': 'Validation'}
 
         if epoch >= 0:
             suffix = 'final'

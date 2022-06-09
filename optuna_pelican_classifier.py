@@ -89,7 +89,7 @@ def objective(trial):
     args, model, device, dtype = define_model(trial)
 
     args, dataloaders = define_dataloader(args)
-    
+
     if args.parallel:
         model = torch.nn.DataParallel(model)
 
@@ -107,17 +107,19 @@ def objective(trial):
 
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize, device, dtype)
-    
+
     # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
     trainer.load_checkpoint()
 
     # Train model.
     trainer.train(trial=trial)
 
-    # Test predictions on best model and also last checkpointed model.
-    loss = trainer.evaluate(splits=['test'])
+    best_loss = torch.load(args.bestfile)['best_loss']
 
-    return loss
+    # # Test predictions on best model and also last checkpointed model.
+    # best_loss = trainer.evaluate(splits=['test'])
+
+    return best_loss
 
 if __name__ == '__main__':
 

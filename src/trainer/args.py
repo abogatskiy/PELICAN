@@ -142,7 +142,7 @@ def setup_argparse():
     parser.add_argument('--cpu', dest='device', action='store_const', const='cpu',
                         help='Use CPU')
     parser.add_argument('--mps', '--m1', dest='device', action='store_const', const='mps',
-                        help='Use M1 chip')
+                        help='Use M1 chip [Experimental]')
 
     parser.add_argument('--float', dest='dtype', action='store_const', const='float',
                         help='Use floats.')
@@ -155,8 +155,6 @@ def setup_argparse():
 
     # Model options
 
-    parser.add_argument('--maxdim', nargs='*', type=int, default=[2], metavar='N',
-                        help='Cutoff in CG operations (default: [3])')
     parser.add_argument('--num-channels0', nargs='*', type=int, default=[5,]*2, metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
     parser.add_argument('--num-channels-m', nargs='*', type=int, default=[15], metavar='N',
