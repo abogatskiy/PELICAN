@@ -125,7 +125,7 @@ if __name__ == '__main__':
     args = init_argparse()
 
     study = optuna.create_study(study_name=args.study_name, storage='sqlite:///'+args.study_name+'.db', direction="minimize", load_if_exists=True)
-    study.optimize(objective, n_trials=10, show_progress_bar=True)
+    study.optimize(objective, n_trials=100, show_progress_bar=True)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])

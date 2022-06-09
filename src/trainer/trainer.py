@@ -216,8 +216,8 @@ class Trainer:
             alpha = self.args.alpha
             assert alpha >= 0, "alpha must be a nonnegative real number"
             alpha = alpha / (1 + alpha)
-            for smoothed_metric, metric in zip(self.minibatch_metrics, minibatch_metrics):
-                smoothed_metric = alpha * smoothed_metric + (1 - alpha) * metric
+            for i, metric in enumerate(minibatch_metrics):
+                self.minibatch_metrics[i] = alpha * self.minibatch_metrics[i] + (1 - alpha) * metric
 
         dtb = (datetime.now() - batch_t).total_seconds()
         tepoch = (datetime.now() - epoch_t).total_seconds()
