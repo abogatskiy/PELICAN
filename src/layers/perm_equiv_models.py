@@ -100,10 +100,14 @@ class Eq2to2(nn.Module):
             self.ops_func = ops_func
 
     def forward(self, inputs, mask=None):
-        ops = self.ops_func(inputs)
+
+        nobj = mask[:,:,0].sum(1).squeeze()
+        ops = self.ops_func(inputs, nobj, aggregation='mean') * (1+nobj).log().view([-1,1,1,1,1])
+        # ops = [self.ops_func(inputs, nobj, aggregation='mean'), self.ops_func(inputs, nobj, aggregation='max'), self.ops_func(inputs, nobj, aggregation='max')]
+        # ops = torch.cat(ops, dim=2)
+
         # ops = self.activation_fn(ops)
         output = torch.einsum('dsb,ndbij->nijs', self.coefs, ops)
-
 
         diag_eye = torch.eye(inputs.shape[1], device=self.device, dtype=self.dtype).unsqueeze(0).unsqueeze(-1)
         diag_bias = diag_eye.multiply(self.diag_bias)

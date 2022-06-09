@@ -7,6 +7,20 @@ def check_shape(x, shape):
     for xs, s in zip(x.shape, shape):
         assert xs == s
 
+def masked_mean(x, nobj, dim=None, keepdims=False):
+    x = torch.sum(x, dim=dim, keepdims=keepdims)
+    nobj = nobj.view([-1]+[1,]*(len(x.shape)-1))
+    x = x / nobj
+    return x
+
+def masked_amax(x, nobj, dim=None, keepdims=False):
+    x = torch.amax(x, dim=dim, keepdims=keepdims)
+    return x
+
+def masked_amin(x, nobj, dim=None, keepdims=False):
+    x = torch.amin(x, dim=dim, keepdims=keepdims)
+    return x
+
 def eops_1_to_1(inputs, normalize=False):
     """inputs: Tensor of shape (Batch, Channel, Num_Atom), aggregation over the last dimension"""
     inputs = inputs.permute(0, 2, 1)
@@ -78,7 +92,7 @@ def eops_2_to_1_sym(inputs, normalize=False):
     ops = [op1, op2, op3, op4]
     return torch.stack([op1, op2, op3, op4], dim=2)
 
-def eops_2_to_2_sym(inputs, normalize=False):
+def eops_2_to_2_sym(inputs, mask=None):
     inputs = inputs.permute(0, 3, 1, 2)
     N, D, m, m = inputs.shape
     dim = inputs.shape[-1]
@@ -109,16 +123,23 @@ def eops_2_to_2_sym(inputs, normalize=False):
     ops[7] = sum_all.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, dim, dim)
     return torch.stack(ops[1:], dim=2)
 
-def eops_2_to_2(inputs, normalize=False):
+def eops_2_to_2(inputs, nobj=None, aggregation='mean'):
     inputs = inputs.permute(0, 3, 1, 2)
     N, D, m, m = inputs.shape
     dim = inputs.shape[-1]
 
     diag_part = torch.diagonal(inputs, dim1=-2, dim2=-1) # N x D x m
-    sum_diag_part = diag_part.sum(dim=2, keepdims=True) / dim # N x D x 1
-    sum_rows = inputs.sum(dim=3) / dim # N x D x m
-    sum_cols = inputs.sum(dim=2) / dim # N x D x m
-    sum_all = inputs.sum(dim=(2,3)) / dim**2 # N x D
+    if aggregation == 'mean':
+        aggregation_fn = masked_mean
+    elif aggregation == 'max':
+        aggregation_fn = masked_amax
+    elif aggregation == 'min':
+        aggregation_fn = masked_amin
+
+    sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True) # N x D x 1
+    sum_rows = aggregation_fn(inputs, nobj, dim=3) # N x D x m
+    sum_cols = aggregation_fn(inputs, nobj, dim=2) # N x D x m
+    sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # N x D
 
     ops = [None] * (15 + 1)
     ops[1]  = torch.diag_embed(diag_part) # N x D x m x m
