@@ -182,7 +182,7 @@ class Trainer:
                 if checkpoint['epoch'] == final_epoch:
                     logger.info('BEST MODEL IS SAME AS FINAL')
 
-        logger.info('Inference phase complete!')
+        logger.info('Inference phase complete!\n')
 
         return loss
 
