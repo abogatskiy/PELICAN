@@ -79,12 +79,12 @@ class Eq2to1(nn.Module):
         return output
 
 class Eq2to2(nn.Module):
-    def __init__(self, in_dim, out_dim, ops_func=None, activation = 'leakyrelu', sym=False, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, ops_func=None, activation = 'leakyrelu', sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to2, self).__init__()
         self.device = device
         self.dtype = dtype
         self.activation_fn = get_activation_fn(activation)
-        self.basis_dim = (7 if sym else 15) * 1
+        self.basis_dim = (7 if sym else 15) * len(config)
 
         self.out_dim = out_dim
         self.in_dim = in_dim
@@ -98,16 +98,15 @@ class Eq2to2(nn.Module):
             self.ops_func = eops_2_to_2_sym if sym else eops_2_to_2
         else:
             self.ops_func = ops_func
+        self.config = config
 
     def forward(self, inputs, mask=None, nobj=None):
 
-        # ops = self.ops_func(inputs, nobj, aggregation='mean') * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)
-        ops = self.ops_func(inputs, nobj, aggregation='sum')
-        # ops0 = [self.ops_func(inputs, nobj, aggregation=agg) for agg in ['mean','max','min']]
-        # ops1 = [y for x in ops0 for y in [x, x* ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)]] #, x / ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)
-        # ops = torch.cat(ops1, dim=2)
-        # ops = ops0[0] * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)
-        # ops = torch.cat(ops, dim=2)
+        d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
+        ops = [self.ops_func(inputs, nobj, aggregation=d[char]) for char in self.config if char in ['s', 'm', 'x', 'n']]
+        for i in range(self.config.count('l')):
+            ops.append(ops[i] * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845))
+        ops = torch.cat(ops, dim=2)
 
         # ops = self.activation_fn(ops)
         output = torch.einsum('dsb,ndbij->nijs', self.coefs, ops)
@@ -134,13 +133,13 @@ class Net1to1(nn.Module):
         return x
 
 class Net2to2(nn.Module):
-    def __init__(self, num_channels, num_channels_message, ops_func=None, message_depth=2, activation='leakyrelu', batchnorm=None, sym=False, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, num_channels_message, ops_func=None, message_depth=2, activation='leakyrelu', batchnorm=None, sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Net2to2, self).__init__()
         self.message_depth = message_depth
         self.num_channels = num_channels
         self.num_channels_message = num_channels_message
         num_layers = len(num_channels)-1
-        self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], num_channels[i+1], ops_func, activation, sym=sym, device=device, dtype=dtype) for i in range(num_layers)])
+        self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], num_channels[i+1], ops_func, activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
         # self.significance = nn.ModuleList([BasicMLP([num_channels[i+1], 1], activation='sigmoid', device=device, dtype=dtype) for i in range(num_layers)])
         if message_depth > 0:
             self.message_layers = nn.ModuleList(([MessageNet([num_channels[i],]+num_channels_message+[num_channels[i],], depth=message_depth, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype) for i in range(num_layers)]))
