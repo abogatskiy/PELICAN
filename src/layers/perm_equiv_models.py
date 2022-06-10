@@ -84,7 +84,7 @@ class Eq2to2(nn.Module):
         self.device = device
         self.dtype = dtype
         self.activation_fn = get_activation_fn(activation)
-        self.basis_dim = (7 if sym else 15) * 12
+        self.basis_dim = (7 if sym else 15) * 9
 
         self.out_dim = out_dim
         self.in_dim = in_dim
@@ -102,10 +102,9 @@ class Eq2to2(nn.Module):
     def forward(self, inputs, mask=None):
 
         nobj = mask[:,:,0].sum(1).squeeze()  # nobj.shape=[B]
-        ops = [self.ops_func(inputs, nobj, aggregation=agg) for agg in ['mean','max','min','var']]
-        ops = [y for x in ops for y in [x, x* ((1+nobj).log().view([-1,1,1,1,1]) / 3.845), x / ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)]]
-        ops = torch.cat(ops, dim=2)
-        if torch.isnan(ops).any(): breakpoint()
+        ops0 = [self.ops_func(inputs, nobj, aggregation=agg) for agg in ['mean','max','min']]
+        ops1 = [y for x in ops0 for y in [x, x* ((1+nobj).log().view([-1,1,1,1,1]) / 3.845), x / ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)]]
+        ops = torch.cat(ops1, dim=2)
         # ops = torch.cat(ops, dim=2)
 
         # ops = self.activation_fn(ops)
@@ -151,7 +150,6 @@ class Net2to2(nn.Module):
         '''
         if self.message_depth > 0:
             for layer, message in zip(self.eq_layers, self.message_layers):
-                if x.isnan().any(): breakpoint()
                 # x = sig(x) * x
                 x = layer(message(x, mask), mask)
         else:

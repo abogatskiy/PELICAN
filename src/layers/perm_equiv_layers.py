@@ -9,16 +9,20 @@ def check_shape(x, shape):
 
 def masked_mean(x, nobj, dim=None, keepdims=False):
     x = torch.sum(x, dim=dim, keepdims=keepdims)
+    if type(dim)!=int:
+        nobj = nobj**len(dim)
     nobj = nobj.view([-1]+[1,]*(len(x.shape)-1))
     x = x / nobj
     return x
 
 def masked_amax(x, nobj, dim=None, keepdims=False):
     x = torch.amax(x, dim=dim, keepdims=keepdims)
+    x = x - nobj.log().view([-1]+[1,]*(len(x.shape)-1))
     return x
 
 def masked_amin(x, nobj, dim=None, keepdims=False):
     x = torch.amin(x, dim=dim, keepdims=keepdims)
+    x = x + nobj.log().view([-1]+[1,]*(len(x.shape)-1))
     return x
 
 def masked_var(x, nobj, dim=None, keepdims=False):
