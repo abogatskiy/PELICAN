@@ -118,6 +118,8 @@ def logging_printout(args):
         logger.info('Setting seed based upon time: {}'.format(seed))
         args.seed = seed
         torch.manual_seed(seed)
+    elif args.seed > 0:
+        torch.manual_seed(args.seed)
 
     logger.info('Values of all model arguments:')
     logger.info('{}'.format(args))

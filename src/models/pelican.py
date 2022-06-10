@@ -54,8 +54,8 @@ class PELICANClassifier(nn.Module):
         # self.net1to1 = Net1to1(num_channels2, activation = activation,  batchnorm = batchnorm, device = device, dtype = dtype)
         # self.mlp_out = BasicMLP([num_channels2[-1], 15] + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
 
-        self.input_layer = nn.Linear(num_scalars_in, num_channels1[0], bias = True, device = device, dtype = dtype)
-        self.net2to2 = Net2to2(num_channels1, num_channels_m, message_depth=message_depth, activation = activation, batchnorm = batchnorm, sym=sym, device = device, dtype = dtype)
+        # self.input_layer = nn.Linear(num_scalars_in, num_channels1[0], bias = True, device = device, dtype = dtype)
+        self.net2to2 = Net2to2([num_scalars_in] + num_channels1, num_channels_m, message_depth=message_depth, activation = activation, batchnorm = batchnorm, sym=sym, device = device, dtype = dtype)
         self.eq2to0 = Eq2to0(num_channels1[-1], num_channels2[0], activation = activation, device = device, dtype = dtype)
         self.mlp_out = BasicMLP(num_channels2 + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
 
@@ -106,8 +106,8 @@ class PELICANClassifier(nn.Module):
         # prediction = self.mlp_out(act5.mean(dim=1))
 
         # Simplest version with only 2->2 and 2->0 layers
-        act0 = self.input_layer(inputs_log) * edge_mask.unsqueeze(-1)
-        act1 = self.net2to2(act0, mask=edge_mask.unsqueeze(-1), nobj=nobj)
+        # act0 = self.input_layer(inputs_log) * edge_mask.unsqueeze(-1)
+        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
         act2 = self.eq2to0(act1)
         if self.dropout:
             act2 = self.dropout_layer(act2)
