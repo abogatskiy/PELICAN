@@ -102,11 +102,11 @@ class Eq2to2(nn.Module):
     def forward(self, inputs, mask=None):
 
         nobj = mask[:,:,0].sum(1).squeeze()  # nobj.shape=[B]
-        ops0 = [self.ops_func(inputs, nobj, aggregation='mean')]
+        ops = self.ops_func(inputs, nobj, aggregation='mean')
         # ops0 = [self.ops_func(inputs, nobj, aggregation=agg) for agg in ['mean','max','min']]
         # ops1 = [y for x in ops0 for y in [x, x* ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)]] #, x / ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)
         # ops = torch.cat(ops1, dim=2)
-        ops = ops0[0] * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)
+        # ops = ops0[0] * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)
         # ops = torch.cat(ops, dim=2)
 
         # ops = self.activation_fn(ops)

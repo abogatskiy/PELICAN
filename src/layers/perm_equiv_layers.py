@@ -29,6 +29,9 @@ def masked_var(x, nobj, dim=None, keepdims=False):
     var = (masked_mean((x - masked_mean(x, nobj, dim, keepdims=True))**2, nobj, dim, keepdims))
     return var
 
+def masked_sum(x, nobj, dim=None, keepdims=False):
+    return x.mean(dim=dim, keepdims=keepdims)
+
 def eops_1_to_1(inputs, normalize=False):
     """inputs: Tensor of shape (Batch, Channel, Num_Atom), aggregation over the last dimension"""
     inputs = inputs.permute(0, 2, 1)
@@ -145,6 +148,8 @@ def eops_2_to_2(inputs, nobj=None, aggregation='mean'):
         aggregation_fn = masked_amin
     elif aggregation == 'var':
         aggregation_fn = masked_var
+    elif aggregation == 'sum':
+        aggregation_fn = masked_sum
 
     sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True) # N x D x 1
     sum_rows = aggregation_fn(inputs, nobj, dim=3) # N x D x m

@@ -65,6 +65,8 @@ def define_model(trial):
                       scale=1., ir_safe=args.ir_safe, dropout = args.dropout, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
 
+    model.to(device)
+
     return args, model, device, dtype
 
 def define_dataloader(args):
