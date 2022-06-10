@@ -99,10 +99,10 @@ class Eq2to2(nn.Module):
         else:
             self.ops_func = ops_func
 
-    def forward(self, inputs, mask=None):
+    def forward(self, inputs, mask=None, nobj=None):
 
-        nobj = mask[:,:,0].sum(1).squeeze()  # nobj.shape=[B]
-        ops = self.ops_func(inputs, nobj, aggregation='mean') * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)
+        # ops = self.ops_func(inputs, nobj, aggregation='mean') * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)
+        ops = self.ops_func(inputs, nobj, aggregation='sum')
         # ops0 = [self.ops_func(inputs, nobj, aggregation=agg) for agg in ['mean','max','min']]
         # ops1 = [y for x in ops0 for y in [x, x* ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)]] #, x / ((1+nobj).log().view([-1,1,1,1,1]) / 3.845)
         # ops = torch.cat(ops1, dim=2)
@@ -145,7 +145,7 @@ class Net2to2(nn.Module):
         if message_depth > 0:
             self.message_layers = nn.ModuleList(([MessageNet([num_channels[i],]+num_channels_message+[num_channels[i],], depth=message_depth, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype) for i in range(num_layers)]))
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, nobj=None):
         '''
         x: N x d x m x m
         Returns: N x m x m x out_dim
@@ -153,7 +153,7 @@ class Net2to2(nn.Module):
         if self.message_depth > 0:
             for layer, message in zip(self.eq_layers, self.message_layers):
                 # x = sig(x) * x
-                x = layer(message(x, mask), mask)
+                x = layer(message(x, mask), mask, nobj)
         else:
             for layer in self.eq_layers:
                 # x = sig(x) * x
