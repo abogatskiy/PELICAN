@@ -45,7 +45,7 @@ def setup_argparse():
     # Dataloader and randomness options
     parser.add_argument('--shuffle', action=argparse.BooleanOptionalAction, default=True,
                         help='Shuffle minibatches.')
-    parser.add_argument('--seed', type=int, default=1, metavar='N',
+    parser.add_argument('--seed', type=int, default=-1, metavar='N',
                         help='Set random number seed. Set to -1 to set based upon clock.')
 
     # Saving and logging options
