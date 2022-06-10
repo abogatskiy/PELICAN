@@ -249,13 +249,13 @@ class Trainer:
         for epoch in range(epoch0, self.args.num_epoch + 1):
             self.epoch = epoch
             epoch_time = datetime.now()
-            logger.info('Starting Epoch: {}'.format(epoch))
+            logger.info('STARTING Epoch {}'.format(epoch))
 
             self._warm_restart(epoch)
             self._step_lr_epoch()
 
-            train_predict, train_targets = self.train_epoch()
-            train_loss_val = self.log_predict(train_predict, train_targets, 'train', epoch=epoch)
+            train_predict, train_targets, epoch_t = self.train_epoch()
+            train_loss_val = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
 
             self._save_checkpoint()
 
@@ -267,7 +267,7 @@ class Trainer:
             if trial:
                 trial.report(valid_loss_val, epoch)
 
-            logger.info('Epoch {} complete!'.format(epoch))
+            logger.info('FINISHED Epoch {}\n_________________________\n'.format(epoch))
             
         if self.summarize: self.writer.close()
 
@@ -338,7 +338,7 @@ class Trainer:
         all_predict = torch.cat(all_predict)
         all_targets = torch.cat(all_targets)
 
-        return all_predict, all_targets
+        return all_predict, all_targets, epoch_t
 
     def predict(self, set='valid'):
         dataloader = self.dataloaders[set]
@@ -360,11 +360,11 @@ class Trainer:
         all_targets = torch.cat(all_targets)
 
         dt = (datetime.now() - start_time).total_seconds()
-        logger.info(' Done! (Time: {}s)'.format(dt))
+        logger.info('Total evaluation time: {}s'.format(dt))
 
         return all_predict, all_targets
 
-    def log_predict(self, predict, targets, dataset, epoch=-1, description='Current'):
+    def log_predict(self, predict, targets, dataset, epoch=-1, epoch_t=None, description=''):
         predict = predict.cpu().double()
         targets = targets.cpu().double()
 
@@ -378,9 +378,12 @@ class Trainer:
         prefix = self.args.predictfile + '.' + 'final' + '.' + dataset
         metrics, names, logstring = self.metrics_fn(predict, targets, prefix, logger)
         if epoch >= 0:
-            logger.info(f'Epoch {epoch} Complete! {description} {datastrings[dataset]}'+logstring)
+            logger.info(f'Epoch {epoch} {description} {datastrings[dataset]}'+logstring)
         else:
             logger.info(f'{description} {datastrings[dataset]}'+logstring)
+
+        if epoch_t:
+            logger.info(f'Total epoch time:      {(datetime.now() - epoch_t).total_seconds()}s')
 
         metricsfile = self.args.predictfile + '.metrics.' + dataset + '.csv'   
         

@@ -12,8 +12,8 @@ def metrics(predict, targets, prefix, logger=None):
     names = ['Epoch', 'Loss', 'Accuracy', 'AUC', 'Background rejection', 'At signal efficiency ~0.3', 'FP rate', 'FN rate\n']
     string = ' L: {:10.4f}, ACC: {:10.4f}, AUC: {:10.4f},    BR: {:4.4f}, @: {:>4.4f},   FP: {:10.4f}, FN: {:10.4f}'.format(entropy, accuracy, auc_score, 1/eB if eB>0 else 0, eS, conf_matrix[0,1], conf_matrix[1,0])
     np.savetxt(prefix+'_ROC.csv', ROC(predict, targets)[0], delimiter=',')
-    if logger:
-        logger.info('ROC saved to file ' + prefix+'_ROC.csv' + '\n')
+    # if logger:
+    #     logger.info('ROC saved to file ' + prefix+'_ROC.csv' + '\n')
     return metrics, names, string
 
 def minibatch_metrics(predict, targets, entropy):
