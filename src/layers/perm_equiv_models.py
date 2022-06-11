@@ -104,8 +104,7 @@ class Eq2to2(nn.Module):
 
         d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
         ops = [self.ops_func(inputs, nobj, aggregation=d[char]) for char in self.config if char in ['s', 'm', 'x', 'n']]
-        for i in range(self.config.count('l')):
-            ops.append(ops[i] * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845))
+        ops = ops+[self.ops_func(inputs, nobj, aggregation=d[char.lower()]) * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845) for char in self.config if char in ['S', 'M', 'X', 'N']]
         ops = torch.cat(ops, dim=2)
 
         # ops = self.activation_fn(ops)

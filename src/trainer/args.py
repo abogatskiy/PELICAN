@@ -174,7 +174,7 @@ def setup_argparse():
     parser.add_argument('--sym', action=argparse.BooleanOptionalAction, default=False,
                         help='Preserve symmetry in the 2->2 equivariant layers (default = False)')
     parser.add_argument('--config', type=str, default='s',
-                    help='Configuration for aggregation functions in Net2to2 (any combination of letters s,m,x,n without repetition and any number of l (default = s)')
+                    help='Configuration for aggregation functions in Net2to2 (any combination of letters s,S,m,M,x,X,n,N (default = s)')
 
     parser.add_argument('--scale', type=float, default=1., metavar='N',
                     help='Global scaling factor for input four-momenta (default = 1.0)')
