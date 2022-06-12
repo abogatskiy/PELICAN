@@ -84,7 +84,7 @@ class MessageNet(nn.Module):
         if type(num_channels) not in [list, tuple]:
             num_channels = [num_channels,] * (depth + 1)
         depth = len(num_channels) - 1
-        self.linear = nn.ModuleList([nn.Linear(num_channels[i], num_channels[i+1], bias=not ir_safe) for i in range(len(num_channels)-1)])
+        self.linear = nn.ModuleList([nn.Linear(num_channels[i], num_channels[i+1], bias=not ir_safe) for i in range(depth)])
 
         activation_fn = get_activation_fn(activation)
         self.activations = nn.ModuleList([activation_fn for i in range(depth)])

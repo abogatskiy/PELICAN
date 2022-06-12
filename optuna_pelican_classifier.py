@@ -24,16 +24,16 @@ def suggest_params(args, trial):
 
     args.lr_init = trial.suggest_loguniform("lr_init", 0.0001, 0.1)
     n_layers1 = trial.suggest_int("n_layers1", 1, 6)
-    n_channels1 = trial.suggest_int("n_channels1", 5, 50)
+    n_channels1 = trial.suggest_int("n_channels1", 5, 30)
     args.num_channels1 = [n_channels1,] * (n_layers1 + 1)
     n_layers_m = trial.suggest_int("n_layers_m", 0, 3)
-    n_channels_m = trial.suggest_int("n_channels_m", 5, 50)
-    args.num_channels_m= [n_channels_m,] * n_layers_m
+    args.num_channels_m = [trial.suggest_int("n_channels_m["+str(i)+"]", 5, 30) for i in range(n_layers_m)]
     n_layers2 = trial.suggest_int("n_layers2", 1, 4)
-    n_channels2 = trial.suggest_int("n_channels2", 5, 50)
+    n_channels2 = trial.suggest_int("n_channels2", 5, 30)
     args.num_channels2 = [n_channels2,] * (n_layers2 + 1)
     args.activation = trial.suggest_categorical("activation", ["relu", "elu", "leakyrelu", "silu", "selu", "tanh"])
     args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
+    args.config = trial.suggest_categorical("config", ["s", "S", "m", "M", "sS", "mM", "sm", "sM", "Sm", "SM", "sSm", "sSM", "smM", "sMmM", "mx", "Mx", "mxn", "mXN", "mxMX", "sXN", "smxn"])
 
     return args
 
