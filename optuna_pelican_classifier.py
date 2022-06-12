@@ -23,7 +23,7 @@ logger = logging.getLogger('')
 def suggest_params(args, trial):
 
     args.lr_init = trial.suggest_loguniform("lr_init", 0.0001, 0.1)
-    args.batch_size = trial.suggest_int("batch_size", [8, 10, 16, 20, 32, 64])
+    args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20, 32, 64])
     n_layers1 = trial.suggest_int("n_layers1", 1, 6)
     n_channels1 = trial.suggest_int("n_channels1", 5, 30)
     args.num_channels1 = [n_channels1,] * (n_layers1 + 1)
