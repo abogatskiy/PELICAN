@@ -155,5 +155,5 @@ class Net2to2(nn.Module):
         else:
             for layer in self.eq_layers:
                 # x = sig(x) * x
-                x = layer(x, mask)
+                x = layer(x, mask, nobj)
         return x

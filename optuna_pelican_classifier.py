@@ -25,6 +25,9 @@ def suggest_params(args, trial):
     args.lr_init = trial.suggest_loguniform("lr_init", 0.0001, 0.1)
     args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20, 32])
 
+    args.config = trial.suggest_categorical("config", ["s", "S", "m", "M"]) #, "sS", "mM", "sm", "sM", "Sm", "SM", "sSm", "sSM", "smM", "sMmM", "mx", "Mx", "mxn", "mXN", "mxMX", "sXN", "smxn"])
+    args.add_beams = trial.suggest_categorical("add_beams", [True, False])
+
     n_layers1 = trial.suggest_int("n_layers1", 4, 6)
     args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 14, 16) for i in range(n_layers1)]
 
@@ -36,9 +39,8 @@ def suggest_params(args, trial):
 
     args.activation = trial.suggest_categorical("activation", ["relu", "elu", "leakyrelu", "silu", "selu", "tanh"])
     args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
-    args.config = trial.suggest_categorical("config", ["s", "S", "m", "M"]) #, "sS", "mM", "sm", "sM", "Sm", "SM", "sSm", "sSM", "smM", "sMmM", "mx", "Mx", "mxn", "mXN", "mxMX", "sXN", "smxn"])
-
-    args.add_beams = trial.suggest_categorical("add_beams", [True, False])
+    args.dropout = trial.suggest_categorical("dropout", [True, False])
+    args.batchnorm = trial.suggest_categoritcal("batchnorm", ['b','i','None'])
 
     return args
 
