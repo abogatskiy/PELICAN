@@ -40,7 +40,7 @@ def suggest_params(args, trial):
     args.activation = trial.suggest_categorical("activation", ["relu", "elu", "leakyrelu", "silu", "selu", "tanh"])
     args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
     args.dropout = trial.suggest_categorical("dropout", [True, False])
-    args.batchnorm = trial.suggest_categoritcal("batchnorm", ['b','i','None'])
+    args.batchnorm = trial.suggest_categorical("batchnorm", ['b','i','None'])
 
     return args
 
