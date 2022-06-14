@@ -135,7 +135,8 @@ if __name__ == '__main__':
     # Initialize arguments
     args = init_argparse()
 
-    study = optuna.create_study(study_name=args.study_name, storage='sqlite:///'+args.study_name+'.db', direction="minimize", load_if_exists=True)
+    study = optuna.create_study(study_name=args.study_name, storage='sqlite:///'+args.study_name+'.db', direction="minimize",
+                                load_if_exists=True, pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=14, n_min_trials=3))
     study.optimize(objective, n_trials=100, show_progress_bar=True)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
