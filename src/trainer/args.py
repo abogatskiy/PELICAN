@@ -27,7 +27,7 @@ def setup_argparse():
                         help='Final (held) learning rate (default: 1e-5)')
     parser.add_argument('--lr-decay', type=int, default=-1, metavar='N',
                         help='Timescale over which to decay the learning rate (-1 to disable) (default: -1)')
-    parser.add_argument('--lr-decay-type', type=str, default='exp', metavar='str',
+    parser.add_argument('--lr-decay-type', type=str, default='cos', metavar='str',
                         help='Type of learning rate decay. (cos | linear | exponential | pow | restart) (default: cos)')
     parser.add_argument('--lr-minibatch', '--lr-mb', action=argparse.BooleanOptionalAction, default=True,
                         help='Decay learning rate every minibatch instead of epoch.')

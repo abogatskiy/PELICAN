@@ -3,7 +3,7 @@
 #SBATCH --job-name=optuna
 #SBATCH --output=./out/array_%A_%a.out
 #SBATCH --error=./err/array_%A_%a.err
-#SBATCH --array=0-9
+#SBATCH --array=7,8
 #SBATCH --time=168:00:00
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
