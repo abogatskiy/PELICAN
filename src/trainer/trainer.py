@@ -267,6 +267,7 @@ class Trainer:
             if trial:
                 trial.report(valid_loss_val, epoch)
                 if trial.should_prune():
+                    import optuna
                     raise optuna.exceptions.TrialPruned()
 
             logger.info('FINISHED Epoch {}\n_________________________\n'.format(epoch))
