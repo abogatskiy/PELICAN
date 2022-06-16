@@ -120,24 +120,29 @@ def objective(trial):
     # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
     trainer.load_checkpoint()
 
-    # Train model.
-    trainer.train(trial=trial)
 
-    best_loss = torch.load(args.bestfile)['best_loss']
+    # Train model.  
+    metric_to_report='accuracy'  
+    trainer.train(trial=trial, metric_to_report=metric_to_report)
+
+    best_metrics = torch.load(args.bestfile)['best_metrics']
 
     # # Test predictions on best model and also last checkpointed model.
     # best_loss = trainer.evaluate(splits=['test'])
 
-    return best_loss
+    # return [best_metrics['loss'], best_metrics['accuracy'], best_metrics['AUC']]
+    return best_metrics[metric_to_report]
 
 if __name__ == '__main__':
 
     # Initialize arguments
     args = init_argparse()
 
-    study = optuna.create_study(study_name=args.study_name, storage='sqlite:///'+args.study_name+'.db', direction="minimize",
-                                load_if_exists=True, pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=14, n_min_trials=3))
-    study.optimize(objective, n_trials=100, show_progress_bar=True)
+    directions = ['maximize']
+    # directions=['minimize', 'maximize', 'maximize']
+    study = optuna.create_study(study_name=args.study_name, storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true', directions=directions,
+                                load_if_exists=True, pruner=optuna.pruners.MedianPruner(n_startup_trials=3, n_warmup_steps=14, n_min_trials=3))
+    study.optimize(objective, n_trials=100)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])

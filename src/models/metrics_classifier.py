@@ -8,13 +8,12 @@ def metrics(predict, targets, prefix, logger=None):
     auc_score = AUCScore(predict, targets)
     roc, eB, eS = ROC(predict, targets)
     conf_matrix = confusion_matrix(targets, predict.argmax(dim=1)) / targets.shape[0]
-    metrics = [entropy, accuracy, auc_score, 1/eB if eB>0 else 0, eS, conf_matrix[0,1], conf_matrix[1,0]]
-    names = ['loss', 'accuracy', 'AUC', 'BgRejection', 'atSignEfficiency', 'FP_rate', 'FN_rate']
+    metrics = {'loss': entropy, 'accuracy': accuracy, 'AUC': auc_score, 'BgRejection': 1/eB if eB>0 else 0, 'atSignEfficiency': eS, 'FP_rate': conf_matrix[0,1], 'FN_rate': conf_matrix[1,0]}
     string = ' L: {:10.4f}, ACC: {:10.4f}, AUC: {:10.4f},    BR: {:10.1f} @ {:>4.4f},   FP: {:10.4f}, FN: {:10.4f}'.format(entropy, accuracy, auc_score, 1/eB if eB>0 else 0, eS, conf_matrix[0,1], conf_matrix[1,0])
     np.savetxt(prefix+'_ROC.csv', ROC(predict, targets)[0], delimiter=',')
     # if logger:
     #     logger.info('ROC saved to file ' + prefix+'_ROC.csv' + '\n')
-    return metrics, names, string
+    return metrics, string
 
 def minibatch_metrics(predict, targets, entropy):
     accuracy = Accuracy(predict, targets).item()

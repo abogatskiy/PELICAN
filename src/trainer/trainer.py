@@ -85,14 +85,14 @@ class Trainer:
             from torch.utils.tensorboard import SummaryWriter
             self.writer = SummaryWriter(log_dir=args.logdir+args.prefix)
 
-        self.best_loss = inf
+        self.best_metrics = {'loss': inf}
         self.epoch = 1
         self.minibatch = 0
 
         self.device = device
         self.dtype = dtype
 
-    def _save_checkpoint(self, valid_loss_val=None):
+    def _save_checkpoint(self, valid_metrics=None):
         if not self.args.save:
             return
 
@@ -102,13 +102,13 @@ class Trainer:
                      'scheduler_state': self.scheduler.state_dict(),
                      'epoch': self.epoch,
                      'minibatch': self.minibatch,
-                     'best_loss': self.best_loss}
+                     'best_metrics': self.best_metrics}
 
-        if valid_loss_val is None:
+        if valid_metrics is None:
             logger.info('Saving model to checkpoint file: {}'.format(self.args.checkfile))
             torch.save(save_dict, self.args.checkfile)
-        elif valid_loss_val < self.best_loss:
-            self.best_loss = save_dict['best_loss'] = valid_loss_val
+        elif valid_metrics['loss'] < self.best_metrics['loss']:
+            self.best_metrics = save_dict['best_metrics'] = valid_metrics
             logger.info('Lowest loss achieved! Saving best model to file: {}'.format(self.args.bestfile))
             torch.save(save_dict, self.args.bestfile)
 
@@ -137,10 +137,10 @@ class Trainer:
         self.optimizer.load_state_dict(checkpoint['optimizer_state'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state'])
         self.epoch = checkpoint['epoch']
-        self.best_loss = checkpoint['best_loss']
+        self.best_metrics = checkpoint['best_metrics']
         self.minibatch = checkpoint['minibatch']
 
-        logger.info('Best loss from checkpoint: {} at epoch {}'.format(self.best_loss, self.epoch))
+        logger.info(f'Best loss from checkpoint is at epoch {self.epoch}:\n{self.best_metrics}')
 
     def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True):
         """
@@ -166,7 +166,7 @@ class Trainer:
             # Loop over splits, predict, and output/log predictions
             for split in splits:
                 predict, targets = self.predict(set=split)
-                best_loss = self.log_predict(predict, targets, split, description='Final')
+                best_metrics = self.log_predict(predict, targets, split, description='Final')
 
         # Evaluate best model as determined by validation error
         if best:
@@ -178,14 +178,14 @@ class Trainer:
                 # Loop over splits, predict, and output/log predictions
                 for split in splits:
                     predict, targets = self.predict(split)
-                    best_loss = self.log_predict(predict, targets, split, description='Best')
+                    best_metrics = self.log_predict(predict, targets, split, description='Best')
             else:
                 if checkpoint['epoch'] == final_epoch:
                     logger.info('BEST MODEL IS SAME AS FINAL')
 
         logger.info('Inference phase complete!\n')
 
-        return best_loss
+        return best_metrics
 
     def _warm_restart(self, epoch):
         restart_epochs = self.restart_epochs
@@ -244,7 +244,7 @@ class Trainer:
         if not self.args.lr_minibatch:
             self.scheduler.step()
 
-    def train(self, trial=None):
+    def train(self, trial=None, metric_to_report='loss'):
         epoch0 = self.epoch
         for epoch in range(epoch0, self.args.num_epoch + 1):
             self.epoch = epoch
@@ -255,17 +255,17 @@ class Trainer:
             self._step_lr_epoch()
 
             train_predict, train_targets, epoch_t = self.train_epoch()
-            train_loss_val = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
+            train_metrics= self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
 
             self._save_checkpoint()
 
             valid_predict, valid_targets = self.predict(set='valid')
-            valid_loss_val = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
+            valid_metrics = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
 
-            self._save_checkpoint(valid_loss_val)
+            self._save_checkpoint(valid_metrics)
             
             if trial:
-                trial.report(valid_loss_val, epoch)
+                trial.report(valid_metrics[metric_to_report], epoch)
                 if trial.should_prune():
                     import optuna
                     raise optuna.exceptions.TrialPruned()
@@ -379,7 +379,7 @@ class Trainer:
             suffix = 'best'
 
         prefix = self.args.predictfile + '.' + 'final' + '.' + dataset
-        metrics, names, logstring = self.metrics_fn(predict, targets, prefix, logger)
+        metrics, logstring = self.metrics_fn(predict, targets, prefix, logger)
         if epoch >= 0:
             logger.info(f'Epoch {epoch} {description} {datastrings[dataset]}'+logstring)
         else:
@@ -393,8 +393,8 @@ class Trainer:
         if epoch >= 0:
             with open(metricsfile, mode='a' if (self.args.load or epoch>1) else 'w') as file_:
                 if epoch == 1:
-                    file_.write(",".join(names))
-                file_.write(",".join(map(str, metrics)))
+                    file_.write(",".join(metrics.keys()))
+                file_.write(",".join(map(str, metrics.values())))
                 file_.write("\n")  # Next line.
 
 
@@ -406,7 +406,7 @@ class Trainer:
         if self.summarize:
             if description == 'Best': dataset = 'Best_' + dataset
             if description == 'Final': dataset = 'Final_' + dataset
-            for name, metric in zip(names, metrics):
+            for name, metric in metrics.items():
                 self.writer.add_scalar(dataset+'/'+name, metric, epoch)
 
-        return metrics[0]
+        return metrics
