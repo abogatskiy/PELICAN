@@ -22,7 +22,7 @@ logger = logging.getLogger('')
 
 def suggest_params(args, trial):
 
-    args.lr_init = trial.suggest_loguniform("lr_init", 0.0001, 0.1)
+    args.lr_init = trial.suggest_loguniform("lr_init", 0.0001, 0.01)
     args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20, 32])
 
     args.config = trial.suggest_categorical("config", ["s", "S", "m", "M"]) #, "sS", "mM", "sm", "sM", "Sm", "SM", "sSm", "sSM", "smM", "sMmM", "mx", "Mx", "mxn", "mXN", "mxMX", "sXN", "smxn"])
@@ -34,7 +34,7 @@ def suggest_params(args, trial):
     n_layersm = trial.suggest_int("n_layersm", 0, 3)
     args.num_channels_m = [trial.suggest_int("n_channelsm["+str(i)+"]", 15, 30) for i in range(n_layersm)]
 
-    n_layers2 = trial.suggest_int("n_layers2", 1, 4)
+    n_layers2 = trial.suggest_int("n_layers2", 0, 3)
     args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 15, 30) for i in range(n_layers2)]
 
     args.activation = trial.suggest_categorical("activation", ["relu", "elu", "leakyrelu", "silu", "selu", "tanh"])
