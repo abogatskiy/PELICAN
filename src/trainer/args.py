@@ -7,6 +7,9 @@ from math import inf
 def setup_argparse():
 
     parser = argparse.ArgumentParser(description='LGN network options')
+    parser.add_argument('--host', default='localhost')
+    parser.add_argument('--password', default='asoetuh')
+    parser.add_argument('--port', default='5432')
 
     parser.add_argument('--task', type=str, default='train', metavar='str',
                         help='Train or evaluate model. (train | eval)')

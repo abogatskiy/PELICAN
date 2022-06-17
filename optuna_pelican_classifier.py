@@ -137,10 +137,13 @@ if __name__ == '__main__':
 
     # Initialize arguments
     args = init_argparse()
+    
+    storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'
+    # storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'
 
     directions = ['maximize']
     # directions=['minimize', 'maximize', 'maximize']
-    study = optuna.create_study(study_name=args.study_name, storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true', directions=directions,
+    study = optuna.create_study(study_name=args.study_name, storage=storage, directions=directions,
                                 load_if_exists=True, pruner=optuna.pruners.MedianPruner(n_startup_trials=3, n_warmup_steps=14, n_min_trials=3))
     study.optimize(objective, n_trials=100)
 
