@@ -104,7 +104,7 @@ def init_file_paths(args):
 
     return args
 
-def logging_printout(args):
+def logging_printout(args, trial=None):
     
     # Printouts of various inputs before training (and after logger is initialized with correct logfile path)
     logger.info('Initializing simulation based upon argument string:')
@@ -123,6 +123,10 @@ def logging_printout(args):
 
     logger.info('Values of all model arguments:')
     logger.info('{}'.format(args))
+    if trial:    
+        logger.info('Params of Optuna trial:')
+        for key, val in trial.params.items():
+            logger.info(f'\'{key}\': {val}')
 
 
 #### Initialize optimizer ####

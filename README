@@ -6,3 +6,5 @@ h5py
 colorlog
 scikit-learn
 tensorboard (if using --summarize)
+optuna (if using the optuna script)
+psycopg2-binary (if using optuna with a distributed file sharing system)

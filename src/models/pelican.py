@@ -22,10 +22,10 @@ class PELICANClassifier(nn.Module):
         num_channels1 = expand_var_list(num_channels1)
         num_channels2 = expand_var_list(num_channels2)
 
-        logging.info('num_channels0: {}'.format(num_channels0))
-        logging.info('num_channelsm: {}'.format(num_channels_m))
-        logging.info('num_channels1: {}'.format(num_channels1))
-        logging.info('num_channels2: {}'.format(num_channels2))
+        # logging.info('num_channels0: {}'.format(num_channels0))
+        # logging.info('num_channelsm: {}'.format(num_channels_m))
+        # logging.info('num_channels1: {}'.format(num_channels1))
+        # logging.info('num_channels2: {}'.format(num_channels2))
 
         super().__init__()
         self.device, self.dtype = device, dtype

@@ -35,7 +35,7 @@ def suggest_params(args, trial):
     n_layersm = trial.suggest_int("n_layersm", 0, 3)
     args.num_channels_m = [trial.suggest_int("n_channelsm["+str(i)+"]", 15, 30) for i in range(n_layersm)]
 
-    n_layers2 = trial.suggest_int("n_layers2", 0, 3)
+    n_layers2 = trial.suggest_int("n_layers2", 1, 3)
     args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 15, 30) for i in range(n_layers2)]
 
     args.activation = trial.suggest_categorical("activation", ["relu", "elu", "leakyrelu", "silu", "selu", "tanh"])
@@ -56,10 +56,11 @@ def define_model(trial):
     # Initialize logger
     init_logger(args)
 
-    # Write input paramaters and paths to log
-    logging_printout(args)
-        # Suggest parameters to optuna to optimize over
+    # Suggest parameters to optuna to optimize over
     args = suggest_params(args, trial)
+
+    # Write input paramaters and paths to log
+    logging_printout(args, trial)
 
     # Fix possible inconsistencies in arguments
     args = fix_args(args)
@@ -139,8 +140,8 @@ if __name__ == '__main__':
     # Initialize arguments
     args = init_argparse()
     
-    storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'
-    # storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'
+    # storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
+    storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
 
     directions = ['maximize']
     # directions=['minimize', 'maximize', 'maximize']
