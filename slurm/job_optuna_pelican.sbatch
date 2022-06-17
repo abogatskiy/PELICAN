@@ -21,4 +21,4 @@ CONDA_PATH=$(conda info | grep -i 'base environment' | awk '{print $4}')
 source $CONDA_PATH/etc/profile.d/conda.sh
 conda activate py39
 A=(optuna-{a..z})
-python3 ../optuna_pelican_classifier.py --datadir=../data/v0 --cuda --num-epoch=140 --num-train=6000 --num-valid=60000 --dropout --batchnorm=b --no-summarize --lr-decay-type=warm --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --study-name=small
+python3 ../optuna_pelican_classifier.py --datadir=../data/v0 --cuda --num-epoch=140 --num-train=6000 --num-valid=60000 --dropout --batchnorm=b --no-summarize --lr-decay-type=warm --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --host worker1172 --port 35719 --study-name=small
