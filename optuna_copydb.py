@@ -11,7 +11,15 @@ torch.set_printoptions(linewidth=1000, threshold=100000)
 
 if __name__ == '__main__':
 
-    args = init_argparse()
+    import argparse
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--study-name', default='nosave')
+    parser.add_argument('--host', default='localhost')
+    parser.add_argument('--password', default='asoetuh')
+    parser.add_argument('--port', default='5432')
+
+    args = parser.parse_args()
     
     from_storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
     to_storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
