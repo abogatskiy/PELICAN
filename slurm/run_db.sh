@@ -3,6 +3,9 @@
 #SBATCH -p genx
 #SBATCH -c 1
 #SBATCH --mem 2GB
+#SBATCH --time=168:00:00
+#SBATCH --output=./out/array_%A_%a.out
+#SBATCH --error=./err/array_%A_%a.err
 
 set -e
 set -u
