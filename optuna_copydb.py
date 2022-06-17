@@ -22,7 +22,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     from_storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
-    to_storage='sqlite:///file:'+args.study_name+'.db'  # For running on a local machine
+    to_storage='sqlite:///'+args.study_name+'.db'  # For running on a local machine
 
     study = optuna.copy_study(from_study_name=args.study_name, from_storage=from_storage, to_storage=to_storage, to_study_name=args.study_name)
   
