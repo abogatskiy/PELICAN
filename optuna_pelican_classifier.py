@@ -24,8 +24,8 @@ logger = logging.getLogger('')
 def suggest_params(args, trial):
 
     args.lr_init = trial.suggest_loguniform("lr_init", 0.0007, 0.005)
-    args.lr_final = trial.suggest_loguniform("lr_final", 0.0007, 0.005)
-    args.lr_decay_type = trial.suggest_loguniform("lr_decay_type", 1e-8, 1e-5)
+    args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
+    args.lr_decay_type = trial.suggest_categorical("lr_decay_type", ["warm", "cos", "exp"])
 
     args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20, 32])
 
@@ -43,8 +43,8 @@ def suggest_params(args, trial):
 
     args.activation = trial.suggest_categorical("activation", ["relu", "elu", "leakyrelu", "silu", "selu", "tanh"])
     args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
-    args.dropout = trial.suggest_categorical("dropout", [True, False])
-    args.batchnorm = trial.suggest_categorical("batchnorm", ['b','i','None'])
+    # args.dropout = trial.suggest_categorical("dropout", [True])
+    # args.batchnorm = trial.suggest_categorical("batchnorm", ['b'])
 
     return args
 
@@ -143,8 +143,8 @@ if __name__ == '__main__':
     # Initialize arguments
     args = init_argparse()
     
-    storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
-    # storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
+    # storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
+    storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
 
     directions = ['maximize']
     # directions=['minimize', 'maximize', 'maximize']
