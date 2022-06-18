@@ -23,20 +23,23 @@ logger = logging.getLogger('')
 
 def suggest_params(args, trial):
 
-    args.lr_init = trial.suggest_loguniform("lr_init", 0.0001, 0.01)
+    args.lr_init = trial.suggest_loguniform("lr_init", 0.0007, 0.005)
+    args.lr_final = trial.suggest_loguniform("lr_final", 0.0007, 0.005)
+    args.lr_decay_type = trial.suggest_loguniform("lr_decay_type", 1e-8, 1e-5)
+
     args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20, 32])
 
-    args.config = trial.suggest_categorical("config", ["s", "S", "m", "M"]) #, "sS", "mM", "sm", "sM", "Sm", "SM", "sSm", "sSM", "smM", "sMmM", "mx", "Mx", "mxn", "mXN", "mxMX", "sXN", "smxn"])
+    args.config = trial.suggest_categorical("config", ["s", "S", "m", "M", "sS", "mM", "sm", "sM", "Sm", "SM", "sSm", "sSM", "smM", "sMmM", "mx", "Mx", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     args.add_beams = trial.suggest_categorical("add_beams", [True, False])
 
-    n_layers1 = trial.suggest_int("n_layers1", 4, 6)
-    args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 14, 16) for i in range(n_layers1)]
+    n_layers1 = trial.suggest_int("n_layers1", 1, 8)
+    args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 30) for i in range(n_layers1)]
 
-    n_layersm = trial.suggest_int("n_layersm", 0, 3)
-    args.num_channels_m = [trial.suggest_int("n_channelsm["+str(i)+"]", 15, 30) for i in range(n_layersm)]
+    n_layersm = trial.suggest_int("n_layersm", 0, 4)
+    args.num_channels_m = [trial.suggest_int("n_channelsm["+str(i)+"]", 5, 30) for i in range(n_layersm)]
 
-    n_layers2 = trial.suggest_int("n_layers2", 1, 3)
-    args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 15, 30) for i in range(n_layers2)]
+    n_layers2 = trial.suggest_int("n_layers2", 1, 4)
+    args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 5, 30) for i in range(n_layers2)]
 
     args.activation = trial.suggest_categorical("activation", ["relu", "elu", "leakyrelu", "silu", "selu", "tanh"])
     args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
