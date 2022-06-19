@@ -27,22 +27,26 @@ def suggest_params(args, trial):
     args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
     args.lr_decay_type = trial.suggest_categorical("lr_decay_type", ["warm", "cos", "exp"])
 
-    args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20, 32])
+    args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20])
 
     args.config = trial.suggest_categorical("config", ["s", "S", "m", "M", "sS", "mM", "sm", "sM", "Sm", "SM", "sSm", "sSM", "smM", "sMmM", "mx", "Mx", "mxn", "mXN", "mxMX", "sXN", "smxn"])
-    args.add_beams = trial.suggest_categorical("add_beams", [True, False])
 
-    n_layers1 = trial.suggest_int("n_layers1", 1, 8)
+    n_layers1 = trial.suggest_int("n_layers1", 1, 10)
     args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 30) for i in range(n_layers1)]
 
-    n_layersm = trial.suggest_int("n_layersm", 0, 4)
-    args.num_channels_m = [trial.suggest_int("n_channelsm["+str(i)+"]", 5, 30) for i in range(n_layersm)]
+    args.message = trial.suggest_categorical("message", [True, False])
+    if args.message:
+        n_layersm = trial.suggest_int("n_layersm", 0, 4)
+        args.num_channels_m = [trial.suggest_int("n_channelsm["+str(i)+"]", 5, 30) for i in range(n_layersm)]
 
     n_layers2 = trial.suggest_int("n_layers2", 1, 4)
     args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 5, 30) for i in range(n_layers2)]
 
     args.activation = trial.suggest_categorical("activation", ["relu", "elu", "leakyrelu", "silu", "selu", "tanh"])
     args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
+
+    args.activate_agg = trial.suggest_categorical("activate_agg", [True, False])
+    args.activate_lin = trial.suggest_categorical("activate_lin", [True, False])
     # args.dropout = trial.suggest_categorical("dropout", [True])
     # args.batchnorm = trial.suggest_categorical("batchnorm", ['b'])
 
@@ -73,7 +77,8 @@ def define_model(trial):
 
     # Initialize model
     model = PELICANClassifier(args.num_channels0, args.num_channels_m, args.num_channels1, args.num_channels2,
-                      message_depth=args.message_depth, activation=args.activation, add_beams=args.add_beams, sym=args.sym, config=args.config,
+                      message=args.message, activate_agg=args.activate_agg, activate_lin=args.activate_lin,
+                      activation=args.activation, add_beams=args.add_beams, sym=args.sym, config=args.config,
                       scale=1., ir_safe=args.ir_safe, dropout = args.dropout, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
 
@@ -143,14 +148,15 @@ if __name__ == '__main__':
     # Initialize arguments
     args = init_argparse()
     
-    storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
-    # storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
+    # storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
+    storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
 
     directions = ['maximize']
     # directions=['minimize', 'maximize', 'maximize']
-    study = optuna.create_study(study_name=args.study_name, storage=storage, directions=directions,
-                                load_if_exists=True, pruner=optuna.pruners.MedianPruner(n_startup_trials=3, n_warmup_steps=14, n_min_trials=3))
-    study.optimize(objective, n_trials=100)
+    study = optuna.create_study(study_name=args.study_name, storage=storage, directions=directions, load_if_exists=True,
+                                pruner=optuna.pruners.MedianPruner(n_startup_trials=3, n_warmup_steps=14, n_min_trials=3),
+                                sampler=optuna.samplers.RandomSampler())
+    study.optimize(objective, n_trials=30)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])

@@ -52,7 +52,8 @@ def main():
 
     # Initialize model
     model = PELICANClassifier(args.num_channels0, args.num_channels_m, args.num_channels1, args.num_channels2,
-                      message_depth=args.message_depth, activation=args.activation, add_beams=args.add_beams, sym=args.sym, config=args.config,
+                      message=args.message, activate_agg=args.activate_agg, activate_lin=args.activate_lin,
+                      activation=args.activation, add_beams=args.add_beams, sym=args.sym, config=args.config,
                       scale=1., ir_safe=args.ir_safe, dropout = args.dropout, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
     

@@ -79,10 +79,12 @@ class Eq2to1(nn.Module):
         return output
 
 class Eq2to2(nn.Module):
-    def __init__(self, in_dim, out_dim, ops_func=None, activation = 'leakyrelu', sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to2, self).__init__()
         self.device = device
         self.dtype = dtype
+        self.activate_agg = activate_agg
+        self.activate_lin = activate_lin
         self.activation_fn = get_activation_fn(activation)
         self.basis_dim = (7 if sym else 15) * len(config)
 
@@ -106,15 +108,19 @@ class Eq2to2(nn.Module):
         ops = [self.ops_func(inputs, nobj, aggregation=d[char]) for char in self.config if char in ['s', 'm', 'x', 'n']]
         ops = ops+[self.ops_func(inputs, nobj, aggregation=d[char.lower()]) * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845) for char in self.config if char in ['S', 'M', 'X', 'N']]
         ops = torch.cat(ops, dim=2)
+        
+        if self.activate_agg:
+            ops = self.activation_fn(ops)
 
-        # ops = self.activation_fn(ops)
         output = torch.einsum('dsb,ndbij->nijs', self.coefs, ops)
 
         diag_eye = torch.eye(inputs.shape[1], device=self.device, dtype=self.dtype).unsqueeze(0).unsqueeze(-1)
         diag_bias = diag_eye.multiply(self.diag_bias)
 
         output = output + self.bias + diag_bias
-        output = self.activation_fn(output)
+
+        if self.activate_lin:
+            output = self.activation_fn(output)
 
         if mask is not None:
             output = output * mask
@@ -132,23 +138,26 @@ class Net1to1(nn.Module):
         return x
 
 class Net2to2(nn.Module):
-    def __init__(self, num_channels, num_channels_message, ops_func=None, message_depth=2, activation='leakyrelu', batchnorm=None, sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, num_channels_message, ops_func=None, message=True, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Net2to2, self).__init__()
-        self.message_depth = message_depth
+        self.message = message
         self.num_channels = num_channels
         self.num_channels_message = num_channels_message
         num_layers = len(num_channels)-1
-        self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], num_channels[i+1], ops_func, activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
+        # self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], num_channels[i+1], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
+        
+        eq_out_dims = [num_channels_message[0] if message else num_channels[i+1] for i in range(num_layers-1)] + [num_channels[-1]]
+        self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
         # self.significance = nn.ModuleList([BasicMLP([num_channels[i+1], 1], activation='sigmoid', device=device, dtype=dtype) for i in range(num_layers)])
-        if message_depth > 0:
-            self.message_layers = nn.ModuleList(([MessageNet([num_channels[i],]+num_channels_message+[num_channels[i],], depth=message_depth, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype) for i in range(num_layers)]))
+        if message:
+            self.message_layers = nn.ModuleList(([MessageNet(num_channels_message+[num_channels[i],], activation=activation, batchnorm=batchnorm, device=device, dtype=dtype) for i in range(num_layers)]))
 
     def forward(self, x, mask=None, nobj=None):
         '''
         x: N x d x m x m
         Returns: N x m x m x out_dim
         '''
-        if self.message_depth > 0:
+        if self.message:
             for layer, message in zip(self.eq_layers, self.message_layers):
                 # x = sig(x) * x
                 x = layer(message(x, mask), mask, nobj)

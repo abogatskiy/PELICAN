@@ -131,7 +131,7 @@ def setup_argparse():
                         help='Number of validation samples to use. Set to -1 to use entire dataset. (default: -1)')
     parser.add_argument('--num-test', type=int, default=-1, metavar='N',
                         help='Number of test samples to use. Set to -1 to use entire dataset. (default: -1)')
-    parser.add_argument('--add-beams', action=argparse.BooleanOptionalAction, default=False,
+    parser.add_argument('--add-beams', action=argparse.BooleanOptionalAction, default=True,
                         help='Append two proton beams of the form (m^2,0,0,+-1) to each event')
     parser.add_argument('--beam-mass', type=float, default=1, metavar='N',
                     help='Set mass m of the beams, so that E=sqrt(1 + m^2) (default = 1)')
@@ -167,10 +167,8 @@ def setup_argparse():
                         help='Number of channels to allow after mixing (dfault: [3])')
     parser.add_argument('--num-channels2', nargs='*', type=int, default=[15,]*1, metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
-    parser.add_argument('--message-depth', type=int, default=2, metavar='N',
-                        help='Depth of message-forming networks. (default: 2)')
-    parser.add_argument('--level-gain', nargs='*', type=float, default=[1.], metavar='N',
-                        help='Gain at each level (default: [1.])')
+    parser.add_argument('--message', action=argparse.BooleanOptionalAction, default=True,
+                        help='Include message-forming blocks between equvariant blocks (default: True)')
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,
                     help='Enable a 25%% dropout layer at the end of each MLP (default = False)')
     parser.add_argument('--batchnorm', type=str, default='b',
@@ -179,10 +177,17 @@ def setup_argparse():
                         help='Preserve symmetry in the 2->2 equivariant layers (default = False)')
     parser.add_argument('--config', type=str, default='s',
                     help='Configuration for aggregation functions in Net2to2 (any combination of letters s,S,m,M,x,X,n,N (default = s)')
+    parser.add_argument('--activate-agg', action=argparse.BooleanOptionalAction, default=False,
+                    help='Apply an activation function right after permutation-equvariant aggregation (default = False)')
+    parser.add_argument('--activate-lin', action=argparse.BooleanOptionalAction, default=True,
+                    help='Apply an activation function right after the linear mixing following aggregation (default = True)')
+
 
     parser.add_argument('--scale', type=float, default=1., metavar='N',
                     help='Global scaling factor for input four-momenta (default = 1.0)')
-   
+    parser.add_argument('--level-gain', nargs='*', type=float, default=[1.], metavar='N',
+                        help='Gain at each level (default: [1.])')
+
     parser.add_argument('--activation', type=str, default='elu',
                         help='Activation function used in MLP layers. Options: (relu, elu, leakyrelu, sigmoid, logsigmoid, atan, silu, celu, selu, soft, tanh). Default: elu.')                
     parser.add_argument('--ir-safe', action=argparse.BooleanOptionalAction, default=False,
