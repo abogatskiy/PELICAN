@@ -33,10 +33,8 @@ def suggest_params(args, trial):
     n_layers1 = trial.suggest_int("n_layers1", 1, 10)
     args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 30) for i in range(n_layers1)]
 
-    args.message = trial.suggest_categorical("message", [True, False])
-    if args.message:
-        n_layersm = trial.suggest_int("n_layersm", 0, 4)
-        args.num_channels_m = [trial.suggest_int("n_channelsm["+str(i)+"]", 5, 30) for i in range(n_layersm)]
+    n_layersm = trial.suggest_int("n_layersm", 0, 4)
+    args.num_channels_m = [trial.suggest_int("n_channelsm["+str(i)+"]", 5, 30) for i in range(n_layersm)]
 
     n_layers2 = trial.suggest_int("n_layers2", 1, 4)
     args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 5, 30) for i in range(n_layers2)]
@@ -76,7 +74,7 @@ def define_model(trial):
 
     # Initialize model
     model = PELICANClassifier(args.num_channels0, args.num_channels_m, args.num_channels1, args.num_channels2,
-                      message=args.message, activate_agg=args.activate_agg, activate_lin=args.activate_lin,
+                      activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, sym=args.sym, config=args.config,
                       scale=1., ir_safe=args.ir_safe, dropout = args.dropout, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
@@ -147,8 +145,8 @@ if __name__ == '__main__':
     # Initialize arguments
     args = init_argparse()
     
-    storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
-    # storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
+    # storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
+    storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
 
     directions = ['maximize']
     # directions=['minimize', 'maximize', 'maximize']

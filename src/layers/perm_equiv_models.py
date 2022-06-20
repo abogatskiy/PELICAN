@@ -48,6 +48,8 @@ class Eq2to0(nn.Module):
         '''
         inputs = inputs.permute(0, 3, 1, 2)
         ops = self.activation_fn(self.ops_func(inputs))
+        if (self.coefs.shape[0]!=ops.shape[1] or self.coefs.shape[2]!=ops.shape[2]):
+            breakpoint()
         output = torch.einsum('dsb,ndb->ns', self.coefs, ops)
         output = output + self.bias
         if mask is not None:
@@ -138,18 +140,19 @@ class Net1to1(nn.Module):
         return x
 
 class Net2to2(nn.Module):
-    def __init__(self, num_channels, num_channels_message, ops_func=None, message=True, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, num_channels_message, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Net2to2, self).__init__()
-        self.message = message
+        
+        self.message = (len(num_channels_message)!=0)
         self.num_channels = num_channels
         self.num_channels_message = num_channels_message
-        num_layers = len(num_channels)-1
+        num_layers = len(num_channels) - 1
         # self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], num_channels[i+1], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
         
-        eq_out_dims = [num_channels_message[0] if message else num_channels[i+1] for i in range(num_layers-1)] + [num_channels[-1]]
+        eq_out_dims = [num_channels_message[0] if self.message else num_channels[i+1] for i in range(num_layers-1)] + [num_channels[-1]]
         self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
         # self.significance = nn.ModuleList([BasicMLP([num_channels[i+1], 1], activation='sigmoid', device=device, dtype=dtype) for i in range(num_layers)])
-        if message:
+        if self.message:
             self.message_layers = nn.ModuleList(([MessageNet(num_channels_message+[num_channels[i],], activation=activation, batchnorm=batchnorm, device=device, dtype=dtype) for i in range(num_layers)]))
 
     def forward(self, x, mask=None, nobj=None):

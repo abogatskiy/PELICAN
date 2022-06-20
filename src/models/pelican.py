@@ -11,7 +11,7 @@ class PELICANClassifier(nn.Module):
     Permutation Invariant, Lorentz Invariant/Covariant Awesome Network
     """
     def __init__(self, num_channels0, num_channels_m, num_channels1, num_channels2,
-                 message=True, activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sym=False, config='s',
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sym=False, config='s',
                  scale=1, ir_safe=False, dropout = False, batchnorm=None,
                  device=torch.device('cpu'), dtype=None, cg_dict=None):
 
@@ -53,9 +53,11 @@ class PELICANClassifier(nn.Module):
         # self.message = MessageNet(num_channels2[0], activation=activation,  batchnorm = batchnorm, device=device, dtype=dtype)
         # self.net1to1 = Net1to1(num_channels2, activation = activation,  batchnorm = batchnorm, device = device, dtype = dtype)
         # self.mlp_out = BasicMLP([num_channels2[-1], 15] + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
-
-        self.input_layer = nn.Linear(num_scalars_in, num_channels_m[0] if message else num_channels1[0], bias = True, device = device, dtype = dtype)
-        self.net2to2 = Net2to2(num_channels1, num_channels_m, message=message, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sym=sym, config=config, device = device, dtype = dtype)
+        self.message = (len(num_channels_m) > 0)
+        num_scalars_out = num_channels_m[0] if self.message else num_scalars_in
+        if self.message:
+            self.input_layer = nn.Linear(num_scalars_in, num_scalars_out, bias = True, device = device, dtype = dtype)
+        self.net2to2 = Net2to2([num_scalars_out] + num_channels1, num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sym=sym, config=config, device = device, dtype = dtype)
         self.eq2to0 = Eq2to0(num_channels1[-1], num_channels2[0], activation = activation, device = device, dtype = dtype)
         self.mlp_out = BasicMLP(num_channels2 + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
 
@@ -106,8 +108,11 @@ class PELICANClassifier(nn.Module):
         # prediction = self.mlp_out(act5.mean(dim=1))
 
         # Simplest version with only 2->2 and 2->0 layers
-        act0 = self.input_layer(inputs_log) * edge_mask.unsqueeze(-1)
-        act1 = self.net2to2(act0, mask=edge_mask.unsqueeze(-1), nobj=nobj)
+
+        if self.message > 0:
+            inputs_log = self.input_layer(inputs_log) * edge_mask.unsqueeze(-1)
+
+        act1 = self.net2to2(inputs_log, mask=edge_mask.unsqueeze(-1), nobj=nobj)
         act2 = self.eq2to0(act1)
         if self.dropout:
             act2 = self.dropout_layer(act2)
