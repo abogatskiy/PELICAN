@@ -25,7 +25,6 @@ def suggest_params(args, trial):
 
     args.lr_init = trial.suggest_loguniform("lr_init", 0.0007, 0.005)
     args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
-    args.lr_decay_type = trial.suggest_categorical("lr_decay_type", ["warm", "cos", "exp"])
 
     args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20])
 
