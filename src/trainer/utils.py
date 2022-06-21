@@ -62,8 +62,12 @@ def fix_args(args):
     if args.task.startswith('eval'):
         args.load = True
         args.num_epoch = 0
-    if len(args.num_channels_m) == 0:
-        args.message_depth = 0
+    if len(args.num_channels_m)==0:
+        args.numchannels_m = [[] for i in range(len(args.num_channels1))]
+        print("MessageNet was disabled for all equivariant layers")
+    elif type(args.num_channels_m[0])==int:
+        args.numchannels_m = [args.numchannels_m,] * len(args.num_channels1)
+        print("MessageNet hyperparams are the same across all equivariant layers")
     return args
 
 def init_file_paths(args):

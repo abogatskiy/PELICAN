@@ -30,11 +30,11 @@ def suggest_params(args, trial):
 
     args.config = trial.suggest_categorical("config", ["s", "S", "m", "M", "sS", "mM", "sm", "sM", "Sm", "SM", "sSm", "sSM", "smM", "sMmM", "mx", "Mx", "mxn", "mXN", "mxMX", "sXN", "smxn"])
 
-    n_layers1 = trial.suggest_int("n_layers1", 1, 10)
-    args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 30) for i in range(n_layers1)]
+    n_layers1 = trial.suggest_int("n_layers1", 1, 9)
+    args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 30) for i in range(n_layers1 + 1)]
 
-    n_layersm = trial.suggest_int("n_layersm", 0, 4)
-    args.num_channels_m = [trial.suggest_int("n_channelsm["+str(i)+"]", 5, 30) for i in range(n_layersm)]
+    n_layersm = [trial.suggest_int("n_layersm["+str(i)+"]", 0, 4) for i in range(n_layers1)]
+    args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 5, 30) for k in range(n_layersm[i])] for i in range(n_layers1)]
 
     n_layers2 = trial.suggest_int("n_layers2", 1, 4)
     args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 5, 30) for i in range(n_layers2)]
@@ -150,9 +150,11 @@ if __name__ == '__main__':
 
     directions = ['maximize']
     # directions=['minimize', 'maximize', 'maximize']
+    sampler = optuna.samplers.TPESampler()
+    pruner = optuna.pruners.HyperbandPruner()
+    # pruner = optuna.pruners.MedianPruner(n_startup_trials=3, n_warmup_steps=14, n_min_trials=3)
     study = optuna.create_study(study_name=args.study_name, storage=storage, directions=directions, load_if_exists=True,
-                                pruner=optuna.pruners.MedianPruner(n_startup_trials=3, n_warmup_steps=14, n_min_trials=3),
-                                sampler=optuna.samplers.RandomSampler())
+                                pruner=pruner, sampler=sampler)
     study.optimize(objective, n_trials=30)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])

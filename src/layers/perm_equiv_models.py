@@ -40,6 +40,7 @@ class Eq2to0(nn.Module):
         self.ops_func = eops_2_to_0
         self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2. / (in_dim + out_dim + self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         self.bias = nn.Parameter(torch.zeros(1, out_dim, device=device, dtype=dtype))
+        self.to(device=device, dtype=dtype)
 
     def forward(self, inputs, mask=None):
         '''
@@ -66,6 +67,7 @@ class Eq2to1(nn.Module):
         self.ops_func = eops_2_to_1_sym if sym else eops_2_to_1
         self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2. / (in_dim + out_dim + self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         self.bias = nn.Parameter(torch.zeros(1, out_dim, 1, device=device, dtype=dtype))
+        self.to(device=device, dtype=dtype)
 
     def forward(self, inputs, mask=None):
         '''
@@ -103,6 +105,7 @@ class Eq2to2(nn.Module):
         else:
             self.ops_func = ops_func
         self.config = config
+        self.to(device=device, dtype=dtype)
 
     def forward(self, inputs, mask=None, nobj=None):
 
@@ -133,6 +136,7 @@ class Net1to1(nn.Module):
         super(Net1to1, self).__init__()
         self.eq_layers = nn.ModuleList([Eq1to1(num_channels[i], num_channels[i + 1], ops_func, activation, device=device, dtype=dtype) for i in range(len(num_channels) - 1)])
         self.message_layers = nn.ModuleList(([MessageNet(num_ch, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype) for num_ch in num_channels[1:]]))
+        self.to(device=device, dtype=dtype)
 
     def forward(self, x, mask=None):
         for (layer, message) in zip(self.eq_layers, self.message_layers):
@@ -140,32 +144,29 @@ class Net1to1(nn.Module):
         return x
 
 class Net2to2(nn.Module):
-    def __init__(self, num_channels, num_channels_message, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Net2to2, self).__init__()
         
-        self.message = (len(num_channels_message)!=0)
         self.num_channels = num_channels
-        self.num_channels_message = num_channels_message
+        self.num_channels_message = num_channels_m
         num_layers = len(num_channels) - 1
         # self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], num_channels[i+1], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
-        
-        eq_out_dims = [num_channels_message[0] if self.message else num_channels[i+1] for i in range(num_layers-1)] + [num_channels[-1]]
+        self.in_dim = num_channels_m[0][0] if len(num_channels_m[0]) > 0 else num_channels[0]
+
+        eq_out_dims = [num_channels_m[i+1][0] if len(num_channels_m[i+1]) > 0 else num_channels[i+1] for i in range(num_layers-1)] + [num_channels[-1]]
         self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
         # self.significance = nn.ModuleList([BasicMLP([num_channels[i+1], 1], activation='sigmoid', device=device, dtype=dtype) for i in range(num_layers)])
-        if self.message:
-            self.message_layers = nn.ModuleList(([MessageNet(num_channels_message+[num_channels[i],], activation=activation, batchnorm=batchnorm, device=device, dtype=dtype) for i in range(num_layers)]))
+        self.message_layers = nn.ModuleList(([MessageNet(num_channels_m[i]+[num_channels[i],], activation=activation, batchnorm=batchnorm, device=device, dtype=dtype)
+                                              for i in range(num_layers)]))
+        self.to(device=device, dtype=dtype)
 
     def forward(self, x, mask=None, nobj=None):
         '''
         x: N x d x m x m
         Returns: N x m x m x out_dim
         '''
-        if self.message:
-            for layer, message in zip(self.eq_layers, self.message_layers):
-                # x = sig(x) * x
-                x = layer(message(x, mask), mask, nobj)
-        else:
-            for layer in self.eq_layers:
-                # x = sig(x) * x
-                x = layer(x, mask, nobj)
+        assert (x.shape[-1] == self.in_dim), "Input dimension of Net2to2 doesn't match the dimension of the input tensor"
+        for layer, message in zip(self.eq_layers, self.message_layers):
+            # x = sig(x) * x
+            x = layer(message(x, mask), mask, nobj)
         return x
