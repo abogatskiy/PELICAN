@@ -155,6 +155,46 @@ if __name__ == '__main__':
     # pruner = optuna.pruners.MedianPruner(n_startup_trials=3, n_warmup_steps=14, n_min_trials=3)
     study = optuna.create_study(study_name=args.study_name, storage=storage, directions=directions, load_if_exists=True,
                                 pruner=pruner, sampler=sampler)
+
+    init_params =  {'activate_agg': False,
+                    'activate_lin': True,
+                    'activation': 'leakyrelu',
+                    'batch_size': 20,
+                    'config': 's',
+                    'lr_final': 1e-07,
+                    'lr_init': 0.001,
+                    'n_channels1[0]': 15,
+                    'n_channels1[1]': 15,
+                    'n_channels1[2]': 15,
+                    'n_channels1[3]': 15,
+                    'n_channels1[4]': 15,
+                    'n_channels1[5]': 15,
+                    'n_channels1[6]': 15,
+                    'n_channels2[0]': 30,
+                    'n_channels2[1]': 15,
+                    'n_channelsm[0, 0]': 15,
+                    'n_channelsm[0, 1]': 15,
+                    'n_channelsm[1, 0]': 15,
+                    'n_channelsm[1, 1]': 15,
+                    'n_channelsm[2, 0]': 15,
+                    'n_channelsm[2, 1]': 15,
+                    'n_channelsm[3, 0]': 15,
+                    'n_channelsm[3, 1]': 15,
+                    'n_channelsm[4, 0]': 15,
+                    'n_channelsm[4, 1]': 15,
+                    'n_channelsm[5, 0]': 15,
+                    'n_channelsm[5, 1]': 15,
+                    'n_layers1': 6,
+                    'n_layers2': 2,
+                    'n_layersm[0]': 2,
+                    'n_layersm[1]': 2,
+                    'n_layersm[2]': 2,
+                    'n_layersm[3]': 2,
+                    'n_layersm[4]': 2,
+                    'n_layersm[5]': 2,
+                    'optim': 'adamw'}
+    study.enqueue_trial(init_params)
+                            
     study.optimize(objective, n_trials=30)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
