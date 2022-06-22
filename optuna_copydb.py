@@ -1,13 +1,5 @@
-import torch
-from torch.utils.data import DataLoader
-
 import os
 import optuna
-
-
-# This makes printing tensors more readable.
-torch.set_printoptions(linewidth=1000, threshold=100000)
-
 
 if __name__ == '__main__':
 
