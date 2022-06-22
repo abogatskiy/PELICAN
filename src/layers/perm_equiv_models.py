@@ -49,8 +49,6 @@ class Eq2to0(nn.Module):
         '''
         inputs = inputs.permute(0, 3, 1, 2)
         ops = self.activation_fn(self.ops_func(inputs))
-        if (self.coefs.shape[0]!=ops.shape[1] or self.coefs.shape[2]!=ops.shape[2]):
-            breakpoint()
         output = torch.einsum('dsb,ndb->ns', self.coefs, ops)
         output = output + self.bias
         if mask is not None:

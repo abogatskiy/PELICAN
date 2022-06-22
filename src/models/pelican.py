@@ -66,7 +66,10 @@ class PELICANClassifier(nn.Module):
         self.eq2to0 = Eq2to0(num_channels1[-1], num_channels2[0], activation = activation, device = device, dtype = dtype)
         self.mlp_out = BasicMLP(num_channels2 + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
 
+        logging.info('_________________________\n')
+        for n, p in self.named_parameters(): logging.info(f'{"Parameter: " + n:<80} {p.shape}')
         logging.info('Model initialized. Number of parameters: {}'.format(sum(p.nelement() for p in self.parameters())))
+        logging.info('_________________________\n')
 
     def forward(self, data, covariance_test=False):
         """
