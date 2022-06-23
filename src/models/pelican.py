@@ -98,11 +98,26 @@ class PELICANClassifier(nn.Module):
             inputs = torch.cat([dot_products, atom_scalars], dim=-1)
         else:
             inputs = dot_products
-        # D = torch.ones((num_atom,num_atom), dtype=self.dtype, device=self.device) - torch.eye(num_atom, dtype=self.dtype, device=self.device)
-        # D_mask = D.unsqueeze(0).bool() * edge_mask  # Mask to consistently exclude the diagonal (mass features) from mlp0
-        inputs_log = (10e-03+inputs).abs().log()/2 * edge_mask.unsqueeze(-1) # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
+        
+        # inputs = (10e-03+inputs).abs().log()/2 * edge_mask.unsqueeze(-1) # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
+
+        # Simplest version with only 2->2 and 2->0 layers
+
+        if self.message:
+            inputs_log = self.input_layer(inputs) * edge_mask.unsqueeze(-1)
+
+        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
+        act2 = self.eq2to0(act1)
+        if self.dropout:
+            act2 = self.dropout_layer(act2)
+        prediction = self.mlp_out(act2)
+
+
+
 
         # Verion with 2->1 and 1->1 layers
+        # D = torch.ones((num_atom,num_atom), dtype=self.dtype, device=self.device) - torch.eye(num_atom, dtype=self.dtype, device=self.device)
+        # D_mask = D.unsqueeze(0).bool() * edge_mask  # Mask to consistently exclude the diagonal (mass features) from mlp0
         # mass_features = torch.permute(torch.diagonal(inputs, dim1 = 1, dim2 = 2), (0, 2, 1))
         # mass_features = self.mlp_mass(mass_features, mask=atom_mask.unsqueeze(-1))        
         # act1 = self.mlp0(inputs * D_mask.unsqueeze(-1), mask=D_mask.unsqueeze(-1))
@@ -115,16 +130,9 @@ class PELICANClassifier(nn.Module):
         #     act4 = self.dropout_layer(act5)
         # prediction = self.mlp_out(act5.mean(dim=1))
 
-        # Simplest version with only 2->2 and 2->0 layers
 
-        if self.message:
-            inputs_log = self.input_layer(inputs_log) * edge_mask.unsqueeze(-1)
 
-        act1 = self.net2to2(inputs_log, mask=edge_mask.unsqueeze(-1), nobj=nobj)
-        act2 = self.eq2to0(act1)
-        if self.dropout:
-            act2 = self.dropout_layer(act2)
-        prediction = self.mlp_out(act2)
+
 
         if covariance_test:
             return prediction, [inputs, act1, act2]
