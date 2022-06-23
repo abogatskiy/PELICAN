@@ -145,8 +145,10 @@ if __name__ == '__main__':
     # Initialize arguments
     args = init_argparse()
     
-    # storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
-    storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
+    if args.storage == 'remote':
+        storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
+    elif args.storage == 'local':
+        storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
 
     directions = ['maximize']
     # directions=['minimize', 'maximize', 'maximize']
