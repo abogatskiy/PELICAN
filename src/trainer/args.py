@@ -12,6 +12,8 @@ def setup_argparse():
     parser.add_argument('--password', default='asoetuh')
     parser.add_argument('--port', default='35719')
     parser.add_argument('--storage', default='local', help="specify location of storage to use for Optuna (\'remote\' | \'local\' | specify path) (default: local)")
+    parser.add_argument('--sampler', default='random')
+    parser.add_argument('--pruner', default='median')
 
     parser.add_argument('--task', type=str, default='train', metavar='str',
                         help='Train or evaluate model. (train | eval)')

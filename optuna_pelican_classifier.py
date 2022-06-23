@@ -153,8 +153,17 @@ if __name__ == '__main__':
 
     directions = ['maximize']
     # directions=['minimize', 'maximize', 'maximize']
-    sampler = optuna.samplers.TPESampler()
-    pruner = optuna.pruners.HyperbandPruner()
+
+    if args.sampler.lower() == 'random':
+        sampler = optuna.samplers.RandomSampler()
+    elif args.sampler.lower().startswith('tpe'):
+        sampler = optuna.samplers.TPESampler()
+
+    if args.pruner == 'hyperband':
+        pruner = optuna.pruners.HyperbandPruner()
+    elif args.pruner == 'median':
+        pruner = optuna.pruners.MedianPruner()
+
     # pruner = optuna.pruners.MedianPruner(n_startup_trials=3, n_warmup_steps=14, n_min_trials=3)
     study = optuna.create_study(study_name=args.study_name, storage=storage, directions=directions, load_if_exists=True,
                                 pruner=pruner, sampler=sampler)
