@@ -4,7 +4,7 @@ import torch.nn as nn
 import logging
 
 from .lorentz_metric import normsq4, dot4
-from ..layers import BasicMLP, get_activation_fn, Net1to1, Net2to2, Eq2to1, Eq2to0, MessageNet
+from ..layers import BasicMLP, get_activation_fn, Net1to1, Net2to2, Eq2to1, Eq2to0, MessageNet, InputEncoder
 
 class PELICANClassifier(nn.Module):
     """
@@ -14,6 +14,7 @@ class PELICANClassifier(nn.Module):
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sym=False, config='s',
                  scale=1, ir_safe=False, dropout = False, batchnorm=None,
                  device=torch.device('cpu'), dtype=None, cg_dict=None):
+        super().__init__()
 
         logging.info('Initializing network!')
 
@@ -27,7 +28,6 @@ class PELICANClassifier(nn.Module):
         # logging.info('num_channels1: {}'.format(num_channels1))
         # logging.info('num_channels2: {}'.format(num_channels2))
 
-        super().__init__()
         self.device, self.dtype = device, dtype
         self.num_channels0 = num_channels0
         self.num_channels_m = num_channels_m
@@ -38,10 +38,6 @@ class PELICANClassifier(nn.Module):
         self.scale = scale
         self.add_beams = add_beams
         self.ir_safe = ir_safe
-        if add_beams:
-            num_scalars_in = 3
-        else:
-            num_scalars_in = 1
 
         if dropout:
             self.dropout_layer = torch.nn.Dropout(0.2)
@@ -54,17 +50,18 @@ class PELICANClassifier(nn.Module):
         # self.net1to1 = Net1to1(num_channels2, activation = activation,  batchnorm = batchnorm, device = device, dtype = dtype)
         # self.mlp_out = BasicMLP([num_channels2[-1], 15] + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
 
-        self.need_input_layer = False
         if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
-            num_channels_m[0] = [num_scalars_in] + num_channels_m[0] 
+            embedding_dim = self.num_channels_m[0][0]
+            if add_beams: self.num_channels_m[0][0] += 2
         else:
-            self.need_input_layer = True
-            self.input_layer = nn.Linear(num_scalars_in, num_channels1[0], bias = not ir_safe, device = device, dtype = dtype)
+            embedding_dim = self.num_channels1[0]
+            if add_beams: self.num_channels1[0] += 2
 
+        self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
   
-        self.net2to2 = Net2to2(num_channels1, num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sym=sym, config=config, device = device, dtype = dtype)
-        self.eq2to0 = Eq2to0(num_channels1[-1], num_channels2[0], activation = activation, device = device, dtype = dtype)
-        self.mlp_out = BasicMLP(num_channels2 + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
+        self.net2to2 = Net2to2(self.num_channels1, self.num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sym=sym, config=config, device = device, dtype = dtype)
+        self.eq2to0 = Eq2to0(self.num_channels1[-1], self.num_channels2[0], activation = activation, device = device, dtype = dtype)
+        self.mlp_out = BasicMLP(self.num_channels2 + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
 
         logging.info('_________________________\n')
         for n, p in self.named_parameters(): logging.info(f'{"Parameter: " + n:<80} {p.shape}')
@@ -93,19 +90,13 @@ class PELICANClassifier(nn.Module):
         # Calculate spherical harmonics and radial functions
         num_atom = atom_mask.shape[1]
         nobj = atom_mask.sum(-1, keepdim=True)
-        dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2)).unsqueeze(-1)
+
+        dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
+        inputs = self.input_encoder(dot_products, mask=edge_mask.unsqueeze(-1))
         if self.add_beams:
-            inputs = torch.cat([dot_products, atom_scalars], dim=-1)
-        else:
-            inputs = dot_products
-        
-        # inputs = (10e-03+inputs).abs().log()/2 * edge_mask.unsqueeze(-1) # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
+            inputs = torch.cat([inputs, atom_scalars], dim=-1)
 
         # Simplest version with only 2->2 and 2->0 layers
-
-        if self.need_input_layer:
-            inputs = self.input_layer(inputs) * edge_mask.unsqueeze(-1)
-
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
         act2 = self.eq2to0(act1)
         if self.dropout:

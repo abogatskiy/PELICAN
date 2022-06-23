@@ -25,6 +25,7 @@ def suggest_params(args, trial):
 
     args.lr_init = trial.suggest_loguniform("lr_init", 0.0007, 0.005)
     args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
+    args.scale = trial.suggest_loguniform("scale", 1e-2, 2)
 
     args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20])
 
@@ -34,7 +35,7 @@ def suggest_params(args, trial):
     args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 3, 30) for i in range(n_layers1 + 1)]
 
     n_layersm = [trial.suggest_int("n_layersm["+str(i)+"]", 0, 4) for i in range(n_layers1)]
-    args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 5, 30) for k in range(n_layersm[i])] for i in range(n_layers1)]
+    args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 1, 30) for k in range(n_layersm[i])] for i in range(n_layers1)]
 
     n_layers2 = trial.suggest_int("n_layers2", 1, 4)
     args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 5, 30) for i in range(n_layers2)]
@@ -165,6 +166,7 @@ if __name__ == '__main__':
                     'config': 's',
                     'lr_final': 1e-07,
                     'lr_init': 0.001,
+                    'scale': 1.,
                     'n_channels1[0]': 3,
                     'n_channels1[1]': 15,
                     'n_channels1[2]': 15,
@@ -172,7 +174,8 @@ if __name__ == '__main__':
                     'n_channels1[4]': 15,
                     'n_channels1[5]': 15,
                     'n_channels2[0]': 30,
-                    'n_channelsm[0, 0]': 15,
+                    'n_channelsm[0, 0]': 1,
+                    'n_channelsm[0, 1]': 15,                    
                     'n_channelsm[1, 0]': 15,
                     'n_channelsm[1, 1]': 15,
                     'n_channelsm[2, 0]': 15,
@@ -183,7 +186,7 @@ if __name__ == '__main__':
                     'n_channelsm[4, 1]': 15,
                     'n_layers1': 5,
                     'n_layers2': 1,
-                    'n_layersm[0]': 1,
+                    'n_layersm[0]': 2,
                     'n_layersm[1]': 2,
                     'n_layersm[2]': 2,
                     'n_layersm[3]': 2,

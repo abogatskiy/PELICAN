@@ -23,3 +23,6 @@ if __name__ == '__main__':
     elif args.direction == 'upload':
         study = optuna.copy_study(from_study_name=args.study_name, from_storage=storage_local, to_storage=storage_remote, to_study_name=args.study_name)
         print(f"Study {args.study_name} successfully copied to {storage_remote}: ")
+    elif args.direction == 'delete':
+        optuna.delete_study(study_name=args.study_name, storage=storage_remote)
+        print(f"Study {args.study_name} successfully deleted from {storage_remote}: ")

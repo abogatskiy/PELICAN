@@ -76,7 +76,7 @@ class MessageNet(nn.Module):
     """
 
     def __init__(self, num_channels, depth=2, activation='leakyrelu', ir_safe=False, batchnorm = None, device=torch.device('cpu'), dtype=torch.float):
-        super(MessageNet, self).__init__()
+        super().__init__()
 
         self.num_channels = num_channels
         self.batchnorm = batchnorm
@@ -127,6 +127,25 @@ class MessageNet(nn.Module):
         self.linear[-1].weight *= scale
         if self.linear[-1].bias is not None:
             self.linear[-1].bias *= scale
+
+
+class InputEncoder(nn.Module):
+    def __init__(self, out_dim, device=torch.device('cpu'), dtype=torch.float):
+        super().__init__()
+
+        self.to(device=device, dtype=dtype)
+        self.alphas = nn.Parameter(torch.rand(1, 1, 1, out_dim, device=device, dtype=dtype))
+        self.zero = torch.tensor(0, device=device, dtype=dtype)
+
+    def forward(self, x, mask=None):
+
+        x = (1. + x.unsqueeze(-1)).abs().pow(self.alphas ** 2) - 1.
+
+        if mask is not None:
+            x = torch.where(mask, x, self.zero)
+
+        return x
+
 
 def get_activation_fn(activation):
     activation = activation.lower()
