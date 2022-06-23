@@ -54,13 +54,13 @@ class PELICANClassifier(nn.Module):
         # self.net1to1 = Net1to1(num_channels2, activation = activation,  batchnorm = batchnorm, device = device, dtype = dtype)
         # self.mlp_out = BasicMLP([num_channels2[-1], 15] + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
 
-        self.message = False
-        if len(num_channels_m) > 0:
-            if len(num_channels_m[0]) > 0:
-                num_channels_m[0] = [num_scalars_in] + num_channels_m[0] 
-            else:
-                self.message = True
-                self.input_layer = nn.Linear(num_scalars_in, num_channels1[0], bias = not ir_safe, device = device, dtype = dtype)
+        self.need_input_layer = False
+        if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
+            num_channels_m[0] = [num_scalars_in] + num_channels_m[0] 
+        else:
+            self.need_input_layer = True
+            self.input_layer = nn.Linear(num_scalars_in, num_channels1[0], bias = not ir_safe, device = device, dtype = dtype)
+
   
         self.net2to2 = Net2to2(num_channels1, num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sym=sym, config=config, device = device, dtype = dtype)
         self.eq2to0 = Eq2to0(num_channels1[-1], num_channels2[0], activation = activation, device = device, dtype = dtype)
@@ -103,8 +103,8 @@ class PELICANClassifier(nn.Module):
 
         # Simplest version with only 2->2 and 2->0 layers
 
-        if self.message:
-            inputs_log = self.input_layer(inputs) * edge_mask.unsqueeze(-1)
+        if self.need_input_layer:
+            inputs = self.input_layer(inputs) * edge_mask.unsqueeze(-1)
 
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
         act2 = self.eq2to0(act1)

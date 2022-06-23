@@ -163,6 +163,7 @@ class Net2to2(nn.Module):
         x: N x d x m x m
         Returns: N x m x m x out_dim
         '''
+        if x.shape[-1] != self.in_dim: breakpoint()
         assert (x.shape[-1] == self.in_dim), "Input dimension of Net2to2 doesn't match the dimension of the input tensor"
         for layer, message in zip(self.eq_layers, self.message_layers):
             # x = sig(x) * x
