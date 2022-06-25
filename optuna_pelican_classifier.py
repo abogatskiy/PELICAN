@@ -30,13 +30,16 @@ def suggest_params(args, trial):
     args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20])
 
     args.config = trial.suggest_categorical("config", ["s", "S", "m", "M", "sS", "mM", "sm", "sM", "Sm", "SM", "sSm", "sSM", "smM", "sMmM", "mx", "Mx", "mxn", "mXN", "mxMX", "sXN", "smxn"])
-
+    
     n_layers1 = trial.suggest_int("n_layers1", 4, 8)
-    args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 3, 30) for i in range(n_layers1 + 1)]
-
     n_layersm = trial.suggest_int("n_layersm", 0, 4)
+
     # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 1, 30) for k in range(n_layersm[i])] for i in range(n_layers1)]
     args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(k)+']', 10, 30) for k in range(n_layersm)]] * n_layers1
+
+    # args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 3, 30) for i in range(n_layers1 + 1)]
+    args.num_channels1 = [trial.suggest_int("n_channels1", 3, 30)]
+    args.num_channels1 = args.num_channels1 * (n_layers1) + [args.num_channels_m[0][0] if n_layersm > 0 else args.num_channels1[0]]
 
     n_layers2 = trial.suggest_int("n_layers2", 1, 4)
     args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 5, 30) for i in range(n_layers2)]
@@ -131,10 +134,12 @@ def objective(trial):
 
 
     # Train model.  
-    metric_to_report='accuracy'  
+    metric_to_report='loss'  
     trainer.train(trial=trial, metric_to_report=metric_to_report)
 
     best_metrics = torch.load(args.bestfile)['best_metrics']
+
+    trial.set_user_attr("best_metrics", best_metrics)
 
     # # Test predictions on best model and also last checkpointed model.
     # best_loss = trainer.evaluate(splits=['test'])
@@ -152,7 +157,7 @@ if __name__ == '__main__':
     elif args.storage == 'local':
         storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
 
-    directions = ['maximize']
+    directions = ['minimize']
     # directions=['minimize', 'maximize', 'maximize']
 
     if args.sampler.lower() == 'random':
@@ -184,7 +189,7 @@ if __name__ == '__main__':
                     'n_channels1[4]': 15,
                     'n_channels1[5]': 15,
                     'n_channels2[0]': 30,
-                    'n_channelsm[0, 0]': 1,
+                    'n_channelsm[0, 0]': 3,
                     'n_channelsm[0, 1]': 15,                    
                     'n_channelsm[1, 0]': 15,
                     'n_channelsm[1, 1]': 15,

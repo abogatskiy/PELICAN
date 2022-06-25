@@ -52,10 +52,9 @@ class PELICANClassifier(nn.Module):
 
         if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
             embedding_dim = self.num_channels_m[0][0]
-            if add_beams: self.num_channels_m[0][0] += 2
         else:
             embedding_dim = self.num_channels1[0]
-            if add_beams: self.num_channels1[0] += 2
+        if add_beams: embedding_dim -= 2
 
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
   
