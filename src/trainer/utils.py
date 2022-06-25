@@ -70,6 +70,14 @@ def fix_args(args):
         print("MessageNet hyperparams are the same across all equivariant layers")
         args.num_channels_m[0][0] = args.num_channels1[0] # delete this line if not using Residual connections
     
+    if args.seed < 0:
+        seed = int((datetime.now().timestamp())*100000)
+        logger.info('Setting seed based upon time: {}'.format(seed))
+        args.seed = seed
+        torch.manual_seed(seed)
+    elif args.seed > 0:
+        torch.manual_seed(args.seed)
+
     return args
 
 def init_file_paths(args):
@@ -119,13 +127,6 @@ def logging_printout(args, trial=None):
     logger.info('Dataset, learning target, datadir: {} {} {}'.format(args.dataset, args.target, args.datadir))
     _git_version()
 
-    if args.seed < 0:
-        seed = int((datetime.now().timestamp())*100000)
-        logger.info('Setting seed based upon time: {}'.format(seed))
-        args.seed = seed
-        torch.manual_seed(seed)
-    elif args.seed > 0:
-        torch.manual_seed(args.seed)
 
     logger.info('Values of all model arguments:')
     logger.info('{}'.format(args))

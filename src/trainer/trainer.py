@@ -265,7 +265,7 @@ class Trainer:
             self._save_checkpoint(valid_metrics)
             
             if trial:
-                trial.report(valid_metrics[metric_to_report], epoch)
+                trial.report(valid_metrics[metric_to_report], epoch - 1)
                 if trial.should_prune():
                     import optuna
                     raise optuna.exceptions.TrialPruned()

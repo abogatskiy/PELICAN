@@ -110,6 +110,8 @@ def objective(trial):
     args, model, device, dtype = define_model(trial)
 
     args, dataloaders = define_dataloader(args)
+    
+    trial.set_user_attr("seed", args.seed)
 
     if args.parallel:
         model = torch.nn.DataParallel(model)
