@@ -32,7 +32,7 @@ def suggest_params(args, trial):
     args.config = trial.suggest_categorical("config", ["s", "S", "m", "M", "sS", "mM", "sm", "sM", "Sm", "SM", "mx", "Mx"]) #,"sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     
     n_layers1 = trial.suggest_int("n_layers1", 4, 6)
-    n_layersm = trial.suggest_int("n_layersm", 1, 2)
+    n_layersm = [trial.suggest_int("n_layersm", 1, 2) for i in range(n_layers1)]
 
     args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 10, 16) for k in range(n_layersm[i])] for i in range(n_layers1)]
     # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(k)+']', 10, 30) for k in range(n_layersm)]] * n_layers1
