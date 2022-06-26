@@ -167,5 +167,5 @@ class Net2to2(nn.Module):
         assert (x.shape[-1] == self.in_dim), "Input dimension of Net2to2 doesn't match the dimension of the input tensor"
         for layer, message in zip(self.eq_layers, self.message_layers):
             # x = sig(x) * x
-            x = x + layer(message(x, mask), mask, nobj)
+            x = layer(message(x, mask), mask, nobj)
         return x
