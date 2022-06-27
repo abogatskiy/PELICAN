@@ -54,7 +54,9 @@ class PELICANClassifier(nn.Module):
             embedding_dim = self.num_channels_m[0][0]
         else:
             embedding_dim = self.num_channels1[0]
-        if add_beams: embedding_dim -= 2
+        if add_beams: 
+            assert embedding_dim > 2, "num_channels_m[0][0] has to be at least 3 when using --add_beams"
+            embedding_dim -= 2
 
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
   
