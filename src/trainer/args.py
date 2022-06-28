@@ -176,6 +176,8 @@ def setup_argparse():
                     help='Enable a 25%% dropout layer at the end of each MLP (default = False)')
     parser.add_argument('--batchnorm', type=str, default='b',
                     help='Enable batch/instance normalization at the end of each MessageNet (batch | instance | None) (default = b)')
+    parser.add_argument('--sig', action=argparse.BooleanOptionalAction, default=False,
+                        help='Enable message significance networks (default = False)')
     parser.add_argument('--sym', action=argparse.BooleanOptionalAction, default=False,
                         help='Preserve symmetry in the 2->2 equivariant layers (default = False)')
     parser.add_argument('--config', type=str, default='s',

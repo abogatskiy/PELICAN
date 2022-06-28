@@ -23,10 +23,11 @@ logger = logging.getLogger('')
 
 def suggest_params(args, trial):
 
-    args.lr_init = trial.suggest_loguniform("lr_init", 0.0007, 0.005)
+    args.lr_init = trial.suggest_loguniform("lr_init", 0.002, 0.005)
     args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
     args.scale = trial.suggest_loguniform("scale", 1e-2, 2)
-
+    args.sig = trial.suggest_categorical("sig", [True, False])
+    
     args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20, 32])
 
     args.config = trial.suggest_categorical("config", ["s", "sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
@@ -82,7 +83,7 @@ def define_model(trial):
     # Initialize model
     model = PELICANClassifier(args.num_channels0, args.num_channels_m, args.num_channels1, args.num_channels2,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
-                      activation=args.activation, add_beams=args.add_beams, sym=args.sym, config=args.config,
+                      activation=args.activation, add_beams=args.add_beams, sig=args.sig, sym=args.sym, config=args.config,
                       scale=1., ir_safe=args.ir_safe, dropout = args.dropout, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
 
@@ -183,7 +184,7 @@ if __name__ == '__main__':
                     'batch_size': 20,
                     'config': 's',
                     'lr_final': 1e-07,
-                    'lr_init': 0.001,
+                    'lr_init': 0.002,
                     'scale': 0.6,
                     'n_channels1[0]': 25,
                     'n_channels1[1]': 20,
