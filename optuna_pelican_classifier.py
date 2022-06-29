@@ -186,6 +186,7 @@ if __name__ == '__main__':
                     'lr_final': 1e-07,
                     'lr_init': 0.002,
                     'scale': 0.6,
+                    'sig': True,
                     'n_channels1[0]': 25,
                     'n_channels1[1]': 20,
                     'n_channels1[2]': 15,
