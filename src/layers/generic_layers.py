@@ -174,7 +174,7 @@ def get_activation_fn(activation):
     elif activation == 'tanh':
         activation_fn = nn.Tanhshrink()   
     elif activation == 'identity':
-        activation_fn = lambda x: x     
+        activation_fn = lambda x: x
     else:
         raise ValueError('Activation function {} not implemented!'.format(activation))
     return activation_fn

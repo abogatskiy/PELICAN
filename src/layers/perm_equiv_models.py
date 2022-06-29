@@ -155,7 +155,9 @@ class Net2to2(nn.Module):
         eq_out_dims = [num_channels_m[i+1][0] if len(num_channels_m[i+1]) > 0 else num_channels[i+1] for i in range(num_layers-1)] + [num_channels[-1]]
 
         self.message_layers = nn.ModuleList(([MessageNet(num_channels_m[i]+[num_channels[i],], activation=activation, batchnorm=batchnorm, device=device, dtype=dtype) for i in range(num_layers)]))        
-        if sig: self.significance = nn.ModuleList([BasicMLP([num_channels[i], 1], activation='sigmoid', device=device, dtype=dtype) for i in range(num_layers)])
+        if sig: 
+            self.attention = nn.ModuleList([nn.Linear(num_channels[i], 1, device=device, dtype=dtype) for i in range(num_layers)])
+            self.normlayers = nn.ModuleList([nn.LayerNorm(num_channels[i], device=device, dtype=dtype) for i in range(num_layers)])
         self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
         self.to(device=device, dtype=dtype)
 
@@ -167,10 +169,13 @@ class Net2to2(nn.Module):
         if x.shape[-1] != self.in_dim: breakpoint()
         assert (x.shape[-1] == self.in_dim), "Input dimension of Net2to2 doesn't match the dimension of the input tensor"
         if self.sig: 
-            for layer, message, sig in zip(self.eq_layers, self.message_layers, self.significance):
-                x = message(x, mask)
-                x = sig(x) * x
-                x = layer(x, mask, nobj)
+            for layer, message, sig, normlayer in zip(self.eq_layers, self.message_layers, self.attention, self.normlayers):
+                x = message(x, mask)        # form messages at each of the NxN nodes
+                y = sig(x)                  # compute the dot product with the attention vector over the channel dim
+                yy = torch.exp(y - y.amax(dim=(1,2), keepdim=True)) * mask  # apply softmax over NxN particles taking into account the mask (normalized in the next line)
+                yy = yy / yy.sum(dim=(1,2), keepdim=True)  
+                z = normlayer(yy * x)       # apply LayerNorm, i.e. normalize over the channel dimension
+                x = layer(z, mask, nobj)    # apply the permutation-equivariant layer
         else:
             for layer, message in zip(self.eq_layers, self.message_layers):
                 x = layer(message(x, mask), mask, nobj)
