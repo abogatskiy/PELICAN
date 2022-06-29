@@ -27,12 +27,12 @@ def suggest_params(args, trial):
     args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
     args.scale = trial.suggest_loguniform("scale", 1e-2, 2)
     args.sig = trial.suggest_categorical("sig", [True, False])
-    
+
     args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20, 32])
 
     args.config = trial.suggest_categorical("config", ["s", "sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     
-    n_layers1 = 6 # trial.suggest_int("n_layers1", 6, 7)
+    n_layers1 = trial.suggest_int("n_layers1", 4, 8)
 
     # n_layersm = [1,] * n_layers1
     n_layersm = [trial.suggest_int("n_layersm", 1, 2) for i in range(n_layers1)]
