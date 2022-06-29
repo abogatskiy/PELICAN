@@ -139,7 +139,7 @@ def objective(trial):
 
 
     # Train model.  
-    metric_to_report='accuracy' 
+    metric_to_report='loss' 
 
     # with torch.autograd.detect_anomaly():
     best_epoch, best_metrics = trainer.train(trial=trial, metric_to_report=metric_to_report)
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     elif args.storage == 'local':
         storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
 
-    direction = 'maximize'
+    direction = 'minimize'
     # directions=['minimize', 'maximize', 'maximize']
 
     if args.sampler.lower() == 'random':
@@ -173,51 +173,51 @@ if __name__ == '__main__':
     if args.pruner == 'hyperband':
         pruner = optuna.pruners.HyperbandPruner()
     elif args.pruner == 'median':
-        pruner = optuna.pruners.MedianPruner(n_warmup_steps=1, n_min_trials=5)
+        pruner = optuna.pruners.MedianPruner(n_warmup_steps=5, n_min_trials=5)
 
     study = optuna.create_study(study_name=args.study_name, storage=storage, direction=direction, load_if_exists=True,
                                 pruner=pruner, sampler=sampler)
 
-    init_params =  {'activate_agg': False,
-                    'activate_lin': True,
-                    'activation': 'leakyrelu',
-                    'batch_size': 20,
-                    'config': 's',
-                    'lr_final': 1e-07,
-                    'lr_init': 0.002,
-                    'scale': 0.6,
-                    'sig': True,
-                    'n_channels1[0]': 25,
-                    'n_channels1[1]': 20,
-                    'n_channels1[2]': 15,
-                    'n_channels1[3]': 15,
-                    'n_channels1[4]': 15,
-                    'n_channels1[5]': 20,
-                    'n_channels1[5]': 25,
-                    'n_channels2[0]': 30,
-                    'n_channelsm[0, 0]': 30,
-                    'n_channelsm[0, 1]': 15,                    
-                    'n_channelsm[1, 0]': 15,
-                    'n_channelsm[1, 1]': 30,
-                    'n_channelsm[2, 0]': 15,
-                    'n_channelsm[2, 1]': 30,
-                    'n_channelsm[3, 0]': 15,
-                    'n_channelsm[3, 1]': 30,
-                    'n_channelsm[4, 0]': 15,
-                    'n_channelsm[4, 1]': 30,
-                    'n_channelsm[5, 0]': 15,
-                    'n_channelsm[5, 1]': 30,
-                    # 'n_layers1': 6,
-                    # 'n_layers2': 1,
-                    'n_layersm[0]': 2,
-                    'n_layersm[1]': 2,
-                    'n_layersm[2]': 2,
-                    'n_layersm[3]': 2,
-                    'n_layersm[4]': 2,
-                    'n_layersm[5]': 2,
-                    # 'optim': 'adamw',
-                    }
-    study.enqueue_trial(init_params)
+    # init_params =  {'activate_agg': False,
+    #                 'activate_lin': True,
+    #                 'activation': 'leakyrelu',
+    #                 'batch_size': 20,
+    #                 'config': 's',
+    #                 'lr_final': 1e-07,
+    #                 'lr_init': 0.002,
+    #                 'scale': 0.6,
+    #                 'sig': True,
+    #                 'n_channels1[0]': 25,
+    #                 'n_channels1[1]': 20,
+    #                 'n_channels1[2]': 15,
+    #                 'n_channels1[3]': 15,
+    #                 'n_channels1[4]': 15,
+    #                 'n_channels1[5]': 20,
+    #                 'n_channels1[5]': 25,
+    #                 'n_channels2[0]': 30,
+    #                 'n_channelsm[0, 0]': 30,
+    #                 'n_channelsm[0, 1]': 15,                    
+    #                 'n_channelsm[1, 0]': 15,
+    #                 'n_channelsm[1, 1]': 30,
+    #                 'n_channelsm[2, 0]': 15,
+    #                 'n_channelsm[2, 1]': 30,
+    #                 'n_channelsm[3, 0]': 15,
+    #                 'n_channelsm[3, 1]': 30,
+    #                 'n_channelsm[4, 0]': 15,
+    #                 'n_channelsm[4, 1]': 30,
+    #                 'n_channelsm[5, 0]': 15,
+    #                 'n_channelsm[5, 1]': 30,
+    #                 # 'n_layers1': 6,
+    #                 # 'n_layers2': 1,
+    #                 'n_layersm[0]': 2,
+    #                 'n_layersm[1]': 2,
+    #                 'n_layersm[2]': 2,
+    #                 'n_layersm[3]': 2,
+    #                 'n_layersm[4]': 2,
+    #                 'n_layersm[5]': 2,
+    #                 # 'optim': 'adamw',
+    #                 }
+    # study.enqueue_trial(init_params)
                             
     study.optimize(objective, callbacks=[optuna.study.MaxTrialsCallback(200, states=(TrialState.COMPLETE,))])
 

@@ -269,7 +269,7 @@ class Trainer:
             if trial:
                 trial.set_user_attr("best_epoch", self.best_epoch)
                 trial.set_user_attr("best_metrics", self.best_metrics)
-                trial.report(valid_metrics[metric_to_report], epoch - 1)
+                trial.report(min(valid_metrics[metric_to_report], 1), epoch - 1)
                 if trial.should_prune():
                     import optuna
                     raise optuna.exceptions.TrialPruned()
