@@ -104,8 +104,7 @@ class PELICANClassifier(nn.Module):
             act2 = self.dropout_layer(act2)
         prediction = self.mlp_out(act2)
 
-
-
+        assert not torch.isnan(prediction).any(), "There are NaN entries in the output! Evaluation terminated."
 
         # Verion with 2->1 and 1->1 layers
         # D = torch.ones((num_atom,num_atom), dtype=self.dtype, device=self.device) - torch.eye(num_atom, dtype=self.dtype, device=self.device)
