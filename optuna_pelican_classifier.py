@@ -139,12 +139,12 @@ def objective(trial):
 
 
     # Train model.  
-    metric_to_report='loss'  
-    trainer.train(trial=trial, metric_to_report=metric_to_report)
+    metric_to_report='accuracy' 
 
-    best_metrics = torch.load(args.bestfile)['best_metrics']
+    # with torch.autograd.detect_anomaly():
+    best_epoch, best_metrics = trainer.train(trial=trial, metric_to_report=metric_to_report)
 
-    trial.set_user_attr("best_metrics", best_metrics)
+    print(f"Best epoch was {best_epoch} with metrics {best_metrics}")
 
     # # Test predictions on best model and also last checkpointed model.
     # best_loss = trainer.evaluate(splits=['test'])
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     elif args.storage == 'local':
         storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
 
-    directions = ['minimize']
+    direction = 'maximize'
     # directions=['minimize', 'maximize', 'maximize']
 
     if args.sampler.lower() == 'random':
@@ -173,9 +173,9 @@ if __name__ == '__main__':
     if args.pruner == 'hyperband':
         pruner = optuna.pruners.HyperbandPruner()
     elif args.pruner == 'median':
-        pruner = optuna.pruners.MedianPruner(n_warmup_steps=10, n_min_trials=5)
+        pruner = optuna.pruners.MedianPruner(n_warmup_steps=1, n_min_trials=5)
 
-    study = optuna.create_study(study_name=args.study_name, storage=storage, directions=directions, load_if_exists=True,
+    study = optuna.create_study(study_name=args.study_name, storage=storage, direction=direction, load_if_exists=True,
                                 pruner=pruner, sampler=sampler)
 
     init_params =  {'activate_agg': False,

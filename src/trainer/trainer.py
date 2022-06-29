@@ -85,9 +85,10 @@ class Trainer:
             from torch.utils.tensorboard import SummaryWriter
             self.writer = SummaryWriter(log_dir=args.logdir+args.prefix)
 
-        self.best_metrics = {'loss': inf}
         self.epoch = 1
         self.minibatch = 0
+        self.best_epoch = 0
+        self.best_metrics = {'loss': inf}
 
         self.device = device
         self.dtype = dtype
@@ -108,6 +109,7 @@ class Trainer:
             logger.info('Saving model to checkpoint file: {}'.format(self.args.checkfile))
             torch.save(save_dict, self.args.checkfile)
         elif valid_metrics['loss'] < self.best_metrics['loss']:
+            self.best_epoch = self.epoch
             self.best_metrics = save_dict['best_metrics'] = valid_metrics
             logger.info('Lowest loss achieved! Saving best model to file: {}'.format(self.args.bestfile))
             torch.save(save_dict, self.args.bestfile)
@@ -140,7 +142,7 @@ class Trainer:
         self.best_metrics = checkpoint['best_metrics']
         self.minibatch = checkpoint['minibatch']
 
-        logger.info(f'Best loss from checkpoint is at epoch {self.epoch}:\n{self.best_metrics}')
+        logger.info(f'Best metrics from checkpoint is at epoch {self.epoch}:\n{self.best_metrics}')
 
     def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True):
         """
@@ -265,6 +267,8 @@ class Trainer:
             self._save_checkpoint(valid_metrics)
             
             if trial:
+                trial.set_user_attr("best_epoch", self.best_epoch)
+                trial.set_user_attr("best_metrics", self.best_metrics)
                 trial.report(valid_metrics[metric_to_report], epoch - 1)
                 if trial.should_prune():
                     import optuna
@@ -273,6 +277,8 @@ class Trainer:
             logger.info('FINISHED Epoch {}\n_________________________\n'.format(epoch))
             
         if self.summarize: self.writer.close()
+
+        return self.best_epoch, self.best_metrics
 
     def _get_target(self, data, stats=None):
         """
