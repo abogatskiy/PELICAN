@@ -156,7 +156,7 @@ class Net2to2(nn.Module):
 
         self.message_layers = nn.ModuleList(([MessageNet(num_channels_m[i]+[num_channels[i],], activation=activation, batchnorm=batchnorm, device=device, dtype=dtype) for i in range(num_layers)]))        
         if sig: 
-            self.attention = nn.ModuleList([nn.Linear(num_channels[i], 1, device=device, dtype=dtype) for i in range(num_layers)])
+            self.attention = nn.ModuleList([nn.Linear(num_channels[i], 1, bias=False, device=device, dtype=dtype) for i in range(num_layers)])
             self.normlayers = nn.ModuleList([nn.LayerNorm(num_channels[i], device=device, dtype=dtype) for i in range(num_layers)])
         self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
         self.to(device=device, dtype=dtype)
@@ -168,11 +168,12 @@ class Net2to2(nn.Module):
         '''
 
         assert (x.shape[-1] == self.in_dim), "Input dimension of Net2to2 doesn't match the dimension of the input tensor"
+        B = x.shape[0]
         if self.sig: 
             for layer, message, sig, normlayer in zip(self.eq_layers, self.message_layers, self.attention, self.normlayers):
                 m = message(x, mask)        # form messages at each of the NxN nodes
                 y = sig(x)                  # compute the dot product with the attention vector over the channel dim
-                ms = torch.softmax(y, dim=-1) * mask
+                ms = torch.softmax(y.view(B,-1), dim=-1).view_as(y) * mask
                 ms = ms / ms.sum(dim=(1,2), keepdim=True)
                 # ms = y.sigmoid() * mask
                 z = normlayer(ms * m)       # apply LayerNorm, i.e. normalize over the channel dimension

@@ -64,7 +64,7 @@ def setup_argparse():
                         help='Load from previous checkpoint. (default: False)')
 
     parser.add_argument('--test', action=argparse.BooleanOptionalAction, default=False,
-                        help='Perform automated network testing. (Default: True)')
+                        help='Perform automated network testing. (Default: False)')
 
     parser.add_argument('--log-level', type=str, default='info',
                         help='Logging level to output')
