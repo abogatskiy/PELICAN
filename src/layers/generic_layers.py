@@ -150,7 +150,7 @@ class InputEncoder(nn.Module):
 def get_activation_fn(activation):
     activation = activation.lower()
     if activation == 'leakyrelu':
-        activation_fn = nn.LeakyReLU(negative_slope=0.1)
+        activation_fn = nn.LeakyReLU(negative_slope=0.01)
     elif activation == 'relu':
         activation_fn = nn.ReLU()
     elif activation == 'prelu':

@@ -193,7 +193,7 @@ def setup_argparse():
     parser.add_argument('--level-gain', nargs='*', type=float, default=[1.], metavar='N',
                         help='Gain at each level (default: [1.])')
 
-    parser.add_argument('--activation', type=str, default='elu',
+    parser.add_argument('--activation', type=str, default='leakyrelu',
                         help='Activation function used in MLP layers. Options: (relu, elu, leakyrelu, sigmoid, logsigmoid, atan, silu, celu, selu, soft, tanh). Default: elu.')                
     parser.add_argument('--ir-safe', action=argparse.BooleanOptionalAction, default=False,
                     help='Use an IRC safe version of the model (injecting extra particles with small momenta won\'t change the outputs) (default = False)')
