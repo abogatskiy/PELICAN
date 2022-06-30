@@ -174,6 +174,8 @@ if __name__ == '__main__':
         pruner = optuna.pruners.HyperbandPruner()
     elif args.pruner == 'median':
         pruner = optuna.pruners.MedianPruner(n_warmup_steps=5, n_min_trials=5)
+    elif args.pruner == 'none':
+        pruner = None
 
     study = optuna.create_study(study_name=args.study_name, storage=storage, direction=direction, load_if_exists=True,
                                 pruner=pruner, sampler=sampler)
