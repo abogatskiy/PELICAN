@@ -102,7 +102,7 @@ class PELICANClassifier(nn.Module):
         # normalized_inputs = self.layernorm(inputs)
 
         # Simplest version with only 2->2 and 2->0 layers
-        act1 = self.net2to2(normalized_inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
+        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
         act2 = self.eq2to0(act1)
         if self.dropout:
             act2 = self.dropout_layer(act2)

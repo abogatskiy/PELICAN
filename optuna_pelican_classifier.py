@@ -43,11 +43,11 @@ def suggest_params(args, trial):
     # args.num_channels1 = [trial.suggest_int("n_channels1", 3, 30)]
     # args.num_channels1 = args.num_channels1 * (n_layers1) + [args.num_channels_m[0][0] if n_layersm > 0 else args.num_channels1[0]]
 
-    # n_layers2 = trial.suggest_int("n_layers2", 1, 2)
-    n_layers2 = 1
+    n_layers2 = trial.suggest_int("n_layers2", 1, 2)
+    # n_layers2 = 1
     args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 10, 30) for i in range(n_layers2)]
 
-    args.activation = trial.suggest_categorical("activation", ["elu", "leakyrelu"]) #, "relu", "silu", "selu", "tanh"])
+    # args.activation = trial.suggest_categorical("activation", ["elu", "leakyrelu"]) #, "relu", "silu", "selu", "tanh"])
     # args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
 
     # args.activate_agg = trial.suggest_categorical("activate_agg", [True, False])
@@ -190,31 +190,31 @@ if __name__ == '__main__':
                     'lr_init': 0.001,
                     'scale': 0.6,
                     'sig': False,
+                    'n_channelsm[0, 0]': 25,
+                    'n_channelsm[0, 1]': 25,                    
                     'n_channels1[0]': 25,
+                    'n_channelsm[1, 0]': 20,
+                    'n_channelsm[1, 1]': 20,
                     'n_channels1[1]': 20,
+                    'n_channelsm[2, 0]': 15,
+                    'n_channelsm[2, 1]': 15,
                     'n_channels1[2]': 15,
+                    'n_channelsm[3, 0]': 20,
+                    'n_channelsm[3, 1]': 20,
                     'n_channels1[3]': 15,
+                    'n_channelsm[4, 0]': 25,
+                    'n_channelsm[4, 1]': 25,
                     'n_channels1[4]': 20,
                     'n_channels1[5]': 25,
                     'n_channels2[0]': 25,
-                    'n_channelsm[0, 0]': 25,
-                    # 'n_channelsm[0, 1]': 15,                    
-                    'n_channelsm[1, 0]': 20,
-                    # 'n_channelsm[1, 1]': 30,
-                    'n_channelsm[2, 0]': 15,
-                    # 'n_channelsm[2, 1]': 30,
-                    'n_channelsm[3, 0]': 20,
-                    # 'n_channelsm[3, 1]': 30,
-                    'n_channelsm[4, 0]': 25,
-                    # 'n_channelsm[4, 1]': 30,
                     # 'n_layers1': 5,
                     # 'n_layers2': 1,
-                    'n_layersm[0]': 1,
-                    'n_layersm[1]': 1,
-                    'n_layersm[2]': 1,
-                    'n_layersm[3]': 1,
-                    'n_layersm[4]': 1,
-                    'n_layersm[5]': 1,
+                    'n_layersm[0]': 2,
+                    'n_layersm[1]': 2,
+                    'n_layersm[2]': 2,
+                    'n_layersm[3]': 2,
+                    'n_layersm[4]': 2,
+                    'n_layersm[5]': 2,
                     # 'optim': 'adamw',
                     }
     study.enqueue_trial(init_params)
