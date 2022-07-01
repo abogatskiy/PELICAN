@@ -172,7 +172,7 @@ class Net2to2(nn.Module):
         if self.sig: 
             for layer, message, sig, normlayer in zip(self.eq_layers, self.message_layers, self.attention, self.normlayers):
                 m = message(x, mask)        # form messages at each of the NxN nodes
-                y = sig(x)                  # compute the dot product with the attention vector over the channel dim
+                y = sig(m)                  # compute the dot product with the attention vector over the channel dim
                 ms = torch.softmax(y.view(B,-1), dim=-1).view_as(y) * mask
                 ms = ms / ms.sum(dim=(1,2), keepdim=True)
                 # ms = y.sigmoid() * mask
