@@ -174,9 +174,9 @@ class Net2to2(nn.Module):
             for layer, message, sig, normlayer in zip(self.eq_layers, self.message_layers, self.attention, self.normlayers):
                 m = message(x, mask)        # form messages at each of the NxN nodes
                 y = sig(m)                  # compute the dot product with the attention vector over the channel dim
-                ms = torch.exp(self.softmax(y.view(B,-1))).view_as(y) * mask
-                ms = ms / ms.sum(dim=(1,2), keepdim=True)
-                # ms = y.sigmoid() * mask
+                # ms = torch.exp(self.softmax(y.view(B,-1))).view_as(y) * mask
+                # ms = ms / ms.sum(dim=(1,2), keepdim=True)
+                ms = y.sigmoid() * mask
                 z = normlayer(ms * m)       # apply LayerNorm, i.e. normalize over the channel dimension
                 x = layer(z, mask, nobj)   # apply the permutation-equivariant layer
         else:
