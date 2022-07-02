@@ -164,11 +164,11 @@ def setup_argparse():
 
     parser.add_argument('--num-channels0', nargs='*', type=int, default=[5,]*2, metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
-    parser.add_argument('--num-channels-m', nargs='*', type=int, default=[[3, 15], [15, 15], [15, 15], [15, 15], [15, 15]], metavar='N',
+    parser.add_argument('--num-channels-m', nargs='*', type=int, default=[[28, 15], [24, 27], [29, 19], [7, 18], [19, 17], [8, 15]], metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
-    parser.add_argument('--num-channels1', nargs='*', type=int, default=[3, 15, 15, 15, 15, 15], metavar='N',
+    parser.add_argument('--num-channels1', nargs='*', type=int, default=[11,12,10,8,24,12,22], metavar='N',
                         help='Number of channels to allow after mixing (dfault: [3])')
-    parser.add_argument('--num-channels2', nargs='*', type=int, default=[30], metavar='N',
+    parser.add_argument('--num-channels2', nargs='*', type=int, default=[17,20], metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
     parser.add_argument('--message', action=argparse.BooleanOptionalAction, default=True,
                         help='Include message-forming blocks between equvariant blocks (default: True)')
@@ -188,8 +188,8 @@ def setup_argparse():
                     help='Apply an activation function right after the linear mixing following aggregation (default = True)')
 
 
-    parser.add_argument('--scale', type=float, default=1., metavar='N',
-                    help='Global scaling factor for input four-momenta (default = 1.0)')
+    parser.add_argument('--scale', type=float, default=1.4898575897848754, metavar='N',
+                    help='Global scaling factor for input four-momenta (default = 1.48)')
     parser.add_argument('--level-gain', nargs='*', type=float, default=[1.], metavar='N',
                         help='Gain at each level (default: [1.])')
 
