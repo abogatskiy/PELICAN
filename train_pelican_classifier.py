@@ -57,6 +57,8 @@ def main():
                       scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
     
+    model.to(device)
+
     if args.parallel:
         model = torch.nn.DataParallel(model)
 

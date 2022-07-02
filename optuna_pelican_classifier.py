@@ -72,10 +72,13 @@ def define_model(trial):
     args = suggest_params(args, trial)
 
     # Write input paramaters and paths to log
-    logging_printout(args, trial)
+    git_status = logging_printout(args, trial)
 
     # Fix possible inconsistencies in arguments
     args = fix_args(args)
+
+    trial.set_user_attr("git_status", git_status)
+    trial.set_user_attr("args", vars(args))
 
     # Initialize device and data type
     device, dtype = init_cuda(args)

@@ -124,7 +124,7 @@ def logging_printout(args, trial=None):
     logger.info(' '.join([arg for arg in sys.argv]))
     logger.info('Log, best, checkpoint, load files: {} {} {} {}'.format(args.logfile, args.bestfile, args.checkfile, args.loadfile))
     logger.info('Dataset, learning target, datadir: {} {} {}'.format(args.dataset, args.target, args.datadir))
-    _git_version()
+    git_status = _git_version()
 
 
     logger.info('Values of all model arguments:')
@@ -133,6 +133,8 @@ def logging_printout(args, trial=None):
         logger.info('Params of Optuna trial:')
         for key, val in trial.params.items():
             logger.info(f'\'{key}\': {val}')
+
+    return git_status
 
 
 #### Initialize optimizer ####
@@ -209,6 +211,7 @@ def _git_version():
     logger.info('Git status: {}'.format(git_commit.stdout.decode()))
     logger.info('Date and time: {}'.format(datetime.now()))
 
+    return str(git_commit.stdout.decode())
 
 def init_cuda(args):
     if args.device in ['gpu', 'cuda']:
