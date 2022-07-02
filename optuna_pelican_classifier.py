@@ -166,9 +166,9 @@ if __name__ == '__main__':
     # directions=['minimize', 'maximize', 'maximize']
 
     if args.sampler.lower() == 'random':
-        sampler = optuna.samplers.RandomSampler()
+        sampler = optuna.samplers.RandomSampler(seed=args.seed)
     elif args.sampler.lower().startswith('tpe'):
-        sampler = optuna.samplers.TPESampler()
+        sampler = optuna.samplers.TPESampler(seed=args.seed, n_startup_trials=30, multivariate=True, group=True, constant_liar=True)
 
     if args.pruner == 'hyperband':
         pruner = optuna.pruners.HyperbandPruner()
