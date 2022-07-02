@@ -54,7 +54,7 @@ def main():
     model = PELICANClassifier(args.num_channels0, args.num_channels_m, args.num_channels1, args.num_channels2,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, sig=args.sig, sym=args.sym, config=args.config,
-                      scale=1., ir_safe=args.ir_safe, dropout = args.dropout, batchnorm=args.batchnorm,
+                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
     
     if args.parallel:

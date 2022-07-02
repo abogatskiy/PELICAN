@@ -188,8 +188,8 @@ def setup_argparse():
                     help='Apply an activation function right after the linear mixing following aggregation (default = True)')
 
 
-    parser.add_argument('--scale', type=float, default=1.4898575897848754, metavar='N',
-                    help='Global scaling factor for input four-momenta (default = 1.48)')
+    parser.add_argument('--scale', type=float, default=1., metavar='N',
+                    help='Global scaling factor for input four-momenta (default = 1.)')
     parser.add_argument('--level-gain', nargs='*', type=float, default=[1.], metavar='N',
                         help='Gain at each level (default: [1.])')
 

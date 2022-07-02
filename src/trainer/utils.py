@@ -6,7 +6,6 @@ import torch.optim.lr_scheduler as sched
 import os, sys, pickle
 from datetime import datetime
 from math import inf, log, log2, exp, ceil
-from datetime import datetime
 
 
 import logging

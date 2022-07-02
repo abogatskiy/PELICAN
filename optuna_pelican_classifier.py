@@ -84,7 +84,7 @@ def define_model(trial):
     model = PELICANClassifier(args.num_channels0, args.num_channels_m, args.num_channels1, args.num_channels2,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, sig=args.sig, sym=args.sym, config=args.config,
-                      scale=1., ir_safe=args.ir_safe, dropout = args.dropout, batchnorm=args.batchnorm,
+                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
 
     model.to(device)
@@ -158,7 +158,7 @@ if __name__ == '__main__':
     args = init_argparse()
     
     if args.storage == 'remote':
-        storage=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}'   # For running on nodes with a distributed file system
+        storage=optuna.storages.RDBStorage(url=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}', heartbeat_interval=100)  # For running on nodes with a distributed file system
     elif args.storage == 'local':
         storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
 
