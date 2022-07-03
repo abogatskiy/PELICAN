@@ -23,14 +23,14 @@ logger = logging.getLogger('')
 
 def suggest_params(args, trial):
 
-    args.lr_init = trial.suggest_loguniform("lr_init", 0.002, 0.005)
-    args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
+    # args.lr_init = trial.suggest_loguniform("lr_init", 0.002, 0.005)
+    # args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
     args.scale = trial.suggest_loguniform("scale", 1e-2, 2)
     args.sig = trial.suggest_categorical("sig", [True, False])
 
     args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20, 32])
 
-    args.config = trial.suggest_categorical("config", ["s", "sm", "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
+    args.config = trial.suggest_categorical("config", ["s", "sm"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     
     n_layers1 = trial.suggest_int("n_layers1", 4, 8)
 
@@ -189,10 +189,10 @@ if __name__ == '__main__':
                     'activation': 'leakyrelu',
                     'batch_size': 20,
                     'config': 's',
-                    'lr_final': 1e-07,
-                    'lr_init': 0.001,
-                    'scale': 0.6,
-                    'sig': False,
+                    # 'lr_final': 1e-07,
+                    # 'lr_init': 0.001,
+                    'scale': 1.,
+                    # 'sig': False,
                     'n_channelsm[0, 0]': 25,
                     'n_channelsm[0, 1]': 25,                    
                     'n_channels1[0]': 25,
