@@ -59,7 +59,7 @@ class PELICANClassifier(nn.Module):
             embedding_dim -= 2
 
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
-        # self.layernorm = nn.LayerNorm(self.num_channels_m[0][0], device = device, dtype = dtype)
+        self.layernorm = nn.LayerNorm(self.num_channels_m[0][0], device = device, dtype = dtype)
   
         self.net2to2 = Net2to2(self.num_channels1, self.num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, sym=sym, config=config, device = device, dtype = dtype)
         self.eq2to0 = Eq2to0(self.num_channels1[-1], self.num_channels2[0], activation = activation, device = device, dtype = dtype)
@@ -99,7 +99,7 @@ class PELICANClassifier(nn.Module):
         if self.add_beams:
             inputs = torch.cat([inputs, atom_scalars], dim=-1)
 
-        # normalized_inputs = self.layernorm(inputs)
+        normalized_inputs = self.layernorm(inputs)
 
         # Simplest version with only 2->2 and 2->0 layers
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
