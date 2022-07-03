@@ -28,9 +28,9 @@ def setup_argparse():
 
     parser.add_argument('--weight-decay', type=float, default=0, metavar='N',
                         help='Set the weight decay used in optimizer (default: 0)')
-    parser.add_argument('--lr-init', type=float, default=0.002, metavar='N',
+    parser.add_argument('--lr-init', type=float, default=0.005, metavar='N',
                         help='Initial learning rate (default: 0.005)')
-    parser.add_argument('--lr-final', type=float, default=1e-7, metavar='N',
+    parser.add_argument('--lr-final', type=float, default=1e-5, metavar='N',
                         help='Final (held) learning rate (default: 1e-5)')
     parser.add_argument('--lr-decay', type=int, default=-1, metavar='N',
                         help='Timescale over which to decay the learning rate (-1 to disable) (default: -1)')
@@ -173,7 +173,9 @@ def setup_argparse():
     parser.add_argument('--message', action=argparse.BooleanOptionalAction, default=True,
                         help='Include message-forming blocks between equvariant blocks (default: True)')
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,
-                    help='Enable a 25%% dropout layer at the end of each MLP (default = False)')
+                    help='Enable a dropout layer at the end of the network (default = False)')
+    parser.add_argument('--drop-rate', type=float, default=0.2, metavar='N',
+                    help='Dropout rate (default = 0.2)')
     parser.add_argument('--batchnorm', type=str, default='b',
                     help='Enable batch/instance normalization at the end of each MessageNet (batch | instance | None) (default = b)')
     parser.add_argument('--sig', action=argparse.BooleanOptionalAction, default=False,

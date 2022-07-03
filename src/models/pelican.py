@@ -12,7 +12,7 @@ class PELICANClassifier(nn.Module):
     """
     def __init__(self, num_channels0, num_channels_m, num_channels1, num_channels2,
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, sym=False, config='s',
-                 scale=1, ir_safe=False, dropout = False, batchnorm=None,
+                 scale=1, ir_safe=False, dropout = False, drop_rate=0.2, batchnorm=None,
                  device=torch.device('cpu'), dtype=None, cg_dict=None):
         super().__init__()
 
@@ -40,7 +40,7 @@ class PELICANClassifier(nn.Module):
         self.ir_safe = ir_safe
 
         if dropout:
-            self.dropout_layer = torch.nn.Dropout(0.2)
+            self.dropout_layer = torch.nn.Dropout(drop_rate)
 
         # self.mlp0 = BasicMLP([num_scalars_in] + num_channels0 + [num_channels1[0]], activation = activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
         # self.mlp_mass = BasicMLP([num_scalars_in] + num_channels0 + [num_channels1[0]], activation = activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
