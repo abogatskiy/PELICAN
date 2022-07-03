@@ -12,7 +12,7 @@ class PELICANClassifier(nn.Module):
     """
     def __init__(self, num_channels0, num_channels_m, num_channels1, num_channels2,
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, sym=False, config='s',
-                 scale=1, ir_safe=False, dropout = False, drop_rate=0.2, batchnorm=None,
+                 scale=1, ir_safe=False, dropout = False, drop_rate=0.2, batchnorm=None, layernorm=True,
                  device=torch.device('cpu'), dtype=None, cg_dict=None):
         super().__init__()
 
@@ -35,6 +35,7 @@ class PELICANClassifier(nn.Module):
         self.num_channels2 = num_channels2
         self.batchnorm = batchnorm
         self.dropout = dropout
+        self.layernorm = layernorm
         self.scale = scale
         self.add_beams = add_beams
         self.ir_safe = ir_safe
@@ -59,7 +60,8 @@ class PELICANClassifier(nn.Module):
             embedding_dim -= 2
 
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
-        self.layernorm = nn.LayerNorm(self.num_channels_m[0][0], device = device, dtype = dtype)
+        if layernorm:
+            self.layernorm = nn.LayerNorm(self.num_channels_m[0][0], device = device, dtype = dtype)
   
         self.net2to2 = Net2to2(self.num_channels1, self.num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, sym=sym, config=config, device = device, dtype = dtype)
         self.eq2to0 = Eq2to0(self.num_channels1[-1], self.num_channels2[0], activation = activation, device = device, dtype = dtype)
@@ -99,7 +101,8 @@ class PELICANClassifier(nn.Module):
         if self.add_beams:
             inputs = torch.cat([inputs, atom_scalars], dim=-1)
 
-        normalized_inputs = self.layernorm(inputs)
+        if self.layernorm:
+            inputs = self.layernorm(inputs)
 
         # Simplest version with only 2->2 and 2->0 layers
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)

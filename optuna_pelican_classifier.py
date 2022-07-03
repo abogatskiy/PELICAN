@@ -27,7 +27,8 @@ def suggest_params(args, trial):
     # args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
     args.scale = trial.suggest_loguniform("scale", 1e-2, 3)
     # args.sig = trial.suggest_categorical("sig", [True, False])
-    args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, 0.05)
+    args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, step=0.05)
+    args.layernorm = trial.suggest_categorical("layernorm", [True, False])
 
     args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20, 32])
 
@@ -88,7 +89,7 @@ def define_model(trial):
     model = PELICANClassifier(args.num_channels0, args.num_channels_m, args.num_channels1, args.num_channels2,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, sig=args.sig, sym=args.sym, config=args.config,
-                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, batchnorm=args.batchnorm,
+                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, batchnorm=args.batchnorm, layernorm=args.layernorm,
                       device=device, dtype=dtype)
 
     model.to(device)
@@ -219,6 +220,7 @@ if __name__ == '__main__':
                     'n_layersm[3]': 2,
                     'n_layersm[4]': 2,
                     'n_layersm[5]': 2,
+                    'layernorm' : False,
                     # 'optim': 'adamw',
                     }
     study.enqueue_trial(init_params)

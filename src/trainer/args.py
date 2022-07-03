@@ -178,6 +178,8 @@ def setup_argparse():
                     help='Dropout rate (default = 0.2)')
     parser.add_argument('--batchnorm', type=str, default='b',
                     help='Enable batch/instance normalization at the end of each MessageNet (batch | instance | None) (default = b)')
+    parser.add_argument('--layernorm', action=argparse.BooleanOptionalAction, default=False,
+                    help='Enable layer normalization in the input layer (default = False)')
     parser.add_argument('--sig', action=argparse.BooleanOptionalAction, default=False,
                         help='Enable message significance networks (default = False)')
     parser.add_argument('--sym', action=argparse.BooleanOptionalAction, default=False,
