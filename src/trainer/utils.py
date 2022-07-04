@@ -73,14 +73,13 @@ def fix_args(args):
         seed = int((datetime.now().timestamp())*100000)
         logger.info('Setting seed based upon time: {}'.format(seed))
         args.seed = seed
-        torch.manual_seed(seed)
-    elif args.seed > 0:
-        torch.manual_seed(args.seed)
-        torch.cuda.manual_seed(args.seed)
-        torch.cuda.manual_seed_all(args.seed)
-        torch.backends.cudnn.enabled = False
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    torch.backends.cudnn.enabled = False
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    
     return args
 
 def init_file_paths(args):
