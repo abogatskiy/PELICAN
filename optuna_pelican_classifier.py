@@ -23,15 +23,15 @@ logger = logging.getLogger('')
 
 def suggest_params(args, trial):
 
-    args.lr_init = trial.suggest_loguniform("lr_init", 0.0005, 0.005)
-    args.num_epoch = trial.suggest_int("num_epoch", 30, 100, step=10)
+    # args.lr_init = trial.suggest_loguniform("lr_init", 0.0005, 0.005)
+    # args.num_epoch = trial.suggest_int("num_epoch", 30, 100, step=10)
     # args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
-    args.scale = trial.suggest_loguniform("scale", 1e-2, 3)
+    # args.scale = trial.suggest_loguniform("scale", 1e-2, 3)
     # args.sig = trial.suggest_categorical("sig", [True, False])
-    args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, step=0.05)
-    args.layernorm = trial.suggest_categorical("layernorm", [True, False])
+    # args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, step=0.05)
+    # args.layernorm = trial.suggest_categorical("layernorm", [True, False])
 
-    args.batch_size = trial.suggest_categorical("batch_size", [32, 40])
+    args.batch_size = trial.suggest_categorical("batch_size", [32, 40, 64])
 
     args.config = trial.suggest_categorical("config", ["s", "sm"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     
@@ -50,7 +50,7 @@ def suggest_params(args, trial):
     # n_layers2 = 1
     args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 10, 40) for i in range(n_layers2)]
 
-    # args.activation = trial.suggest_categorical("activation", ["elu", "leakyrelu"]) #, "relu", "silu", "selu", "tanh"])
+    args.activation = trial.suggest_categorical("activation", ["elu", "leakyrelu"]) #, "relu", "silu", "selu", "tanh"])
     # args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
 
     # args.activate_agg = trial.suggest_categorical("activate_agg", [True, False])
@@ -190,11 +190,11 @@ if __name__ == '__main__':
                     # 'activate_agg': False,
                     # 'activate_lin': True,
                     'activation': 'leakyrelu',
-                    'batch_size': 32,
-                    'config': 's',
+                    'batch_size': 40,
+                    'config': 'sm',
                     # 'lr_final': 1e-07,
                     # 'lr_init': 0.001,
-                    'scale': 1.,
+                    # 'scale': 0.33,
                     # 'num_epoch': 60,
                     # 'sig': False,
                     'n_channelsm[0, 0]': 25,
@@ -222,8 +222,8 @@ if __name__ == '__main__':
                     'n_layersm[3]': 2,
                     'n_layersm[4]': 2,
                     'n_layersm[5]': 2,
-                    'layernorm' : False,
-                    'drop_rate' : 0.2,
+                    # 'layernorm' : False,
+                    # 'drop_rate' : 0.15,
                     # 'optim': 'adamw',
                     }
     study.enqueue_trial(init_params)

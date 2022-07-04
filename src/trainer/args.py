@@ -19,7 +19,7 @@ def setup_argparse():
                         help='Train or evaluate model. (train | eval)')
 
     # Optimizer options
-    parser.add_argument('--num-epoch', type=int, default=50, metavar='N',
+    parser.add_argument('--num-epoch', type=int, default=80, metavar='N',
                         help='number of epochs to train (default: 10)')
     parser.add_argument('--batch-size', '-bs', type=int, default=10, metavar='N',
                         help='Mini-batch size (default: 10)')
@@ -28,7 +28,7 @@ def setup_argparse():
 
     parser.add_argument('--weight-decay', type=float, default=0, metavar='N',
                         help='Set the weight decay used in optimizer (default: 0)')
-    parser.add_argument('--lr-init', type=float, default=0.003, metavar='N',
+    parser.add_argument('--lr-init', type=float, default=0.0015, metavar='N',
                         help='Initial learning rate (default: 0.005)')
     parser.add_argument('--lr-final', type=float, default=1e-5, metavar='N',
                         help='Final (held) learning rate (default: 1e-5)')
