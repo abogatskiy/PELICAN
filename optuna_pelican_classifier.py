@@ -23,31 +23,32 @@ logger = logging.getLogger('')
 
 def suggest_params(args, trial):
 
-    # args.lr_init = trial.suggest_loguniform("lr_init", 0.002, 0.005)
+    args.lr_init = trial.suggest_loguniform("lr_init", 0.0005, 0.005)
+    args.num_epoch = trial.suggest_int("num_epoch", 30, 100, step=10)
     # args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
     args.scale = trial.suggest_loguniform("scale", 1e-2, 3)
     # args.sig = trial.suggest_categorical("sig", [True, False])
     args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, step=0.05)
     args.layernorm = trial.suggest_categorical("layernorm", [True, False])
 
-    args.batch_size = trial.suggest_categorical("batch_size", [8, 10, 16, 20, 32])
+    args.batch_size = trial.suggest_categorical("batch_size", [32, 40])
 
     args.config = trial.suggest_categorical("config", ["s", "sm"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     
-    n_layers1 = trial.suggest_int("n_layers1", 4, 8)
+    n_layers1 = trial.suggest_int("n_layers1", 6, 8)
 
     # n_layersm = [1,] * n_layers1
     n_layersm = [trial.suggest_int("n_layersm", 1, 2) for i in range(n_layers1)]
-    args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 5, 30) for k in range(n_layersm[i])] for i in range(n_layers1)]
+    args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 10, 40) for k in range(n_layersm[i])] for i in range(n_layers1)]
     # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(k)+']', 10, 30) for k in range(n_layersm)]] * n_layers1
 
-    args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 5, 30) for i in range(n_layers1 + 1)]
+    args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 40) for i in range(n_layers1 + 1)]
     # args.num_channels1 = [trial.suggest_int("n_channels1", 3, 30)]
     # args.num_channels1 = args.num_channels1 * (n_layers1) + [args.num_channels_m[0][0] if n_layersm > 0 else args.num_channels1[0]]
 
     n_layers2 = trial.suggest_int("n_layers2", 1, 2)
     # n_layers2 = 1
-    args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 10, 30) for i in range(n_layers2)]
+    args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 10, 40) for i in range(n_layers2)]
 
     # args.activation = trial.suggest_categorical("activation", ["elu", "leakyrelu"]) #, "relu", "silu", "selu", "tanh"])
     # args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
@@ -173,7 +174,7 @@ if __name__ == '__main__':
     if args.sampler.lower() == 'random':
         sampler = optuna.samplers.RandomSampler()
     elif args.sampler.lower().startswith('tpe'):
-        sampler = optuna.samplers.TPESampler(n_startup_trials=30, multivariate=True, group=True, constant_liar=True)
+        sampler = optuna.samplers.TPESampler(n_startup_trials=10, multivariate=True, group=True, constant_liar=True)
 
     if args.pruner == 'hyperband':
         pruner = optuna.pruners.HyperbandPruner()
@@ -189,11 +190,12 @@ if __name__ == '__main__':
                     # 'activate_agg': False,
                     # 'activate_lin': True,
                     'activation': 'leakyrelu',
-                    'batch_size': 20,
+                    'batch_size': 32,
                     'config': 's',
                     # 'lr_final': 1e-07,
                     # 'lr_init': 0.001,
                     'scale': 1.,
+                    # 'num_epoch': 60,
                     # 'sig': False,
                     'n_channelsm[0, 0]': 25,
                     'n_channelsm[0, 1]': 25,                    
@@ -221,6 +223,7 @@ if __name__ == '__main__':
                     'n_layersm[4]': 2,
                     'n_layersm[5]': 2,
                     'layernorm' : False,
+                    'drop_rate' : 0.2,
                     # 'optim': 'adamw',
                     }
     study.enqueue_trial(init_params)

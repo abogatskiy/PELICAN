@@ -28,7 +28,7 @@ def setup_argparse():
 
     parser.add_argument('--weight-decay', type=float, default=0, metavar='N',
                         help='Set the weight decay used in optimizer (default: 0)')
-    parser.add_argument('--lr-init', type=float, default=0.005, metavar='N',
+    parser.add_argument('--lr-init', type=float, default=0.003, metavar='N',
                         help='Initial learning rate (default: 0.005)')
     parser.add_argument('--lr-final', type=float, default=1e-5, metavar='N',
                         help='Final (held) learning rate (default: 1e-5)')
@@ -170,8 +170,6 @@ def setup_argparse():
                         help='Number of channels to allow after mixing (dfault: [3])')
     parser.add_argument('--num-channels2', nargs='*', type=int, default=[17,20], metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
-    parser.add_argument('--message', action=argparse.BooleanOptionalAction, default=True,
-                        help='Include message-forming blocks between equvariant blocks (default: True)')
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,
                     help='Enable a dropout layer at the end of the network (default = False)')
     parser.add_argument('--drop-rate', type=float, default=0.2, metavar='N',
@@ -194,8 +192,6 @@ def setup_argparse():
 
     parser.add_argument('--scale', type=float, default=1., metavar='N',
                     help='Global scaling factor for input four-momenta (default = 1.)')
-    parser.add_argument('--level-gain', nargs='*', type=float, default=[1.], metavar='N',
-                        help='Gain at each level (default: [1.])')
 
     parser.add_argument('--activation', type=str, default='leakyrelu',
                         help='Activation function used in MLP layers. Options: (relu, elu, leakyrelu, sigmoid, logsigmoid, atan, silu, celu, selu, soft, tanh). Default: elu.')                
@@ -205,9 +201,6 @@ def setup_argparse():
     # TODO: Update(?)
     parser.add_argument('--weight-init', type=str, default='randn', metavar='str',
                         help='Weight initialization function to use (default: rand)')
-
-    parser.add_argument('--gaussian-mask', action='store_true',
-                        help='Use gaussian mask instead of sigmoid mask.')
 
     return parser
 
