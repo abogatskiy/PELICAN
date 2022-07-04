@@ -23,15 +23,15 @@ logger = logging.getLogger('')
 
 def suggest_params(args, trial):
 
-    # args.lr_init = trial.suggest_loguniform("lr_init", 0.0005, 0.005)
-    # args.num_epoch = trial.suggest_int("num_epoch", 30, 100, step=10)
+    args.lr_init = trial.suggest_loguniform("lr_init", 0.0001, 0.005)
+    args.num_epoch = trial.suggest_int("num_epoch", 40, 80, step=10)
     # args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
-    # args.scale = trial.suggest_loguniform("scale", 1e-2, 3)
+    args.scale = trial.suggest_loguniform("scale", 1e-2, 3)
     # args.sig = trial.suggest_categorical("sig", [True, False])
     # args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, step=0.05)
     # args.layernorm = trial.suggest_categorical("layernorm", [True, False])
 
-    args.batch_size = trial.suggest_categorical("batch_size", [32, 40, 64])
+    args.batch_size = trial.suggest_categorical("batch_size", [32, 36, 40])
 
     args.config = trial.suggest_categorical("config", ["s", "sm"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     
@@ -198,30 +198,30 @@ if __name__ == '__main__':
                     # 'num_epoch': 60,
                     # 'sig': False,
                     'n_channelsm[0, 0]': 25,
-                    'n_channelsm[0, 1]': 25,                    
+                    # 'n_channelsm[0, 1]': 25,                    
                     'n_channels1[0]': 25,
                     'n_channelsm[1, 0]': 20,
-                    'n_channelsm[1, 1]': 20,
+                    # 'n_channelsm[1, 1]': 20,
                     'n_channels1[1]': 20,
                     'n_channelsm[2, 0]': 15,
-                    'n_channelsm[2, 1]': 15,
+                    # 'n_channelsm[2, 1]': 15,
                     'n_channels1[2]': 15,
                     'n_channelsm[3, 0]': 20,
-                    'n_channelsm[3, 1]': 20,
+                    # 'n_channelsm[3, 1]': 20,
                     'n_channels1[3]': 15,
                     'n_channelsm[4, 0]': 25,
-                    'n_channelsm[4, 1]': 25,
+                    # 'n_channelsm[4, 1]': 25,
                     'n_channels1[4]': 20,
                     'n_channels1[5]': 25,
                     'n_channels2[0]': 25,
                     # 'n_layers1': 5,
                     # 'n_layers2': 1,
-                    'n_layersm[0]': 2,
-                    'n_layersm[1]': 2,
-                    'n_layersm[2]': 2,
-                    'n_layersm[3]': 2,
-                    'n_layersm[4]': 2,
-                    'n_layersm[5]': 2,
+                    'n_layersm[0]': 1,
+                    'n_layersm[1]': 1,
+                    'n_layersm[2]': 1,
+                    'n_layersm[3]': 1,
+                    'n_layersm[4]': 1,
+                    'n_layersm[5]': 1,
                     # 'layernorm' : False,
                     # 'drop_rate' : 0.15,
                     # 'optim': 'adamw',

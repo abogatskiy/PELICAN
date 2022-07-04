@@ -172,7 +172,7 @@ def setup_argparse():
                         help='Number of channels to allow after mixing (default: [3])')
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,
                     help='Enable a dropout layer at the end of the network (default = False)')
-    parser.add_argument('--drop-rate', type=float, default=0.2, metavar='N',
+    parser.add_argument('--drop-rate', type=float, default=0.25, metavar='N',
                     help='Dropout rate (default = 0.2)')
     parser.add_argument('--batchnorm', type=str, default='b',
                     help='Enable batch/instance normalization at the end of each MessageNet (batch | instance | None) (default = b)')
@@ -190,7 +190,7 @@ def setup_argparse():
                     help='Apply an activation function right after the linear mixing following aggregation (default = True)')
 
 
-    parser.add_argument('--scale', type=float, default=1., metavar='N',
+    parser.add_argument('--scale', type=float, default=0.33, metavar='N',
                     help='Global scaling factor for input four-momenta (default = 1.)')
 
     parser.add_argument('--activation', type=str, default='leakyrelu',
