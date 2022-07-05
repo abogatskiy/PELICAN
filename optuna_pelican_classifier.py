@@ -37,8 +37,8 @@ def suggest_params(args, trial):
     
     n_layers1 = trial.suggest_int("n_layers1", 6, 8)
 
-    # n_layersm = [1,] * n_layers1
-    n_layersm = [trial.suggest_int("n_layersm", 1, 2) for i in range(n_layers1)]
+    n_layersm = trial.suggest_int("n_layersm", 1, 2)
+    # n_layersm = [trial.suggest_int("n_layersm", 1, 2) for i in range(n_layers1)]
     # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 10, 40) for k in range(n_layersm[i])] for i in range(n_layers1)]
     args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(k)+']', 10, 30) for k in range(n_layersm)]] * n_layers1
 
