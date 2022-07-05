@@ -30,7 +30,7 @@ def setup_argparse():
                         help='Set the weight decay used in optimizer (default: 0)')
     parser.add_argument('--lr-init', type=float, default=0.0015, metavar='N',
                         help='Initial learning rate (default: 0.005)')
-    parser.add_argument('--lr-final', type=float, default=1e-5, metavar='N',
+    parser.add_argument('--lr-final', type=float, default=5e-6, metavar='N',
                         help='Final (held) learning rate (default: 1e-5)')
     parser.add_argument('--lr-decay', type=int, default=-1, metavar='N',
                         help='Timescale over which to decay the learning rate (-1 to disable) (default: -1)')

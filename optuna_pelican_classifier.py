@@ -179,7 +179,7 @@ if __name__ == '__main__':
     if args.pruner == 'hyperband':
         pruner = optuna.pruners.HyperbandPruner()
     elif args.pruner == 'median':
-        pruner = optuna.pruners.MedianPruner(n_warmup_steps=5, n_min_trials=5)
+        pruner = optuna.pruners.MedianPruner(n_warmup_steps=5, n_min_trials=10)
     elif args.pruner == 'none':
         pruner = None
 
@@ -198,30 +198,30 @@ if __name__ == '__main__':
                     # 'num_epoch': 60,
                     # 'sig': False,
                     'n_channelsm[0, 0]': 25,
-                    # 'n_channelsm[0, 1]': 25,                    
+                    'n_channelsm[0, 1]': 25,                    
                     'n_channels1[0]': 25,
                     'n_channelsm[1, 0]': 20,
-                    # 'n_channelsm[1, 1]': 20,
+                    'n_channelsm[1, 1]': 20,
                     'n_channels1[1]': 20,
                     'n_channelsm[2, 0]': 15,
-                    # 'n_channelsm[2, 1]': 15,
+                    'n_channelsm[2, 1]': 15,
                     'n_channels1[2]': 15,
                     'n_channelsm[3, 0]': 20,
-                    # 'n_channelsm[3, 1]': 20,
+                    'n_channelsm[3, 1]': 20,
                     'n_channels1[3]': 15,
                     'n_channelsm[4, 0]': 25,
-                    # 'n_channelsm[4, 1]': 25,
+                    'n_channelsm[4, 1]': 25,
                     'n_channels1[4]': 20,
                     'n_channels1[5]': 25,
                     'n_channels2[0]': 25,
                     # 'n_layers1': 5,
                     # 'n_layers2': 1,
-                    'n_layersm[0]': 1,
-                    'n_layersm[1]': 1,
-                    'n_layersm[2]': 1,
-                    'n_layersm[3]': 1,
-                    'n_layersm[4]': 1,
-                    'n_layersm[5]': 1,
+                    'n_layersm[0]': 2,
+                    'n_layersm[1]': 2,
+                    'n_layersm[2]': 2,
+                    'n_layersm[3]': 2,
+                    'n_layersm[4]': 2,
+                    'n_layersm[5]': 2,
                     # 'layernorm' : False,
                     # 'drop_rate' : 0.15,
                     # 'optim': 'adamw',
