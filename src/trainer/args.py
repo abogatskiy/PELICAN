@@ -164,11 +164,11 @@ def setup_argparse():
 
     parser.add_argument('--num-channels0', nargs='*', type=int, default=[5,]*2, metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
-    parser.add_argument('--num-channels-m', nargs='*', type=int, default=[[13], [32], [24], [29], [31], [13]], metavar='N',
+    parser.add_argument('--num-channels-m', nargs='*', type=int, default=[[15], [30], [25], [20], [20], [25]], metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
-    parser.add_argument('--num-channels1', nargs='*', type=int, default=[17,26,17,28,24,23,38], metavar='N',
+    parser.add_argument('--num-channels1', nargs='*', type=int, default=[15,30,25,20,20,25,25], metavar='N',
                         help='Number of channels to allow after mixing (dfault: [3])')
-    parser.add_argument('--num-channels2', nargs='*', type=int, default=[17], metavar='N',
+    parser.add_argument('--num-channels2', nargs='*', type=int, default=[15], metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,
                     help='Enable a dropout layer at the end of the network (default = False)')

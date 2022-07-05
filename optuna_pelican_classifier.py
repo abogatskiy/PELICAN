@@ -23,15 +23,15 @@ logger = logging.getLogger('')
 
 def suggest_params(args, trial):
 
-    args.lr_init = trial.suggest_loguniform("lr_init", 0.0001, 0.005)
-    args.num_epoch = trial.suggest_int("num_epoch", 40, 80, step=10)
+    args.lr_init = trial.suggest_loguniform("lr_init", 0.0005, 0.005)
+    # args.num_epoch = trial.suggest_int("num_epoch", 40, 80, step=10)
     # args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
     args.scale = trial.suggest_loguniform("scale", 1e-2, 3)
     # args.sig = trial.suggest_categorical("sig", [True, False])
-    # args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, step=0.05)
+    args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, step=0.05)
     # args.layernorm = trial.suggest_categorical("layernorm", [True, False])
 
-    args.batch_size = trial.suggest_categorical("batch_size", [32, 36, 40])
+    args.batch_size = trial.suggest_categorical("batch_size", [32, 40])
 
     args.config = trial.suggest_categorical("config", ["s", "sm"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     
@@ -39,8 +39,8 @@ def suggest_params(args, trial):
 
     # n_layersm = [1,] * n_layers1
     n_layersm = [trial.suggest_int("n_layersm", 1, 2) for i in range(n_layers1)]
-    args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 10, 40) for k in range(n_layersm[i])] for i in range(n_layers1)]
-    # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(k)+']', 10, 30) for k in range(n_layersm)]] * n_layers1
+    # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 10, 40) for k in range(n_layersm[i])] for i in range(n_layers1)]
+    args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(k)+']', 10, 30) for k in range(n_layersm)]] * n_layers1
 
     args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 40) for i in range(n_layers1 + 1)]
     # args.num_channels1 = [trial.suggest_int("n_channels1", 3, 30)]
@@ -191,7 +191,7 @@ if __name__ == '__main__':
                     # 'activate_lin': True,
                     'activation': 'leakyrelu',
                     'batch_size': 40,
-                    'config': 'sm',
+                    'config': 's',
                     # 'lr_final': 1e-07,
                     # 'lr_init': 0.001,
                     # 'scale': 0.33,
