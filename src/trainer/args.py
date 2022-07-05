@@ -40,7 +40,8 @@ def setup_argparse():
                         help='Decay learning rate every minibatch instead of epoch.')
     parser.add_argument('--sgd-restart', type=int, default=-1, metavar='int',
                         help='Restart SGD optimizer every (lr_decay)^p epochs, where p=sgd_restart. (-1 to disable) (default: -1)')
-
+    parser.add_argument('--optuna-test', action=argparse.BooleanOptionalAction, default=False,
+                        help='Run best epoch\'s model on testing set at the end of an Optuna trial.')
 
     parser.add_argument('--optim', type=str, default='adamw', metavar='str',
                         help='Set optimizer. (SGD, AMSgrad, Adam, AdamW, RMSprop)')
@@ -164,11 +165,11 @@ def setup_argparse():
 
     parser.add_argument('--num-channels0', nargs='*', type=int, default=[5,]*2, metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
-    parser.add_argument('--num-channels-m', nargs='*', type=int, default=[[15], [30], [25], [20], [20], [25]], metavar='N',
+    parser.add_argument('--num-channels-m', nargs='*', type=int, default=[[38], [24], [11], [24], [32], [40]], metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
-    parser.add_argument('--num-channels1', nargs='*', type=int, default=[15,30,25,20,20,25,25], metavar='N',
+    parser.add_argument('--num-channels1', nargs='*', type=int, default=[37,20,19,16,21,22,23], metavar='N',
                         help='Number of channels to allow after mixing (dfault: [3])')
-    parser.add_argument('--num-channels2', nargs='*', type=int, default=[15], metavar='N',
+    parser.add_argument('--num-channels2', nargs='*', type=int, default=[31], metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,
                     help='Enable a dropout layer at the end of the network (default = False)')

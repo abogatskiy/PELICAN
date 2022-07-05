@@ -143,19 +143,16 @@ def objective(trial):
     # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
     trainer.load_checkpoint()
 
-
     # Train model.  
     metric_to_report='loss' 
-
-    # with torch.autograd.detect_anomaly():
     best_epoch, best_metrics = trainer.train(trial=trial, metric_to_report=metric_to_report)
 
     print(f"Best epoch was {best_epoch} with metrics {best_metrics}")
 
-    # # Test predictions on best model and also last checkpointed model.
-    # best_loss = trainer.evaluate(splits=['test'])
+    if args.optuna_test:
+        # Test predictions on best model.
+        best_metrics=trainer.evaluate(splits=['test'], best=True, final=False)
 
-    # return [best_metrics['loss'], best_metrics['accuracy'], best_metrics['AUC']]
     return best_metrics[metric_to_report]
 
 if __name__ == '__main__':
@@ -179,7 +176,7 @@ if __name__ == '__main__':
     if args.pruner == 'hyperband':
         pruner = optuna.pruners.HyperbandPruner()
     elif args.pruner == 'median':
-        pruner = optuna.pruners.MedianPruner(n_warmup_steps=5, n_min_trials=10)
+        pruner = optuna.pruners.MedianPruner(n_warmup_steps=20, n_min_trials=10)
     elif args.pruner == 'none':
         pruner = None
 
