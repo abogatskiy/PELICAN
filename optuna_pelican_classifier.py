@@ -30,6 +30,7 @@ def suggest_params(args, trial):
     # args.sig = trial.suggest_categorical("sig", [True, False])
     args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, step=0.05)
     # args.layernorm = trial.suggest_categorical("layernorm", [True, False])
+    args.lr_decay_type = trial.suggest_categorical("lr_decay_type", ['exp', 'cos'])
 
     args.batch_size = trial.suggest_categorical("batch_size", [32, 40])
 

@@ -47,6 +47,7 @@ def main():
                                      batch_size=args.batch_size,
                                      shuffle=args.shuffle if (split == 'train') else False,
                                      num_workers=args.num_workers,
+                                     worker_init_fn=seed_worker,
                                      collate_fn=collate)
                    for split, dataset in datasets.items()}
 
@@ -85,6 +86,11 @@ def main():
 
     # Test predictions on best model and also last checkpointed model.
     trainer.evaluate(splits=['test'])
+
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    numpy.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 if __name__ == '__main__':
     main()

@@ -79,6 +79,7 @@ def fix_args(args):
     torch.backends.cudnn.enabled = False
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms(True)
     
     return args
 
