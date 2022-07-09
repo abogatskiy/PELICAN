@@ -39,11 +39,14 @@ class JetDataset(Dataset):
 
             signal_idxs = signal_idxs[signal_perm]
             backgd_idxs = backgd_idxs[backgd_perm]
-
+            
+            num_pairs = min(signal_idxs.size, backgd_idxs.size)
             # Now interleave signal and background indices, so we have a list of them all.
-            idxs = np.empty((signal_idxs.size + backgd_idxs.size),dtype=signal_idxs.dtype)
-            idxs[0::2] = signal_idxs
-            idxs[1::2] = backgd_idxs
+            idxs = np.arange((signal_idxs.size + backgd_idxs.size),dtype=signal_idxs.dtype)
+
+            idxs[0:2*num_pairs:2] = signal_idxs[:num_pairs]
+            idxs[1:2*num_pairs:2] = backgd_idxs[:num_pairs]
+            idxs[2*num_pairs:] = np.concatenate([signal_idxs[num_pairs:], backgd_idxs[num_pairs:]])
 
             self.perm = idxs[:self.num_pts]
             # self.perm = torch.randperm(len(data['Nobj']))[:self.num_pts]
