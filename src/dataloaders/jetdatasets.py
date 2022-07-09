@@ -31,7 +31,7 @@ class JetDataset(Dataset):
             # We will assume there are only two possible values (0,1) of "is_signal". #TODO: We could consider generalizing/extending this, for multi-label classification problems.
             signal_flags = data['is_signal'][:]
             signal_idxs = np.where(signal_flags==1)[0]
-            backgd_idxs = np.where(signal_flags==1)[0]
+            backgd_idxs = np.where(signal_flags==0)[0]
 
             # We will randomly permute each list of indices using PyTorch, so that its RNG (which is global) is invoked.
             signal_perm = torch.randperm(len(signal_idxs))
