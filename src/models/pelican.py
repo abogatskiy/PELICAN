@@ -89,8 +89,7 @@ class PELICANClassifier(nn.Module):
             The output of the layer
         """
         # Get and prepare the data
-        print(data["is_signal"])
-        print(data["is_signal"].sum())
+
         atom_scalars, atom_mask, edge_mask, event_momenta = self.prepare_input(data)
 
         # Calculate spherical harmonics and radial functions
