@@ -168,7 +168,7 @@ def setup_argparse():
     parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: [3])',
                         # default=[[38], [24], [11], [24], [32], [40]]
-                        default =[[30,20,10,10,20,30]]
+                        default =[[30],[20],[10],[10],[20],[30]]
                         )
     parser.add_argument('--num-channels1', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (dfault: [3])',
