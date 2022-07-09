@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 import os
 from itertools import islice
 from math import inf
+import numpy as np
 
 import logging
 
@@ -23,8 +24,29 @@ class JetDataset(Dataset):
                 self.num_pts = len(data['Nobj'])
             else:
                 self.num_pts = num_pts
-        if shuffle:
-            self.perm = torch.randperm(len(data['Nobj']))[:self.num_pts]
+
+        if shuffle: # shuffle the order of data on initialization, w.r.t. the ordering in the input file(s)
+
+            # We want to shuffle things, but make sure that we keep our signal-to-background ratio
+            # We will assume there are only two possible values (0,1) of "is_signal". #TODO: We could consider generalizing/extending this, for multi-label classification problems.
+            signal_flags = data['is_signal'][:]
+            signal_idxs = np.where(signal_flags==1)[0]
+            backgd_idxs = np.where(signal_flags==1)[0]
+
+            # We will randomly permute each list of indices using PyTorch, so that its RNG (which is global) is invoked.
+            signal_perm = torch.randperm(len(signal_idxs))
+            backgd_perm = torch.randperm(len(backgd_idxs))
+
+            signal_idxs = signal_idxs[signal_perm]
+            backgd_idxs = backgd_idxs[backgd_perm]
+
+            # Now interleave signal and background indices, so we have a list of them all.
+            idxs = np.empty((signal_idxs.size + backgd_idxs.size),dtype=signal_idxs.dtype)
+            idxs[0::2] = signal_idxs
+            idxs[1::2] = backgd_idxs
+
+            self.perm = idxs[:self.num_pts]
+            # self.perm = torch.randperm(len(data['Nobj']))[:self.num_pts]
         else:
             self.perm = None
 
