@@ -173,7 +173,7 @@ def setup_argparse():
     parser.add_argument('--num-channels1', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (dfault: [3])',
                         # default=[37,20,19,16,21,22,23]
-                        default=[25,20,20,15,20,20,35]
+                        default=[35,20,20,15,20,20,35]
                         )
     parser.add_argument('--num-channels2', nargs='*', type=int, default=[30], metavar='N',
                         help='Number of channels to allow after mixing (default: [3])')
