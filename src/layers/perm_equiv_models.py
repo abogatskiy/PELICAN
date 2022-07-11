@@ -88,7 +88,11 @@ class Eq2to2(nn.Module):
         self.activate_agg = activate_agg
         self.activate_lin = activate_lin
         self.activation_fn = get_activation_fn(activation)
-        self.basis_dim = (7 if sym else 15) * len(config)
+        if config == 'learn':
+            self.basis_dim = 7 if sym else 15
+            self.alphas = nn.Parameter(2 * torch.rand(1, in_dim, self.basis_dim, 1, 1, device=device, dtype=dtype))
+        else:
+            self.basis_dim = (7 if sym else 15) * len(config)
 
         self.out_dim = out_dim
         self.in_dim = in_dim
@@ -108,9 +112,15 @@ class Eq2to2(nn.Module):
     def forward(self, inputs, mask=None, nobj=None):
 
         d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
-        ops = [self.ops_func(inputs, nobj, aggregation=d[char]) for char in self.config if char in ['s', 'm', 'x', 'n']]
-        ops = ops+[self.ops_func(inputs, nobj, aggregation=d[char.lower()]) * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845) for char in self.config if char in ['S', 'M', 'X', 'N']]
-        ops = torch.cat(ops, dim=2)
+        if self.config == 'learn':
+            ops = self.ops_func(inputs, nobj, aggregation='mean')
+            mult = (1+nobj).view([-1,1,1,1,1])**self.alphas
+            mult = mult / (50**self.alphas)                  # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
+            ops = ops * mult
+        else:    
+            ops = [self.ops_func(inputs, nobj, aggregation=d[char]) for char in self.config if char in ['s', 'm', 'x', 'n']]
+            ops = ops+[self.ops_func(inputs, nobj, aggregation=d[char.lower()]) * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845) for char in self.config if char in ['S', 'M', 'X', 'N']]
+            ops = torch.cat(ops, dim=2)
         
         if self.activate_agg:
             ops = self.activation_fn(ops)
