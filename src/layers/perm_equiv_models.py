@@ -81,21 +81,25 @@ class Eq2to1(nn.Module):
         return output
 
 class Eq2to2(nn.Module):
-    def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to2, self).__init__()
         self.device = device
         self.dtype = dtype
         self.activate_agg = activate_agg
         self.activate_lin = activate_lin
         self.activation_fn = get_activation_fn(activation)
-        if config == 'learn':
-            self.basis_dim = 7 if sym else 15
-            # self.alphas = nn.Parameter(torch.ones(1,in_dim,15,1,1,device=device,dtype=dtype,requires_grad=True))
-            self.dummy_alphas = torch.zeros(1, in_dim, 5,  1, 1, device=device, dtype=dtype)
-            self.alphas = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 8,  1, 1, device=device, dtype=dtype),
-                                                  2 * torch.ones(1, in_dim, 2,  1, 1, device=device, dtype=dtype)], dim=2))
-        else:
-            self.basis_dim = (7 if sym else 15) * len(config)
+        self.config = config
+
+        self.basis_dim = 15 + 10 * (len(config) - 1)
+        self.dummy_alphas = torch.zeros(1, in_dim, 5,  1,  1, device=device, dtype=dtype)
+
+        self.alphas = nn.ParameterList([None] * len(config))
+        for i, char in enumerate(config):
+            if char in ['M', 'S', 'X', 'N']:
+                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 10,  1, 1, device=device, dtype=dtype))
+            # if char == 'M':
+            #     self.alphas[i] = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 8,  1, 1, device=device, dtype=dtype),
+            #                                              2 * torch.ones(1, in_dim, 2,  1, 1, device=device, dtype=dtype)], dim=2))
 
         self.out_dim = out_dim
         self.in_dim = in_dim
@@ -106,26 +110,49 @@ class Eq2to2(nn.Module):
 
         self.diag_eye = None #torch.eye(n).unsqueeze(0).unsqueeze(0).to(device)
         if ops_func is None:
-            self.ops_func = eops_2_to_2_sym if sym else eops_2_to_2
+            self.ops_func = eops_2_to_2
         else:
             self.ops_func = ops_func
-        self.config = config
+
         self.to(device=device, dtype=dtype)
 
     def forward(self, inputs, mask=None, nobj=None):
 
         d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
-        if self.config == 'learn':
-            ops = self.ops_func(inputs, nobj, aggregation='mean')
-            alphas = torch.cat([self.dummy_alphas,self.alphas],dim=2)
-            mult = (1+nobj).view([-1,1,1,1,1])**alphas
-            mult = mult / (50**alphas)                # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
-            ops = ops * mult
-        else:    
-            ops = [self.ops_func(inputs, nobj, aggregation=d[char]) for char in self.config if char in ['s', 'm', 'x', 'n']]
-            ops = ops+[self.ops_func(inputs, nobj, aggregation=d[char.lower()]) * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845) for char in self.config if char in ['S', 'M', 'X', 'N']]
-            ops = torch.cat(ops, dim=2)
-        
+
+        # if self.config == 'learn':
+        #     ops = self.ops_func(inputs, nobj, aggregation='mean')
+        #     alphas = torch.cat([self.dummy_alphas,self.alphas],dim=2)
+        #     mult = (1+nobj).view([-1,1,1,1,1])**alphas
+        #     mult = mult / (50**alphas)                # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
+        #     ops = ops * mult
+        # else:    
+        #     ops = [self.ops_func(inputs, nobj, aggregation=d[self.config[0]])]
+        #     ops = ops + [self.ops_func(inputs, nobj, aggregation=d[char], skip_order_zero=True) for char in self.config[1:] if char in ['s', 'm', 'x', 'n']]
+        #     ops = ops+[self.ops_func(inputs, nobj, aggregation=d[char.lower()]) * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845) for char in self.config if char in ['S', 'M', 'X', 'N']]
+        #     # ops = ops+[self.ops_func(inputs, nobj, aggregation=d[char.lower()]) * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845) for char in self.config if char in ['S', 'M', 'X', 'N']]
+        #     ops = torch.cat(ops, dim=2)
+
+        average_nobj = 50                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
+        for i, char in enumerate(self.config):
+            if char in ['s', 'm', 'x', 'n']:
+                if i==0:
+                    ops = [self.ops_func(inputs, nobj, aggregation=d[char])]
+                else:
+                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char], skip_order_zero=True))
+            elif char in ['S', 'M', 'X', 'N']:
+                if i==0:
+                    ops = [self.ops_func(inputs, nobj, aggregation=d[char.lower()])]
+                    alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
+                else:
+                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=True))
+                    alphas = self.alphas[i]
+                mult = (1+nobj).view([-1,1,1,1,1])**alphas
+                mult = mult / (average_nobj**alphas)
+                ops[i] = ops[i] * mult
+
+        ops = torch.cat(ops, dim=2)
+
         if self.activate_agg:
             ops = self.activation_fn(ops)
 
@@ -156,7 +183,7 @@ class Net1to1(nn.Module):
         return x
 
 class Net2to2(nn.Module):
-    def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sig=False, sym=False, config='s', device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sig=False, config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Net2to2, self).__init__()
         
         self.sig = sig
@@ -164,7 +191,7 @@ class Net2to2(nn.Module):
         self.num_channels_message = num_channels_m
         self.softmax = nn.LogSoftmax(dim=-1)
         num_layers = len(num_channels) - 1
-        # self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], num_channels[i+1], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
+        # self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], num_channels[i+1], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, config=config, device=device, dtype=dtype) for i in range(num_layers)])
         self.in_dim = num_channels_m[0][0] if len(num_channels_m[0]) > 0 else num_channels[0]
 
         eq_out_dims = [num_channels_m[i+1][0] if len(num_channels_m[i+1]) > 0 else num_channels[i+1] for i in range(num_layers-1)] + [num_channels[-1]]
@@ -173,7 +200,7 @@ class Net2to2(nn.Module):
         if sig: 
             self.attention = nn.ModuleList([nn.Linear(num_channels[i], 1, bias=False, device=device, dtype=dtype) for i in range(num_layers)])
             self.normlayers = nn.ModuleList([nn.LayerNorm(num_channels[i], device=device, dtype=dtype) for i in range(num_layers)])
-        self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, sym=sym, config=config, device=device, dtype=dtype) for i in range(num_layers)])
+        self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, config=config, device=device, dtype=dtype) for i in range(num_layers)])
         self.to(device=device, dtype=dtype)
 
     def forward(self, x, mask=None, nobj=None):
@@ -184,6 +211,7 @@ class Net2to2(nn.Module):
 
         assert (x.shape[-1] == self.in_dim), "Input dimension of Net2to2 doesn't match the dimension of the input tensor"
         B = x.shape[0]
+        print(self.eq_layers[0].alphas[1][0,0,:,0,0])
         if self.sig: 
             for layer, message, sig, normlayer in zip(self.eq_layers, self.message_layers, self.attention, self.normlayers):
                 m = message(x, mask)        # form messages at each of the NxN nodes

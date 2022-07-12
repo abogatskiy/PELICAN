@@ -187,8 +187,6 @@ def setup_argparse():
                     help='Enable layer normalization in the input layer (default = False)')
     parser.add_argument('--sig', action=argparse.BooleanOptionalAction, default=False,
                         help='Enable message significance networks (default = False)')
-    parser.add_argument('--sym', action=argparse.BooleanOptionalAction, default=False,
-                        help='Preserve symmetry in the 2->2 equivariant layers (default = False)')
     parser.add_argument('--config', type=str, default='s',
                     help='Configuration for aggregation functions in Net2to2 (any combination of letters s,S,m,M,x,X,n,N (default = s)')
     parser.add_argument('--activate-agg', action=argparse.BooleanOptionalAction, default=False,
