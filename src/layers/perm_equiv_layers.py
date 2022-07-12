@@ -115,7 +115,7 @@ def eops_2_to_2_sym(inputs, mask=None):
     sum_all = inputs.sum(dim=(2,3)) / dim**2 # N x D
 
     ops = [None] * (7 + 1)
-    ops[1]  = torch.diag_embed(diag_part) # N x D x m x m
+    ops[5]  = torch.diag_embed(diag_part) # N x D x m x m
     ops[2]  = torch.diag_embed(sum_diag_part.expand(-1, -1, dim))
     ops[3]  = torch.diag_embed(sum_rows)
     #ops[4]  = torch.diag_embed(sum_rows)
@@ -126,7 +126,7 @@ def eops_2_to_2_sym(inputs, mask=None):
     # ops[8]  = sum_cols.unsqueeze(2).expand(-1, -1, dim, -1)
     # ops[9]  = sum_rows.unsqueeze(2).expand(-1, -1, dim, -1)
 
-    ops[5] = inputs
+    ops[1] = inputs
     # ops[11] = torch.transpose(inputs, 2, 3)
     # ops[12] = diag_part.unsqueeze(3).expand(-1, -1, -1, dim)
     # ops[13] = diag_part.unsqueeze(2).expand(-1, -1, dim, -1)
@@ -157,21 +157,23 @@ def eops_2_to_2(inputs, nobj=None, aggregation='mean'):
     sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # N x D
 
     ops = [None] * (15 + 1)
-    ops[1]  = torch.diag_embed(diag_part) # N x D x m x m
-    ops[2]  = torch.diag_embed(sum_diag_part.expand(-1, -1, dim))
-    ops[3]  = torch.diag_embed(sum_rows)
-    ops[4]  = torch.diag_embed(sum_cols)
-    ops[5]  = torch.diag_embed(sum_all.unsqueeze(-1).expand(-1, -1, dim))
-    ops[6]  = sum_cols.unsqueeze(3).expand(-1, -1, -1, dim)
-    ops[7]  = sum_rows.unsqueeze(3).expand(-1, -1, -1, dim)
-    ops[8]  = sum_cols.unsqueeze(2).expand(-1, -1, dim, -1)
-    ops[9]  = sum_rows.unsqueeze(2).expand(-1, -1, dim, -1)
 
-    ops[10] = inputs
-    ops[11] = torch.transpose(inputs, 2, 3)
-    ops[12] = diag_part.unsqueeze(3).expand(-1, -1, -1, dim)
-    ops[13] = diag_part.unsqueeze(2).expand(-1, -1, dim, -1)
-    ops[14] = sum_diag_part.unsqueeze(3).expand(-1, -1, dim, dim)
+    ops[1] = inputs
+    ops[2] = torch.transpose(inputs, 2, 3)
+    ops[3]  = torch.diag_embed(diag_part) # N x D x m x m
+    ops[4] = diag_part.unsqueeze(3).expand(-1, -1, -1, dim)
+    ops[5] = diag_part.unsqueeze(2).expand(-1, -1, dim, -1)
+
+    ops[6]  = torch.diag_embed(sum_diag_part.expand(-1, -1, dim))
+    ops[7]  = torch.diag_embed(sum_rows)
+    ops[8]  = torch.diag_embed(sum_cols)
+    ops[9]  = sum_cols.unsqueeze(3).expand(-1, -1, -1, dim)
+    ops[10]  = sum_rows.unsqueeze(3).expand(-1, -1, -1, dim)
+    ops[11]  = sum_cols.unsqueeze(2).expand(-1, -1, dim, -1)
+    ops[12]  = sum_rows.unsqueeze(2).expand(-1, -1, dim, -1)
+    ops[13] = sum_diag_part.unsqueeze(3).expand(-1, -1, dim, dim)
+
+    ops[14]  = torch.diag_embed(sum_all.unsqueeze(-1).expand(-1, -1, dim))
     ops[15] = sum_all.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, dim, dim)
 
     return torch.stack(ops[1:], dim=2)

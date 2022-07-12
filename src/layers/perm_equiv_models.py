@@ -90,7 +90,10 @@ class Eq2to2(nn.Module):
         self.activation_fn = get_activation_fn(activation)
         if config == 'learn':
             self.basis_dim = 7 if sym else 15
-            self.alphas = nn.Parameter(2 * torch.rand(1, in_dim, self.basis_dim, 1, 1, device=device, dtype=dtype))
+            # self.alphas = nn.Parameter(torch.ones(1,in_dim,15,1,1,device=device,dtype=dtype,requires_grad=True))
+            self.dummy_alphas = torch.zeros(1, in_dim, 5,  1, 1, device=device, dtype=dtype)
+            self.alphas = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 8,  1, 1, device=device, dtype=dtype),
+                                                  2 * torch.ones(1, in_dim, 2,  1, 1, device=device, dtype=dtype)], dim=2))
         else:
             self.basis_dim = (7 if sym else 15) * len(config)
 
@@ -114,8 +117,9 @@ class Eq2to2(nn.Module):
         d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
         if self.config == 'learn':
             ops = self.ops_func(inputs, nobj, aggregation='mean')
-            mult = (1+nobj).view([-1,1,1,1,1])**self.alphas
-            mult = mult / (50**self.alphas)                  # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
+            alphas = torch.cat([self.dummy_alphas,self.alphas],dim=2)
+            mult = (1+nobj).view([-1,1,1,1,1])**alphas
+            mult = mult / (50**alphas)                # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
             ops = ops * mult
         else:    
             ops = [self.ops_func(inputs, nobj, aggregation=d[char]) for char in self.config if char in ['s', 'm', 'x', 'n']]
