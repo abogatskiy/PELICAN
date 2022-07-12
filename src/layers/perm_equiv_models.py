@@ -211,7 +211,7 @@ class Net2to2(nn.Module):
 
         assert (x.shape[-1] == self.in_dim), "Input dimension of Net2to2 doesn't match the dimension of the input tensor"
         B = x.shape[0]
-        print(self.eq_layers[0].alphas[1][0,0,:,0,0])
+
         if self.sig: 
             for layer, message, sig, normlayer in zip(self.eq_layers, self.message_layers, self.attention, self.normlayers):
                 m = message(x, mask)        # form messages at each of the NxN nodes
