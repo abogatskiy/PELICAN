@@ -68,15 +68,21 @@ class Eq2to0(nn.Module):
         self.basis_dim = 2 * len(config)
         self.alphas = nn.ParameterList([None] * len(config))
         self.betas = nn.ParameterList([None] * len(config))
+        countM = 0
         for i, char in enumerate(config):
             if char in ['S', 'X', 'N']:
                 self.alphas[i] = nn.Parameter(torch.zeros(1, 1, 2, device=device, dtype=dtype))
                 self.betas[i] = nn.Parameter(torch.ones([1, 1, 2], device=device, dtype=dtype))
             elif char == 'M':
-                self.betas[i] = nn.Parameter(torch.cat([(self.average_nobj/128)    * torch.ones( 1, 1, 1, device=device, dtype=dtype),
-                                                        (self.average_nobj/128)**2 * torch.ones( 1, 1, 1, device=device, dtype=dtype)], dim=2))
-                self.alphas[i] = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 1, device=device, dtype=dtype),
-                                                         2 * torch.ones(1, in_dim, 1, device=device, dtype=dtype)], dim=2))
+                countM += 1
+                if countM > 1:
+                    self.betas[i] = nn.Parameter(2 * torch.rand( 1, 1, 2, device=device, dtype=dtype))
+                    self.alphas[i] = nn.Parameter(2 * torch.rand(1, in_dim, 2, device=device, dtype=dtype))
+                else:
+                    self.betas[i] = nn.Parameter(torch.cat([(self.average_nobj/128)    * torch.ones( 1, 1, 1, device=device, dtype=dtype),
+                                                            (self.average_nobj/128)**2 * torch.ones( 1, 1, 1, device=device, dtype=dtype)], dim=2))
+                    self.alphas[i] = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 1, device=device, dtype=dtype),
+                                                            2 * torch.ones(1, in_dim, 1, device=device, dtype=dtype)], dim=2))
 
         self.out_dim = out_dim
         self.in_dim = in_dim
@@ -131,19 +137,26 @@ class Eq2to2(nn.Module):
 
         self.average_nobj = 49                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
         self.basis_dim = 15 + 10 * (len(config) - 1)
-        self.dummy_alphas = torch.zeros(1, in_dim, 5,  1,  1, device=device, dtype=dtype)
 
         self.alphas = nn.ParameterList([None] * len(config))
         self.betas = nn.ParameterList([None] * len(config))
+        self.dummy_alphas = torch.zeros(1, in_dim, 5, 1, 1, device=device, dtype=dtype)
+        self.dummy_betas = torch.ones(1, 1, 5, 1, 1, device=device, dtype=dtype)
+        countM = 0
         for i, char in enumerate(config):
             if char in ['S', 'X', 'N']:
                 self.alphas[i] = nn.Parameter(torch.zeros(1, 1, 10,  1, 1, device=device, dtype=dtype))
                 self.betas[i] = nn.Parameter(torch.ones([1, 1, 10, 1, 1], device=device, dtype=dtype))
             elif char == 'M':
-                self.betas[i] = nn.Parameter(torch.cat([(self.average_nobj/128)    * torch.ones( 1, 1, 8,  1, 1, device=device, dtype=dtype),
-                                                        (self.average_nobj/128)**2 * torch.ones( 1, 1, 2,  1, 1, device=device, dtype=dtype)], dim=2))
-                self.alphas[i] = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 8,  1, 1, device=device, dtype=dtype),
-                                                         2 * torch.ones(1, in_dim, 2,  1, 1, device=device, dtype=dtype)], dim=2))
+                countM += 1
+                if countM > 1:
+                    self.betas[i] = nn.Parameter(2 * torch.rand( 1, 1, 10, 1, 1, device=device, dtype=dtype))
+                    self.alphas[i] = nn.Parameter(0.5 + torch.rand(1, in_dim, 10, 1, 1, device=device, dtype=dtype))
+                else:
+                    self.betas[i] = nn.Parameter(torch.cat([(self.average_nobj/128)    * torch.ones( 1, 1, 8,  1, 1, device=device, dtype=dtype),
+                                                            (self.average_nobj/128)**2 * torch.ones( 1, 1, 2,  1, 1, device=device, dtype=dtype)], dim=2))
+                    self.alphas[i] = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 8,  1, 1, device=device, dtype=dtype),
+                                                            2 * torch.ones(1, in_dim, 2,  1, 1, device=device, dtype=dtype)], dim=2))
 
         self.out_dim = out_dim
         self.in_dim = in_dim
@@ -187,7 +200,7 @@ class Eq2to2(nn.Module):
                 if i==0:
                     ops = [self.ops_func(inputs, nobj, aggregation=d[char.lower()])]
                     alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
-                    betas = torch.cat([self.dummy_alphas, self.betas[0]], dim=2)
+                    betas = torch.cat([self.dummy_betas, self.betas[0]], dim=2)
                 else:
                     ops.append(self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=True))
                     alphas = self.alphas[i]
