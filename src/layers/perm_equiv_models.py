@@ -64,12 +64,16 @@ class Eq2to0(nn.Module):
         self.activation_fn = get_activation_fn(activation)
         self.config = config
 
+        self.average_nobj = 50                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
         self.basis_dim = 2 * len(config)
         self.alphas = nn.ParameterList([None] * len(config))
         for i, char in enumerate(config):
             if char in ['S', 'X', 'N']:
-                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 2, device=device, dtype=dtype))
+                self.alphas[i] = nn.Parameter(torch.zeros(1, 1, 2, device=device, dtype=dtype))
+                self.betas[i] = nn.Parameter(torch.ones([1, 1, 2, 1, 1], device=device, dtype=dtype))
             elif char == 'M':
+                self.betas[i] = nn.Parameter(torch.cat([(self.average_nobj/132)    * torch.ones( 1, 1, 1,  1, 1, device=device, dtype=dtype),
+                                                        (self.average_nobj/132)**2 * torch.ones( 1, 1, 1,  1, 1, device=device, dtype=dtype)], dim=2))
                 self.alphas[i] = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 1, device=device, dtype=dtype),
                                                          2 * torch.ones(1, in_dim, 1, device=device, dtype=dtype)], dim=2))
 
@@ -87,16 +91,14 @@ class Eq2to0(nn.Module):
         '''
         d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
 
-        average_nobj = 50                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
         ops = []
         for i, char in enumerate(self.config):
             if char in ['s', 'm', 'x', 'n']:
                 ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char]))
             elif char in ['S', 'M', 'X', 'N']:
                 ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()]))
-                alphas = self.alphas[i]
-                mult = (1+nobj).view([-1,1,1])**alphas
-                mult = mult / (average_nobj**alphas)
+                mult = self.betas[i] * (nobj).view([-1,1,1])**self.alphas[i]
+                mult = mult / (self.average_nobj**alphas)
                 ops[i] = ops[i] * mult            
             else:
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
@@ -126,14 +128,19 @@ class Eq2to2(nn.Module):
         self.activation_fn = get_activation_fn(activation)
         self.config = config
 
+        self.average_nobj = 49                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
         self.basis_dim = 15 + 10 * (len(config) - 1)
         self.dummy_alphas = torch.zeros(1, in_dim, 5,  1,  1, device=device, dtype=dtype)
 
         self.alphas = nn.ParameterList([None] * len(config))
+        self.betas = nn.ParameterList([None] * len(config))
         for i, char in enumerate(config):
             if char in ['S', 'X', 'N']:
-                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 10,  1, 1, device=device, dtype=dtype))
+                self.alphas[i] = nn.Parameter(torch.zeros(1, 1, 10,  1, 1, device=device, dtype=dtype))
+                self.betas[i] = nn.Parameter(torch.ones([1, 1, 10, 1, 1], device=device, dtype=dtype))
             elif char == 'M':
+                self.betas[i] = nn.Parameter(torch.cat([(self.average_nobj/128)    * torch.ones( 1, 1, 8,  1, 1, device=device, dtype=dtype),
+                                                        (self.average_nobj/128)**2 * torch.ones( 1, 1, 2,  1, 1, device=device, dtype=dtype)], dim=2))
                 self.alphas[i] = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 8,  1, 1, device=device, dtype=dtype),
                                                          2 * torch.ones(1, in_dim, 2,  1, 1, device=device, dtype=dtype)], dim=2))
 
@@ -169,7 +176,6 @@ class Eq2to2(nn.Module):
         #     # ops = ops+[self.ops_func(inputs, nobj, aggregation=d[char.lower()]) * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845) for char in self.config if char in ['S', 'M', 'X', 'N']]
         #     ops = torch.cat(ops, dim=2)
 
-        average_nobj = 50                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
         for i, char in enumerate(self.config):
             if char in ['s', 'm', 'x', 'n']:
                 if i==0:
@@ -180,15 +186,16 @@ class Eq2to2(nn.Module):
                 if i==0:
                     ops = [self.ops_func(inputs, nobj, aggregation=d[char.lower()])]
                     alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
+                    betas = torch.cat([self.dummy_alphas, self.betas[0]], dim=2)
                 else:
                     ops.append(self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=True))
                     alphas = self.alphas[i]
-                mult = (1+nobj).view([-1,1,1,1,1])**alphas
-                mult = mult / (average_nobj**alphas)
+                    betas = self.betas[i]
+                mult = betas * (nobj).view([-1,1,1,1,1])**alphas
+                mult = mult / (self.average_nobj**alphas)
                 ops[i] = ops[i] * mult
             else:
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
-
 
         ops = torch.cat(ops, dim=2)
 
