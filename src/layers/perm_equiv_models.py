@@ -67,13 +67,14 @@ class Eq2to0(nn.Module):
         self.average_nobj = 50                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
         self.basis_dim = 2 * len(config)
         self.alphas = nn.ParameterList([None] * len(config))
+        self.betas = nn.ParameterList([None] * len(config))
         for i, char in enumerate(config):
             if char in ['S', 'X', 'N']:
                 self.alphas[i] = nn.Parameter(torch.zeros(1, 1, 2, device=device, dtype=dtype))
-                self.betas[i] = nn.Parameter(torch.ones([1, 1, 2, 1, 1], device=device, dtype=dtype))
+                self.betas[i] = nn.Parameter(torch.ones([1, 1, 2], device=device, dtype=dtype))
             elif char == 'M':
-                self.betas[i] = nn.Parameter(torch.cat([(self.average_nobj/132)    * torch.ones( 1, 1, 1,  1, 1, device=device, dtype=dtype),
-                                                        (self.average_nobj/132)**2 * torch.ones( 1, 1, 1,  1, 1, device=device, dtype=dtype)], dim=2))
+                self.betas[i] = nn.Parameter(torch.cat([(self.average_nobj/128)    * torch.ones( 1, 1, 1, device=device, dtype=dtype),
+                                                        (self.average_nobj/128)**2 * torch.ones( 1, 1, 1, device=device, dtype=dtype)], dim=2))
                 self.alphas[i] = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 1, device=device, dtype=dtype),
                                                          2 * torch.ones(1, in_dim, 1, device=device, dtype=dtype)], dim=2))
 
@@ -98,7 +99,7 @@ class Eq2to0(nn.Module):
             elif char in ['S', 'M', 'X', 'N']:
                 ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()]))
                 mult = self.betas[i] * (nobj).view([-1,1,1])**self.alphas[i]
-                mult = mult / (self.average_nobj**alphas)
+                mult = mult / (self.average_nobj** self.alphas[i])
                 ops[i] = ops[i] * mult            
             else:
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
