@@ -187,8 +187,10 @@ def setup_argparse():
                     help='Enable layer normalization in the input layer (default = False)')
     parser.add_argument('--sig', action=argparse.BooleanOptionalAction, default=False,
                         help='Enable message significance networks (default = False)')
-    parser.add_argument('--config', type=str, default='s',
+    parser.add_argument('--config1', type=str, default='s',
                     help='Configuration for aggregation functions in Net2to2 (any combination of letters s,S,m,M,x,X,n,N (default = s)')
+    parser.add_argument('--config2', type=str, default='s',
+                    help='Configuration for aggregation functions in Eq2to0 (any combination of letters s,S,m,M,x,X,n,N (default = s)')
     parser.add_argument('--activate-agg', action=argparse.BooleanOptionalAction, default=False,
                     help='Apply an activation function right after permutation-equvariant aggregation (default = False)')
     parser.add_argument('--activate-lin', action=argparse.BooleanOptionalAction, default=True,
