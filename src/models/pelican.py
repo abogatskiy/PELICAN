@@ -11,7 +11,8 @@ class PELICANClassifier(nn.Module):
     Permutation Invariant, Lorentz Invariant/Covariant Awesome Network
     """
     def __init__(self, num_channels0, num_channels_m, num_channels1, num_channels2,
-                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s', mlp_out=True,
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s',
+                 activate_agg2=True, activate_lin2=False, mlp_out=True,
                  scale=1, ir_safe=False, dropout = False, drop_rate=0.2, batchnorm=None, layernorm=True,
                  device=torch.device('cpu'), dtype=None, cg_dict=None):
         super().__init__()
@@ -65,7 +66,7 @@ class PELICANClassifier(nn.Module):
             self.layernorm = nn.LayerNorm(self.num_channels_m[0][0], device = device, dtype = dtype)
   
         self.net2to2 = Net2to2(self.num_channels1, self.num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, config=config1, device = device, dtype = dtype)
-        self.eq2to0 = Eq2to0(self.num_channels1[-1], self.num_channels2[0] if mlp_out else 2, activate_agg=False, activate_lin=False, activation = activation, config=config2, device = device, dtype = dtype)
+        self.eq2to0 = Eq2to0(self.num_channels1[-1], self.num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, config=config2, device = device, dtype = dtype)
         if mlp_out:
             self.mlp_out = BasicMLP(self.num_channels2 + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
 

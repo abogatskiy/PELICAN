@@ -195,6 +195,10 @@ def setup_argparse():
                     help='Apply an activation function right after permutation-equvariant aggregation (default = False)')
     parser.add_argument('--activate-lin', action=argparse.BooleanOptionalAction, default=True,
                     help='Apply an activation function right after the linear mixing following aggregation (default = True)')
+    parser.add_argument('--activate-agg2', action=argparse.BooleanOptionalAction, default=True,
+                    help='Apply an activation function right after permutation-equvariant aggregation (default = True)')
+    parser.add_argument('--activate-lin2', action=argparse.BooleanOptionalAction, default=False,
+                    help='Apply an activation function right after the linear mixing following aggregation (default = False)')
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Include an output MLP (default = True)')
 
