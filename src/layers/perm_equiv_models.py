@@ -67,9 +67,12 @@ class Eq2to0(nn.Module):
         self.basis_dim = 2 * len(config)
         self.alphas = nn.ParameterList([None] * len(config))
         for i, char in enumerate(config):
-            if char in ['M', 'S', 'X', 'N']:
+            if char in ['S', 'X', 'N']:
                 self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 2, device=device, dtype=dtype))
-        
+            elif char == 'M':
+                self.alphas[i] = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 1, device=device, dtype=dtype),
+                                                         2 * torch.ones(1, in_dim, 1, device=device, dtype=dtype)], dim=2))
+
         self.out_dim = out_dim
         self.in_dim = in_dim
         self.ops_func = eops_2_to_0
@@ -91,7 +94,7 @@ class Eq2to0(nn.Module):
                 ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char]))
             elif char in ['S', 'M', 'X', 'N']:
                 ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()]))
-                alphas = 4*self.alphas[i]
+                alphas = self.alphas[i]
                 mult = (1+nobj).view([-1,1,1])**alphas
                 mult = mult / (average_nobj**alphas)
                 ops[i] = ops[i] * mult            
@@ -128,11 +131,11 @@ class Eq2to2(nn.Module):
 
         self.alphas = nn.ParameterList([None] * len(config))
         for i, char in enumerate(config):
-            if char in ['M', 'S', 'X', 'N']:
+            if char in ['S', 'X', 'N']:
                 self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 10,  1, 1, device=device, dtype=dtype))
-            # if char == 'M':
-            #     self.alphas[i] = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 8,  1, 1, device=device, dtype=dtype),
-            #                                              2 * torch.ones(1, in_dim, 2,  1, 1, device=device, dtype=dtype)], dim=2))
+            elif char == 'M':
+                self.alphas[i] = nn.Parameter(torch.cat([torch.ones(    1, in_dim, 8,  1, 1, device=device, dtype=dtype),
+                                                         2 * torch.ones(1, in_dim, 2,  1, 1, device=device, dtype=dtype)], dim=2))
 
         self.out_dim = out_dim
         self.in_dim = in_dim
@@ -176,10 +179,10 @@ class Eq2to2(nn.Module):
             elif char in ['S', 'M', 'X', 'N']:
                 if i==0:
                     ops = [self.ops_func(inputs, nobj, aggregation=d[char.lower()])]
-                    alphas = 4*torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
+                    alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
                 else:
                     ops.append(self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=True))
-                    alphas = 4*self.alphas[i]
+                    alphas = self.alphas[i]
                 mult = (1+nobj).view([-1,1,1,1,1])**alphas
                 mult = mult / (average_nobj**alphas)
                 ops[i] = ops[i] * mult
