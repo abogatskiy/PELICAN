@@ -137,7 +137,7 @@ class Eq2to2(nn.Module):
         self.config = config
 
         self.average_nobj = 49                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
-        self.basis_dim = 15 + 15 * (len(config) - 1)
+        self.basis_dim = 15 + 10 * (len(config) - 1)
 
         self.alphas = nn.ParameterList([None] * len(config))
         self.betas = nn.ParameterList([None] * len(config))
@@ -196,14 +196,14 @@ class Eq2to2(nn.Module):
                 if i==0:
                     ops = [self.ops_func(inputs, nobj, aggregation=d[char])]
                 else:
-                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char], skip_order_zero=False))
+                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char], skip_order_zero=True))
             elif char in ['S', 'M', 'X', 'N']:
                 if i==0:
                     ops = [self.ops_func(inputs, nobj, aggregation=d[char.lower()])]
                     alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
                     betas = torch.cat([self.dummy_betas, self.betas[0]], dim=2)
                 else:
-                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=False))
+                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=True))
                     alphas = self.alphas[i]
                     betas = self.betas[i]
                 mult = betas * (nobj).view([-1,1,1,1,1])**alphas
