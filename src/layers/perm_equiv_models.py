@@ -30,30 +30,6 @@ class Eq1to1(nn.Module):
             output = output * mask
         return output
 
-class Eq2to1(nn.Module):
-    def __init__(self, in_dim, out_dim, activation = 'leakyrelu', sym=False, device=torch.device('cpu'), dtype=torch.float):
-        super(Eq2to1, self).__init__()
-        self.basis_dim = 4 if sym else 5
-        self.out_dim = out_dim
-        self.in_dim = in_dim
-        self.activation_fn = get_activation_fn(activation)
-        self.ops_func = eops_2_to_1_sym if sym else eops_2_to_1
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2. / (in_dim + out_dim + self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
-        self.bias = nn.Parameter(torch.zeros(1, out_dim, 1, device=device, dtype=dtype))
-        self.to(device=device, dtype=dtype)
-
-    def forward(self, inputs, mask=None):
-        '''
-        inputs: N x D x m x m
-        Returns: N x D x m
-        '''
-        inputs = inputs.permute(0, 3, 1, 2)
-        # ops = self.activation_fn(self.ops_func(inputs))
-        output = torch.einsum('dsb,ndbi->nsi', self.coefs, ops)
-        output = output + self.bias
-        if mask is not None:
-            output = output.permute(0, 2, 1) * mask
-        return output
 class Eq2to0(nn.Module):
     def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to0, self).__init__()
@@ -125,6 +101,31 @@ class Eq2to0(nn.Module):
             output = output * mask
         return output
 
+class Eq2to1(nn.Module):
+    def __init__(self, in_dim, out_dim, activation = 'leakyrelu', sym=False, device=torch.device('cpu'), dtype=torch.float):
+        super(Eq2to1, self).__init__()
+        self.basis_dim = 4 if sym else 5
+        self.out_dim = out_dim
+        self.in_dim = in_dim
+        self.activation_fn = get_activation_fn(activation)
+        self.ops_func = eops_2_to_1_sym if sym else eops_2_to_1
+        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2. / (in_dim + out_dim + self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        self.bias = nn.Parameter(torch.zeros(1, out_dim, 1, device=device, dtype=dtype))
+        self.to(device=device, dtype=dtype)
+
+    def forward(self, inputs, mask=None):
+        '''
+        inputs: N x D x m x m
+        Returns: N x D x m
+        '''
+        inputs = inputs.permute(0, 3, 1, 2)
+        # ops = self.activation_fn(self.ops_func(inputs))
+        output = torch.einsum('dsb,ndbi->nsi', self.coefs, ops)
+        output = output + self.bias
+        if mask is not None:
+            output = output.permute(0, 2, 1) * mask
+        return output
+
 class Eq2to2(nn.Module):
     def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to2, self).__init__()
@@ -136,7 +137,7 @@ class Eq2to2(nn.Module):
         self.config = config
 
         self.average_nobj = 49                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
-        self.basis_dim = 15 + 10 * (len(config) - 1)
+        self.basis_dim = 15 + 15 * (len(config) - 1)
 
         self.alphas = nn.ParameterList([None] * len(config))
         self.betas = nn.ParameterList([None] * len(config))
@@ -195,14 +196,14 @@ class Eq2to2(nn.Module):
                 if i==0:
                     ops = [self.ops_func(inputs, nobj, aggregation=d[char])]
                 else:
-                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char], skip_order_zero=True))
+                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char], skip_order_zero=False))
             elif char in ['S', 'M', 'X', 'N']:
                 if i==0:
                     ops = [self.ops_func(inputs, nobj, aggregation=d[char.lower()])]
                     alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
                     betas = torch.cat([self.dummy_betas, self.betas[0]], dim=2)
                 else:
-                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=True))
+                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=False))
                     alphas = self.alphas[i]
                     betas = self.betas[i]
                 mult = betas * (nobj).view([-1,1,1,1,1])**alphas

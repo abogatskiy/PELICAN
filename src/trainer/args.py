@@ -192,13 +192,13 @@ def setup_argparse():
     parser.add_argument('--config2', type=str, default='s',
                     help='Configuration for aggregation functions in Eq2to0 (any combination of letters s,S,m,M,x,X,n,N (default = s)')
     parser.add_argument('--activate-agg', action=argparse.BooleanOptionalAction, default=False,
-                    help='Apply an activation function right after permutation-equvariant aggregation (default = False)')
+                    help='Apply an activation function right after permutation-equvariant Eq2to2 aggregation (default = False)')
     parser.add_argument('--activate-lin', action=argparse.BooleanOptionalAction, default=True,
-                    help='Apply an activation function right after the linear mixing following aggregation (default = True)')
+                    help='Apply an activation function right after the linear mixing following Eq2to2 aggregation (default = True)')
     parser.add_argument('--activate-agg2', action=argparse.BooleanOptionalAction, default=True,
-                    help='Apply an activation function right after permutation-equvariant aggregation (default = True)')
+                    help='Apply an activation function right after permutation-equvariant Eq2to0 aggregation (default = True)')
     parser.add_argument('--activate-lin2', action=argparse.BooleanOptionalAction, default=False,
-                    help='Apply an activation function right after the linear mixing following aggregation (default = False)')
+                    help='Apply an activation function right after the linear mixing following Eq2to0 aggregation (default = False)')
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Include an output MLP (default = True)')
 

@@ -30,7 +30,11 @@ def masked_var(x, nobj, dim=None, keepdims=False):
     return var
 
 def masked_sum(x, nobj, dim=None, keepdims=False):
-    return x.mean(dim=dim, keepdims=keepdims)
+    N = x.shape[-1]
+    if type(dim)!=int:
+        N = N**len(dim)
+    return x.sum(dim=dim, keepdims=keepdims) / N
+    # return x.mean(dim=dim, keepdims=keepdims)
 
 def eops_1_to_1(inputs, normalize=False):
     """inputs: Tensor of shape (Batch, Channel, Num_Atom), aggregation over the last dimension"""
@@ -55,6 +59,31 @@ def eops_1_to_1(inputs, normalize=False):
 #     op4 = inputs.unsqueeze(3).expand(-1, -1, -1, dim)
 #     op5 = sum_all.unsqueeze(3).expand(-1, -1, dim, dim)
 #     return torch.stack([op1, op2, op3, op4, op5], dim=2)
+
+def eops_2_to_0(inputs, nobj=None, aggregation='mean'):
+    inputs = inputs.permute(0, 3, 1, 2)
+    N, D, m, m = inputs.shape
+    dim = inputs.shape[-1]
+
+    diag_part = torch.diagonal(inputs, dim1=-2, dim2=-1)
+    if aggregation == 'mean':
+        aggregation_fn = masked_mean
+    elif aggregation == 'max':
+        aggregation_fn = masked_amax
+    elif aggregation == 'min':
+        aggregation_fn = masked_amin
+    elif aggregation == 'var':
+        aggregation_fn = masked_var
+    elif aggregation == 'sum':
+        aggregation_fn = masked_sum
+
+    sum_diag_part = aggregation_fn(diag_part, nobj, dim=2) # N x D
+    sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # N x D
+
+    op1 = sum_all
+    op2 = sum_diag_part
+    ops = [op1, op2]
+    return torch.stack(ops, dim=2)
 
 def eops_2_to_1(inputs, normalize=False):
     N, D, m, m = inputs.shape
@@ -121,30 +150,6 @@ def eops_2_to_1_sym(inputs, normalize=False):
 #     ops[7] = sum_all.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, dim, dim)
 #     return torch.stack(ops[1:], dim=2)
 
-def eops_2_to_0(inputs, nobj=None, aggregation='mean'):
-    inputs = inputs.permute(0, 3, 1, 2)
-    N, D, m, m = inputs.shape
-    dim = inputs.shape[-1]
-
-    diag_part = torch.diagonal(inputs, dim1=-2, dim2=-1)
-    if aggregation == 'mean':
-        aggregation_fn = masked_mean
-    elif aggregation == 'max':
-        aggregation_fn = masked_amax
-    elif aggregation == 'min':
-        aggregation_fn = masked_amin
-    elif aggregation == 'var':
-        aggregation_fn = masked_var
-    elif aggregation == 'sum':
-        aggregation_fn = masked_sum
-
-    sum_diag_part = aggregation_fn(diag_part, nobj, dim=2) # N x D x 1
-    sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # N x D
-
-    op1 = sum_all
-    op2 = sum_diag_part
-    ops = [op1, op2]
-    return torch.stack(ops, dim=2)
 
 def eops_2_to_2(inputs, nobj=None, aggregation='mean', skip_order_zero=False):
     inputs = inputs.permute(0, 3, 1, 2)

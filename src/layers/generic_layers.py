@@ -134,7 +134,7 @@ class InputEncoder(nn.Module):
         super().__init__()
 
         self.to(device=device, dtype=dtype)
-        self.alphas = nn.Parameter(1.25 * torch.rand(1, 1, 1, out_dim, device=device, dtype=dtype, requires_grad=True))
+        self.alphas = nn.Parameter(1.25 * torch.rand(1, 1, 1, out_dim, device=device, dtype=dtype))
         self.zero = torch.tensor(0, device=device, dtype=dtype)
 
     def forward(self, x, mask=None):
