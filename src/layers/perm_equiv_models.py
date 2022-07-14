@@ -159,12 +159,13 @@ class Eq2to2(nn.Module):
                 if countM > 1:
                     # self.betas[i] = nn.Parameter(torch.randn( 1, 1, 10, 1, 1, device=device, dtype=dtype))
                     self.betas[i] = torch.zeros( 1, 1, 10, 1, 1, device=device, dtype=dtype)                
-                    self.alphas[i] = nn.Parameter(0.5 + torch.rand(1, in_dim, 10, 1, 1, device=device, dtype=dtype))
+                    self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 10, 1, 1, device=device, dtype=dtype))
                 else:
                     # self.betas[i] = nn.Parameter(torch.cat([(self.average_nobj/128)    * torch.ones( 1, 1, 8,  1, 1, device=device, dtype=dtype),
                     #                                         (self.average_nobj/128)**2 * torch.ones( 1, 1, 2,  1, 1, device=device, dtype=dtype)], dim=2).log())
-                    self.betas[i] = torch.cat([(self.average_nobj/128)    * torch.ones( 1, 1, 8,  1, 1, device=device, dtype=dtype),
-                                               (self.average_nobj/128)**2 * torch.ones( 1, 1, 2,  1, 1, device=device, dtype=dtype)], dim=2).log()
+                    # self.betas[i] = torch.cat([(self.average_nobj/128)    * torch.ones( 1, 1, 8,  1, 1, device=device, dtype=dtype),
+                    #                            (self.average_nobj/128)**2 * torch.ones( 1, 1, 2,  1, 1, device=device, dtype=dtype)], dim=2).log()
+                    self.betas[i] = torch.zeros( 1, 1, 10, 1, 1, device=device, dtype=dtype)                
                     self.alphas[i] = nn.Parameter(torch.cat([torch.ones(   1, in_dim, 8,  1, 1, device=device, dtype=dtype),
                                                             2 * torch.ones(1, in_dim, 2,  1, 1, device=device, dtype=dtype)], dim=2))
 
