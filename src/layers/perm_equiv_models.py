@@ -229,7 +229,7 @@ class Eq2to2(nn.Module):
                 ops[i] = ops[i] * mult
             else:
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
-        breakpoint()
+
         ops = torch.cat(ops, dim=2)
 
         if self.activate_agg:
