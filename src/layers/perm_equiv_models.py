@@ -51,9 +51,9 @@ class Eq2to0(nn.Module):
                 self.alphas[i] = nn.Parameter(torch.zeros(1, 1, 2, device=device, dtype=dtype))
                 self.betas[i] = nn.Parameter(torch.zeros([1, 1, 2], device=device, dtype=dtype))
             elif char=='S':
-                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 10,  1, 1, device=device, dtype=dtype))
-                self.betas[i] = torch.cat([(128/self.average_nobj)    * torch.ones( 1, 1, 8,  1, 1, device=device, dtype=dtype),
-                                           (128/self.average_nobj)**2 * torch.ones( 1, 1, 2,  1, 1, device=device, dtype=dtype)], dim=2).log()
+                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 2, device=device, dtype=dtype))
+                self.betas[i] = torch.cat([(128/self.average_nobj)    * torch.ones( 1, 1, 1, device=device, dtype=dtype),
+                                           (128/self.average_nobj)**2 * torch.ones( 1, 1, 1, device=device, dtype=dtype)], dim=2).log()
             # elif char == 'M':
             #     countM += 1
             #     if countM > 1:
