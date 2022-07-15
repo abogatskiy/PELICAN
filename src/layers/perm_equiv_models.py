@@ -49,11 +49,11 @@ class Eq2to0(nn.Module):
         for i, char in enumerate(config):
             if char in ['M', 'X', 'N']:
                 self.alphas[i] = nn.Parameter(torch.zeros(1, 1, 2, device=device, dtype=dtype))
-                self.betas[i] = nn.Parameter(torch.zeros([1, 1, 2], device=device, dtype=dtype))
+                self.betas[i] = torch.zeros([1, 1, 2], device=device, dtype=dtype)
             elif char=='S':
                 self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 2, device=device, dtype=dtype))
-                self.betas[i] = torch.cat([(128/self.average_nobj)    * torch.ones( 1, 1, 1, device=device, dtype=dtype),
-                                           (128/self.average_nobj)**2 * torch.ones( 1, 1, 1, device=device, dtype=dtype)], dim=2).log()
+                self.betas[i] = torch.cat([(100/self.average_nobj)    * torch.ones( 1, 1, 1, device=device, dtype=dtype),
+                                           (100/self.average_nobj)**2 * torch.ones( 1, 1, 1, device=device, dtype=dtype)], dim=2).log()
             # elif char == 'M':
             #     countM += 1
             #     if countM > 1:
@@ -95,7 +95,7 @@ class Eq2to0(nn.Module):
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
 
         ops = torch.cat(ops, dim=2)
-        
+
         if self.activate_agg:
             ops = self.activation_fn(ops)
 
@@ -160,8 +160,8 @@ class Eq2to2(nn.Module):
                 self.betas[i] = torch.zeros([1, 1, 10, 1, 1], device=device, dtype=dtype)
             elif char=='S':
                 self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 10,  1, 1, device=device, dtype=dtype))
-                self.betas[i] = torch.cat([(128/self.average_nobj)    * torch.ones( 1, 1, 8,  1, 1, device=device, dtype=dtype),
-                                           (128/self.average_nobj)**2 * torch.ones( 1, 1, 2,  1, 1, device=device, dtype=dtype)], dim=2).log()
+                self.betas[i] = torch.cat([(100/self.average_nobj)    * torch.ones( 1, 1, 8,  1, 1, device=device, dtype=dtype),
+                                           (100/self.average_nobj)**2 * torch.ones( 1, 1, 2,  1, 1, device=device, dtype=dtype)], dim=2).log()
             # elif char == 'M':
             #     countM += 1
             #     if countM > 1:
