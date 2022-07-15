@@ -10,7 +10,7 @@ class PELICANClassifier(nn.Module):
     """
     Permutation Invariant, Lorentz Invariant/Covariant Awesome Network
     """
-    def __init__(self, num_channels0, num_channels_m, num_channels1, num_channels2,
+    def __init__(self, num_channels_m, num_channels1, num_channels2, num_channels_m_out,
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s',
                  activate_agg2=True, activate_lin2=False, mlp_out=True,
                  scale=1, ir_safe=False, dropout = False, drop_rate=0.2, batchnorm=None, layernorm=True,
@@ -19,7 +19,7 @@ class PELICANClassifier(nn.Module):
 
         logging.info('Initializing network!')
 
-        num_channels0 = expand_var_list(num_channels0)
+        # num_channels0 = expand_var_list(num_channels0)
         num_channels_m = expand_var_list(num_channels_m)
         num_channels1 = expand_var_list(num_channels1)
         num_channels2 = expand_var_list(num_channels2)
@@ -30,7 +30,7 @@ class PELICANClassifier(nn.Module):
         # logging.info('num_channels2: {}'.format(num_channels2))
 
         self.device, self.dtype = device, dtype
-        self.num_channels0 = num_channels0
+        # self.num_channels0 = num_channels0
         self.num_channels_m = num_channels_m
         self.num_channels1 = num_channels1
         self.num_channels2 = num_channels2
@@ -66,7 +66,8 @@ class PELICANClassifier(nn.Module):
             self.layernorm = nn.LayerNorm(self.num_channels_m[0][0], device = device, dtype = dtype)
   
         self.net2to2 = Net2to2(self.num_channels1, self.num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, config=config1, device = device, dtype = dtype)
-        self.eq2to0 = Eq2to0(self.num_channels1[-1], self.num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, config=config2, device = device, dtype = dtype)
+        self.message_layer = MessageNet([num_channels1[-1]] + num_channels_m_out, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype)       
+        self.eq2to0 = Eq2to0(num_channels_m_out[-1], self.num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, config=config2, device = device, dtype = dtype)
         if mlp_out:
             self.mlp_out = BasicMLP(self.num_channels2 + [2], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
@@ -111,18 +112,20 @@ class PELICANClassifier(nn.Module):
         # Simplest version with only 2->2 and 2->0 layers
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
 
-        if self.dropout:
-            act1 = self.dropout_layer(act1)
+        act2 = self.message_layer(act1, mask=edge_mask.unsqueeze(-1))
 
-        act2 = self.eq2to0(act1, nobj=nobj)
+        if self.dropout:
+            act2 = self.dropout_layer(act2)
+
+        act3 = self.eq2to0(act2, nobj=nobj)
         
         # if self.dropout:
         #     act2 = self.dropout_layer(act2)
 
         if self.mlp_out:
-            prediction = self.mlp_out(act2)
+            prediction = self.mlp_out(act3)
         else:
-            prediction = act2
+            prediction = act3
 
         if torch.isnan(prediction).any():
             logging.info(f"inputs: {torch.isnan(inputs).any()}")
