@@ -110,9 +110,12 @@ class PELICANClassifier(nn.Module):
 
         # Simplest version with only 2->2 and 2->0 layers
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
-        act2 = self.eq2to0(act1, nobj=nobj)
         if self.dropout:
-            act2 = self.dropout_layer(act2)
+            act1 = self.dropout_layer(act1)
+        act2 = self.eq2to0(act1, nobj=nobj)
+        # if self.dropout:
+        #     act2 = self.dropout_layer(act2)
+
         if self.mlp_out:
             prediction = self.mlp_out(act2)
         else:
