@@ -68,7 +68,7 @@ class PELICANClassifier(nn.Module):
         self.net2to2 = Net2to2(self.num_channels1, self.num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, config=config1, device = device, dtype = dtype)
         self.eq2to0 = Eq2to0(self.num_channels1[-1], self.num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, config=config2, device = device, dtype = dtype)
         if mlp_out:
-            self.mlp_out = BasicMLP(self.num_channels2 + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
+            self.mlp_out = BasicMLP(self.num_channels2 + [2], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
         logging.info('_________________________\n')
         for n, p in self.named_parameters(): logging.info(f'{"Parameter: " + n:<80} {p.shape}')
@@ -110,8 +110,10 @@ class PELICANClassifier(nn.Module):
 
         # Simplest version with only 2->2 and 2->0 layers
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
+
         # if self.dropout:
         #     act1 = self.dropout_layer(act1)
+
         act2 = self.eq2to0(act1, nobj=nobj)
         
         if self.dropout:
