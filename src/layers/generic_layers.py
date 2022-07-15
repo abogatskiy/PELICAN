@@ -8,7 +8,7 @@ class BasicMLP(nn.Module):
     If num_channels has length 2, this becomes a linear layer.
     """
 
-    def __init__(self, num_channels, activation='leakyrelu', ir_safe=False, batchnorm=False, dropout=False, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, activation='leakyrelu', ir_safe=False, batchnorm=False, dropout=False, drop_rate=0.25, device=torch.device('cpu'), dtype=torch.float):
         super(BasicMLP, self).__init__()
 
         self.num_channels = num_channels
@@ -34,7 +34,7 @@ class BasicMLP(nn.Module):
             self.activations.append(activation_fn)
         
         if batchnorm: self.batchnormlayer = nn.BatchNorm2d(self.num_out)
-        # if dropout: self.dropoutlayer = nn.Dropout(0.05)
+        if dropout: self.dropoutlayer = nn.Dropout(drop_rate)
 
         self.zero = torch.tensor(0, device=device, dtype=dtype)
 
@@ -45,7 +45,6 @@ class BasicMLP(nn.Module):
 
         for (lin, activation) in zip(self.linear, self.activations):
             x = activation(lin(x))
-            # if self.dropout: x = self.dropoutlayer(x)
 
         # Use Batch Normalization for Deep Learning. 
         # This should be done before applying the mask to avoid skewing the values.
@@ -56,7 +55,7 @@ class BasicMLP(nn.Module):
                 x = self.batchnormlayer(x.permute(0,3,1,2)).permute(0,2,3,1)
 
         # Apply Dropout, which independently zeroes every component of x with a given probability.
-
+        if self.dropout: x = self.dropoutlayer(x)
 
         # If mask is included, mask the output
         if mask is not None:
