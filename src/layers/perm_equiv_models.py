@@ -15,7 +15,7 @@ class Eq1to1(nn.Module):
         self.out_dim = out_dim
         self.in_dim = in_dim
         self.activation_fn = get_activation_fn(activation)
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(1. / (in_dim * self.basis_dim + out_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2. / (in_dim * self.basis_dim + out_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         self.bias = nn.Parameter(torch.zeros(1, 1, out_dim, device=device, dtype=dtype))
         if ops_func is None:
             self.ops_func = eops_1_to_1
@@ -72,7 +72,7 @@ class Eq2to0(nn.Module):
         self.out_dim = out_dim
         self.in_dim = in_dim
         self.ops_func = eops_2_to_0
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(1. / (in_dim * self.basis_dim + out_dim )), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2. / (in_dim * self.basis_dim + out_dim )), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         self.bias = nn.Parameter(torch.zeros(1, out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
 
@@ -118,7 +118,7 @@ class Eq2to1(nn.Module):
         self.in_dim = in_dim
         self.activation_fn = get_activation_fn(activation)
         self.ops_func = eops_2_to_1_sym if sym else eops_2_to_1
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(1. / (in_dim * self.basis_dim + out_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2. / (in_dim * self.basis_dim + out_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         self.bias = nn.Parameter(torch.zeros(1, out_dim, 1, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
 
@@ -181,7 +181,7 @@ class Eq2to2(nn.Module):
 
         self.out_dim = out_dim
         self.in_dim = in_dim
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(1. / (in_dim * self.basis_dim + out_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2. / (in_dim * self.basis_dim + out_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         self.bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
         self.diag_bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
         self.diag_eyes = {}
