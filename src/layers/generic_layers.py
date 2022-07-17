@@ -156,6 +156,8 @@ def get_activation_fn(activation):
         activation_fn = nn.PReLU()    
     elif activation == 'selu':
         activation_fn = nn.SELU()
+    elif activation == 'gelu':
+        activation_fn = nn.GELU()
     elif activation == 'elu':
         activation_fn = nn.ELU()
     elif activation == 'celu':
