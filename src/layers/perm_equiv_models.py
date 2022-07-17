@@ -40,7 +40,7 @@ class Eq2to0(nn.Module):
         self.activation_fn = get_activation_fn(activation)
         self.config = config
 
-        self.average_nobj = 50                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
+        self.average_nobj = 49                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
         self.basis_dim = 2 * len(config)
         self.alphas = nn.ParameterList([None] * len(config))
         # self.betas = nn.ParameterList([None] * len(config))
