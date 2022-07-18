@@ -84,7 +84,8 @@ def main():
     trainer.load_checkpoint()
 
     # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
-    # os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+    if args.reproducible:
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
     # Train model.
     trainer.train()

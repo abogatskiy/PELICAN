@@ -55,6 +55,8 @@ def setup_argparse():
                         help='Shuffle minibatches.')
     parser.add_argument('--seed', type=int, default=-1, metavar='N',
                         help='Set random number seed. Set to -1 to set based upon clock.')
+    parser.add_argument('--reproducible', action=argparse.BooleanOptionalAction, default=False,
+                        help='Force deterministic algorithms in pytorch and CUDA (fixing seed is not enough on CUDA; enabling this may worsen performance) (default: False)')
 
     # Saving and logging options
     parser.add_argument('--alpha', type=float, default=0, metavar='N',
