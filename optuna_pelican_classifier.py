@@ -186,6 +186,8 @@ if __name__ == '__main__':
     elif args.pruner == 'none':
         pruner = None
 
+    # os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
     study = optuna.create_study(study_name=args.study_name, storage=storage, direction=direction, load_if_exists=True,
                                 pruner=pruner, sampler=sampler)
 

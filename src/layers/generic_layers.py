@@ -140,6 +140,8 @@ class InputEncoder(nn.Module):
 
         x = ((1. + x.unsqueeze(-1)).abs().pow(1e-6 + self.alphas ** 2) - 1.) / (1e-6 + self.alphas ** 2)
 
+        x = (1e-2 + x).abs().log()/2  # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
+
         if mask is not None:
             x = torch.where(mask, x, self.zero)
 

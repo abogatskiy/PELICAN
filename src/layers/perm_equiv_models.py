@@ -286,7 +286,7 @@ class Net2to2(nn.Module):
 
     def forward(self, x, mask=None, nobj=None):
         '''
-        x: N x d x m x m
+        x: N x m x m x in_dim
         Returns: N x m x m x out_dim
         '''
 
