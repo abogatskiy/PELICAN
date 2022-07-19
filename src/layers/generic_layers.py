@@ -138,9 +138,12 @@ class InputEncoder(nn.Module):
 
     def forward(self, x, mask=None):
 
-        x = ((1. + x.unsqueeze(-1)).abs().pow(1e-6 + self.alphas ** 2) - 1.) / (1e-6 + self.alphas ** 2)
+        # x = ((1. + x.unsqueeze(-1)).abs().pow(1e-6 + self.alphas ** 2) - 1.) / (1e-6 + self.alphas ** 2)
+        x = x.unsqueeze(-1) * self.alphas
 
-        x = x.arcsinh()
+        # x = (1e-2 + x).abs().log()/2  # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
+        
+        x = x.arcsinh() / (1e-6 + self.alphas.abs())
 
         # x = (1e-2 + x).abs().log()/2  # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
 
