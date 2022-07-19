@@ -143,7 +143,7 @@ class InputEncoder(nn.Module):
 
         # x = (1e-2 + x).abs().log()/2  # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
         
-        x = x.arcsinh() / (1e-6 + self.alphas.abs())
+        x = x.arcsinh()
 
         # x = (1e-2 + x).abs().log()/2  # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
 
