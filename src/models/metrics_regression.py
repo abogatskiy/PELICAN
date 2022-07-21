@@ -21,7 +21,7 @@ def minibatch_metrics(predict, targets, loss):
     return [loss, angle, massdelta]
 
 def minibatch_metrics_string(metrics):
-    string = ' Loss:{:> 9.4f}, ∆Ψ:{:> 9.4f}, ∆m:{:> 9.4f}'.format(*metrics)
+    string = '   L: {:12.4f}, ∆Ψ: {:9.4f}, ∆m: {:9.4f}'.format(*metrics)
     return string
 
 
@@ -41,7 +41,7 @@ def AngleDeviation(predict, targets):
     if not torch.isnan(angles).any():
         return  angles.mean()
     else:
-        return 0.0
+        return torch.tensor(0., device=predict.device, dtype=predict.dtype)
     # return ((predict - targets).norm(dim=-1)/targets.norm(dim=-1)).mean()    # Euclidean distance relative error
     # return loss_fn_inv(predict,targets)
     # return ((predict[:,[1,2]] - targets[:,[1,2]]).norm(dim=-1)**2/targets[:,[1,2]].norm(dim=-1)**2).mean() # pT error relative norm
