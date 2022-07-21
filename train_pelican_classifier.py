@@ -75,7 +75,7 @@ def main():
 
     # Define a loss function.
     # loss_fn = torch.nn.functional.cross_entropy
-    loss_fn = torch.nn.CrossEntropyLoss().cuda()
+    loss_fn = torch.nn.CrossEntropyLoss()
     
     # Apply the covariance and permutation invariance tests.
     if args.test:

@@ -2,23 +2,23 @@ import torch
 import numpy as np
 from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
 
-def metrics(predict, targets, prefix, logger=None):
-    entropy = Entropy(predict, targets).item()
+def metrics(predict, targets, loss_fn, prefix, logger=None):
+    loss = loss_fn(predict, targets.long()).item()
     accuracy = Accuracy(predict, targets).item()
     auc_score = AUCScore(predict, targets)
     roc, eB, eS = ROC(predict, targets)
     conf_matrix = confusion_matrix(targets, predict.argmax(dim=1)) / targets.shape[0]
-    metrics = {'loss': entropy, 'accuracy': accuracy, 'AUC': auc_score, 'BgRejection': 1/eB if eB>0 else 0, 'atSignEfficiency': eS, 'FP_rate': conf_matrix[0,1], 'FN_rate': conf_matrix[1,0]}
-    string = ' L: {:10.4f}, ACC: {:10.4f}, AUC: {:10.4f},    BR: {:10.1f} @ {:>4.4f},   FP: {:10.4f}, FN: {:10.4f}'.format(entropy, accuracy, auc_score, 1/eB if eB>0 else 0, eS, conf_matrix[0,1], conf_matrix[1,0])
+    metrics = {'loss': loss, 'accuracy': accuracy, 'AUC': auc_score, 'BgRejection': 1/eB if eB>0 else 0, 'atSignEfficiency': eS, 'FP_rate': conf_matrix[0,1], 'FN_rate': conf_matrix[1,0]}
+    string = ' L: {:10.4f}, ACC: {:10.4f}, AUC: {:10.4f},    BR: {:10.1f} @ {:>4.4f},   FP: {:10.4f}, FN: {:10.4f}'.format(loss, accuracy, auc_score, 1/eB if eB>0 else 0, eS, conf_matrix[0,1], conf_matrix[1,0])
     np.savetxt(prefix+'_ROC.csv', ROC(predict, targets)[0], delimiter=',')
     # if logger:
     #     logger.info('ROC saved to file ' + prefix+'_ROC.csv' + '\n')
     return metrics, string
 
-def minibatch_metrics(predict, targets, entropy):
+def minibatch_metrics(predict, targets, loss):
     accuracy = Accuracy(predict, targets).item()
     auc_score = AUCScore(predict, targets)
-    return [entropy, accuracy, auc_score]
+    return [loss, accuracy, auc_score]
 
 def minibatch_metrics_string(metrics):
     string = ', L:{:> 9.4f}, ACC:{:> 9.4f}, AUC:{:> 9.4f}'.format(*metrics)

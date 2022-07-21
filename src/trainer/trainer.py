@@ -386,7 +386,7 @@ class Trainer:
             suffix = 'best'
 
         prefix = self.args.predictfile + '.' + 'final' + '.' + dataset
-        metrics, logstring = self.metrics_fn(predict, targets, prefix, logger)
+        metrics, logstring = self.metrics_fn(predict, targets, self.loss_fn, prefix, logger)
         if epoch >= 0:
             logger.info(f'Epoch {epoch} {description} {datastrings[dataset]}'+logstring)
         else:

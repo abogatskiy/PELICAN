@@ -3,8 +3,8 @@ import numpy as np
 from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
 from .lorentz_metric import normsq4, dot4
 
-def metrics(predict, targets, prefix, logger=None):
-    loss = 0.1 * loss_fn_inv(predict,targets) + loss_fn_m2(predict,targets)
+def metrics(predict, targets, loss_fn, prefix, logger=None):
+    loss = loss_fn(predict,targets)
     angle = AngleDeviation(predict, targets).item()
     massdelta = MassDeviation(predict, targets).item()
     loss_inv = loss_fn_inv(predict, targets)
