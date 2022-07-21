@@ -45,15 +45,12 @@ class Eq2to0(nn.Module):
         self.basis_dim = 2 * len(config)
         self.alphas = nn.ParameterList([None] * len(config))
         # self.betas = nn.ParameterList([None] * len(config))
-        self.betas = [None] * len(config)
         # countM = 0
         for i, char in enumerate(config):
             if char in ['M', 'X', 'N']:
-                self.alphas[i] = nn.Parameter(torch.zeros(1, 1, 2, device=device, dtype=dtype))
-                self.betas[i] = torch.zeros([1, 1, 2], device=device, dtype=dtype)
+                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 2, device=device, dtype=dtype))
             elif char=='S':
                 self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 2, device=device, dtype=dtype))
-                self.betas[i] = torch.zeros([1, 1, 2], device=device, dtype=dtype)
                 # self.betas[i] = torch.cat([(100/self.average_nobj)    * torch.ones( 1, 1, 1, device=device, dtype=dtype),
                 #                            (100/self.average_nobj)**2 * torch.ones( 1, 1, 1, device=device, dtype=dtype)], dim=2).log()
             # elif char == 'M':
@@ -91,7 +88,7 @@ class Eq2to0(nn.Module):
                 ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char]))
             elif char in ['S', 'M', 'X', 'N']:
                 ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()]))
-                mult = self.betas[i].exp() * (nobj).view([-1,1,1])**self.alphas[i]
+                mult = (nobj).view([-1,1,1])**self.alphas[i]
                 mult = mult / (self.average_nobj** self.alphas[i])
                 ops[i] = ops[i] * mult            
             else:
@@ -129,9 +126,9 @@ class Eq2to1(nn.Module):
         self.alphas = nn.ParameterList([None] * len(config))
         for i, char in enumerate(config):
             if char in ['M', 'X', 'N']:
-                self.alphas[i] = nn.Parameter(torch.zeros(1, 1, 2, device=device, dtype=dtype))
+                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 5, 1, device=device, dtype=dtype))
             elif char=='S':
-                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 2, device=device, dtype=dtype))
+                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 5, 1, device=device, dtype=dtype))
 
         self.ops_func = eops_2_to_1
         self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
@@ -151,9 +148,9 @@ class Eq2to1(nn.Module):
                 ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char]))
             elif char in ['S', 'M', 'X', 'N']:
                 ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()]))
-                mult = (nobj).view([-1,1,1])**self.alphas[i]
+                mult = (nobj).view([-1,1,1,1])**self.alphas[i]
                 mult = mult / (self.average_nobj** self.alphas[i])
-                ops[i] = ops[i] * mult            
+                ops[i] = ops[i] * mult
             else:
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
 

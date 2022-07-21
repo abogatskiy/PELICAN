@@ -10,7 +10,7 @@ def check_shape(x, shape):
 def masked_mean(x, nobj, dim=None, keepdims=False):
     x = torch.sum(x, dim=dim, keepdims=keepdims)
     if type(dim)!=int:
-        nobj = nobj**len(dim)
+        nobj = nobj**(len(dim))
     nobj = nobj.view([-1]+[1,]*(len(x.shape)-1))
     x = x / nobj
     return x
@@ -32,7 +32,7 @@ def masked_var(x, nobj, dim=None, keepdims=False):
 def masked_sum(x, nobj, dim=None, keepdims=False):
     N = x.shape[-1]
     if type(dim)!=int:
-        N = N**len(dim)
+        N = N**(len(dim))
     return x.sum(dim=dim, keepdims=keepdims) / N
     # return x.mean(dim=dim, keepdims=keepdims)
 
