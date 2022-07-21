@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+from .masked_batchnorm import MaskedBatchNorm1d, MaskedBatchNorm2d
 
 class BasicMLP(nn.Module):
     """
@@ -94,7 +94,8 @@ class MessageNet(nn.Module):
             self.batchnorm = 'b'
         if self.batchnorm:
             if self.batchnorm.startswith('b'):
-                self.normlayer = nn.BatchNorm2d(num_channels[-1], device=device, dtype=dtype)
+                # self.normlayer = nn.BatchNorm2d(num_channels[-1], device=device, dtype=dtype)
+                self.normlayer = MaskedBatchNorm2d(num_channels[-1], device=device, dtype=dtype)
             elif self.batchnorm.startswith('i'):
                 self.normlayer = nn.InstanceNorm2d(num_channels[-1], device=device, dtype=dtype)
             else:
@@ -105,20 +106,22 @@ class MessageNet(nn.Module):
 
     def forward(self, x, mask=None):
         # Standard MLP. Loop over a linear layer followed by a non-linear activation
+
         for (lin, activation) in zip(self.linear, self.activations):
             x = activation(lin(x))
+
+        # If mask is included, mask the output
+        if mask is not None:
+            x = torch.where(mask, x, self.zero)
 
         if self.batchnorm: 
             if len(x.shape)==3:
                 # x = self.normlayer(x.unsqueeze(0).permute(0,3,1,2)).squeeze(0).permute(1,2,0)
                 x = self.normlayer(x.unsqueeze(-1).permute(0,2,1,3)).permute(0,2,1,3).squeeze(-1)
             elif len(x.shape)==4:
-                x = self.normlayer(x.permute(0,3,1,2)).permute(0,2,3,1)
+                # x = self.normlayer(x.permute(0,3,1,2)).permute(0,2,3,1)
+                x = self.normlayer(x, mask)
 
-        # If mask is included, mask the output
-        if mask is not None:
-            x = torch.where(mask, x, self.zero)
-        
         return x
 
     def scale_weights(self, scale):
