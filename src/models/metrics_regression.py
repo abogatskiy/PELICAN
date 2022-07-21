@@ -4,6 +4,7 @@ from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
 from .lorentz_metric import normsq4, dot4
 
 def metrics(predict, targets, prefix, logger=None):
+    loss = 0.1 * loss_fn_inv(predict,targets) + loss_fn_m2(predict,targets)
     angle = AngleDeviation(predict, targets).item()
     massdelta = MassDeviation(predict, targets).item()
     loss_inv = loss_fn_inv(predict, targets)
@@ -11,8 +12,8 @@ def metrics(predict, targets, prefix, logger=None):
     loss_3d = loss_fn_3d(predict, targets)
     loss_4d = loss_fn_4d(predict, targets)
 
-    metrics = {'∆Ψ': angle, '∆m': massdelta, 'loss_inv': loss_inv, 'loss_m2': loss_m2, 'loss_3d': loss_3d, 'loss_4d': loss_4d}
-    string = ' ∆Ψ: {:10.4f}, ∆m: {:10.4f}, loss_inv: {:10.4f}, loss_m2: {:10.4f}, loss_3d: {:10.4f}, loss_4d: {:10.4f}'.format(angle, massdelta, loss_inv, loss_m2, loss_3d, loss_4d)
+    metrics = {'loss': loss, '∆Ψ': angle, '∆m': massdelta, 'loss_inv': loss_inv, 'loss_m2': loss_m2, 'loss_3d': loss_3d, 'loss_4d': loss_4d}
+    string = ' L: {:10.4f}, ∆Ψ: {:10.4f}, ∆m: {:10.4f}, loss_inv: {:10.4f}, loss_m2: {:10.4f}, loss_3d: {:10.4f}, loss_4d: {:10.4f}'.format(loss, angle, massdelta, loss_inv, loss_m2, loss_3d, loss_4d)
     return metrics, string
 
 def minibatch_metrics(predict, targets, loss):

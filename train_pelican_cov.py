@@ -75,7 +75,7 @@ def main():
     scheduler, restart_epochs, summarize = init_scheduler(args, optimizer)
 
     # Define a loss function. This is the loss function whose gradients are actually computed. 
-    # The loss function in engine.py is used only for the log and choosing best epoch!
+    # MAKE SURE TO PUT THE SAME LOSS IN METRICS_REGRESSION.PY LINE 7
 
     loss_fn_inv = lambda predict, targets:  normsq4(predict - targets).abs().mean()
     loss_fn_m2 = lambda predict, targets:  (normsq4(predict) - normsq4(targets)).abs().mean()
