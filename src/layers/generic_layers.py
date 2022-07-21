@@ -105,7 +105,6 @@ class MessageNet(nn.Module):
 
     def forward(self, x, mask=None):
         # Standard MLP. Loop over a linear layer followed by a non-linear activation
-
         for (lin, activation) in zip(self.linear, self.activations):
             x = activation(lin(x))
 

@@ -31,13 +31,14 @@ class Eq1to1(nn.Module):
         return output
 
 class Eq2to0(nn.Module):
-    def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', config='s', device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe=False, config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to0, self).__init__()
         self.device = device
         self.dtype = dtype
         self.activate_agg = activate_agg
         self.activate_lin = activate_lin
         self.activation_fn = get_activation_fn(activation)
+        self.ir_safe = ir_safe
         self.config = config
 
         self.average_nobj = 49                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
@@ -72,8 +73,9 @@ class Eq2to0(nn.Module):
         self.out_dim = out_dim
         self.in_dim = in_dim
         self.ops_func = eops_2_to_0
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2. / (in_dim * self.basis_dim + out_dim )), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
-        self.bias = nn.Parameter(torch.zeros(1, out_dim, device=device, dtype=dtype))
+        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        if not ir_safe:
+            self.bias = nn.Parameter(torch.zeros(1, out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
 
     def forward(self, inputs, mask=None, nobj=None):
@@ -101,7 +103,8 @@ class Eq2to0(nn.Module):
             ops = self.activation_fn(ops)
 
         output = torch.einsum('dsb,ndb->ns', self.coefs, ops)
-        output = output + self.bias
+        if not self.ir_safe:
+            output = output + self.bias
 
         if self.activate_lin:
             output = self.activation_fn(output)
@@ -136,13 +139,14 @@ class Eq2to1(nn.Module):
         return output
 
 class Eq2to2(nn.Module):
-    def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', config='s', device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe = False, config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to2, self).__init__()
         self.device = device
         self.dtype = dtype
         self.activate_agg = activate_agg
         self.activate_lin = activate_lin
         self.activation_fn = get_activation_fn(activation)
+        self.ir_safe = ir_safe
         self.config = config
 
         self.average_nobj = 49                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
@@ -181,10 +185,10 @@ class Eq2to2(nn.Module):
 
         self.out_dim = out_dim
         self.in_dim = in_dim
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2. / (in_dim * self.basis_dim + out_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
-        self.bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
-        self.diag_bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
-        self.diag_eyes = {}
+        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        if not ir_safe:
+            self.bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
+            self.diag_bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
 
         self.diag_eye = None #torch.eye(n).unsqueeze(0).unsqueeze(0).to(device)
         if ops_func is None:
@@ -239,10 +243,10 @@ class Eq2to2(nn.Module):
 
         output = torch.einsum('dsb,ndbij->nijs', self.coefs, ops)
 
-        diag_eye = torch.eye(inputs.shape[1], device=self.device, dtype=self.dtype).unsqueeze(0).unsqueeze(-1)
-        diag_bias = diag_eye.multiply(self.diag_bias)
-
-        output = output + self.bias + diag_bias
+        if not self.ir_safe:
+            diag_eye = torch.eye(inputs.shape[1], device=self.device, dtype=self.dtype).unsqueeze(0).unsqueeze(-1)
+            diag_bias = diag_eye.multiply(self.diag_bias)
+            output = output + self.bias + diag_bias
 
         if self.activate_lin:
             output = self.activation_fn(output)
@@ -264,24 +268,24 @@ class Net1to1(nn.Module):
         return x
 
 class Net2to2(nn.Module):
-    def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sig=False, config='s', device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sig=False, ir_safe=False, config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Net2to2, self).__init__()
         
         self.sig = sig
         self.num_channels = num_channels
         self.num_channels_message = num_channels_m
-        self.softmax = nn.LogSoftmax(dim=-1)
+        # self.softmax = nn.LogSoftmax(dim=-1)
         num_layers = len(num_channels) - 1
         # self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], num_channels[i+1], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, config=config, device=device, dtype=dtype) for i in range(num_layers)])
         self.in_dim = num_channels_m[0][0] if len(num_channels_m[0]) > 0 else num_channels[0]
 
         eq_out_dims = [num_channels_m[i+1][0] if len(num_channels_m[i+1]) > 0 else num_channels[i+1] for i in range(num_layers-1)] + [num_channels[-1]]
 
-        self.message_layers = nn.ModuleList(([MessageNet(num_channels_m[i]+[num_channels[i],], activation=activation, batchnorm=batchnorm, device=device, dtype=dtype) for i in range(num_layers)]))        
+        self.message_layers = nn.ModuleList(([MessageNet(num_channels_m[i]+[num_channels[i],], activation=activation, batchnorm=batchnorm, ir_safe=ir_safe, device=device, dtype=dtype) for i in range(num_layers)]))        
         if sig: 
             self.attention = nn.ModuleList([nn.Linear(num_channels[i], 1, bias=False, device=device, dtype=dtype) for i in range(num_layers)])
             self.normlayers = nn.ModuleList([nn.LayerNorm(num_channels[i], device=device, dtype=dtype) for i in range(num_layers)])
-        self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, config=config, device=device, dtype=dtype) for i in range(num_layers)])
+        self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, ir_safe=ir_safe, config=config, device=device, dtype=dtype) for i in range(num_layers)])
         self.to(device=device, dtype=dtype)
 
     def forward(self, x, mask=None, nobj=None):
@@ -297,12 +301,13 @@ class Net2to2(nn.Module):
             for layer, message, sig, normlayer in zip(self.eq_layers, self.message_layers, self.attention, self.normlayers):
                 m = message(x, mask)        # form messages at each of the NxN nodes
                 y = sig(m)                  # compute the dot product with the attention vector over the channel dim
-                ms = torch.exp(self.softmax(y.view(B,-1))).view_as(y) * mask
-                ms = ms / ms.sum(dim=(1,2), keepdim=True)
-                # ms = y.sigmoid() * mask
-                z = normlayer(ms * m)       # apply LayerNorm, i.e. normalize over the channel dimension
+                # ms = torch.exp(self.softmax(y.view(B,-1))).view_as(y) * mask
+                # ms = ms / ms.sum(dim=(1,2), keepdim=True)
+                # z = normlayer(ms * m)       # apply LayerNorm, i.e. normalize over the channel dimension
+                ms = y.sigmoid() * mask
                 x = layer(z, mask, nobj)   # apply the permutation-equivariant layer
         else:
             for layer, message in zip(self.eq_layers, self.message_layers):
-                x = layer(message(x, mask), mask, nobj)
+                x = message(x, mask)
+                x = layer(x, mask, nobj)
         return x

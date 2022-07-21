@@ -63,13 +63,15 @@ class PELICANClassifier(nn.Module):
 
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
         if layernorm:
-            self.layernorm = nn.LayerNorm(self.num_channels_m[0][0], device = device, dtype = dtype)
+            self.layernorm = nn.LayerNorm(embedding_dim, device = device, dtype = dtype)
   
-        self.net2to2 = Net2to2(self.num_channels1, self.num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, config=config1, device = device, dtype = dtype)
-        self.message_layer = MessageNet([num_channels1[-1]] + num_channels_m_out, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype)       
-        self.eq2to0 = Eq2to0(num_channels_m_out[-1], self.num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, config=config2, device = device, dtype = dtype)
+        self.net2to2 = Net2to2(self.num_channels1, self.num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, device = device, dtype = dtype)
+        self.message_layer = MessageNet([num_channels1[-1]] + num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
+        self.eq2to0 = Eq2to0(num_channels_m_out[-1], self.num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
         if mlp_out:
             self.mlp_out = BasicMLP(self.num_channels2 + [2], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
+
+        self.apply(init_weights)
 
         logging.info('_________________________\n')
         for n, p in self.named_parameters(): logging.info(f'{"Parameter: " + n:<80} {p.shape}')
@@ -151,10 +153,8 @@ class PELICANClassifier(nn.Module):
 
 
 
-
-
         if covariance_test:
-            return prediction, [inputs, act1, act2]
+            return prediction, [inputs, act1, act2, act3]
         else:
             return prediction
 
@@ -199,3 +199,7 @@ def expand_var_list(var):
     else:
         raise ValueError('Incorrect type {}'.format(type(var)))
     return var_list
+
+def init_weights(m):
+    if type(m) == nn.Linear:
+        torch.nn.init.kaiming_normal_(m.weight, a=0.01, mode='fan_in', nonlinearity='leaky_relu')
