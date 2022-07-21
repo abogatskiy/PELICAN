@@ -15,13 +15,13 @@ def metrics(predict, targets, prefix, logger=None):
     string = ' ∆Ψ: {:10.4f}, ∆m: {:10.4f}, loss_inv: {:10.4f}, loss_m2: {:10.4f}, loss_3d: {:10.4f}, loss_4d: {:10.4f}'.format(angle, massdelta, loss_inv, loss_m2, loss_3d, loss_4d)
     return metrics, string
 
-def minibatch_metrics(predict, targets, entropy):
+def minibatch_metrics(predict, targets, loss):
     angle = AngleDeviation(predict, targets).item()
     massdelta = MassDeviation(predict, targets).item()
-    return [angle, massdelta]
+    return [loss, angle, massdelta]
 
 def minibatch_metrics_string(metrics):
-    string = ', ∆Ψ:{:> 9.4f}, ∆m:{:> 9.4f}'.format(*metrics)
+    string = ' Loss:{:> 9.4f}, ∆Ψ:{:> 9.4f}, ∆m:{:> 9.4f}'.format(*metrics)
     return string
 
 
