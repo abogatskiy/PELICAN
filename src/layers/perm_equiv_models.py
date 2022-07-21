@@ -305,6 +305,7 @@ class Net2to2(nn.Module):
                 # ms = ms / ms.sum(dim=(1,2), keepdim=True)
                 # z = normlayer(ms * m)       # apply LayerNorm, i.e. normalize over the channel dimension
                 ms = y.sigmoid() * mask
+                z = ms * m
                 x = layer(z, mask, nobj)   # apply the permutation-equivariant layer
         else:
             for layer, message in zip(self.eq_layers, self.message_layers):
