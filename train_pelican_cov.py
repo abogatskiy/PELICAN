@@ -4,12 +4,13 @@ from torch.utils.data import DataLoader
 import logging
 import os
 
-from src.models import PELICANClassifier
+from src.models import PELICANRegression
 from src.models import tests
 from src.trainer import Trainer
 from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args
 from src.trainer import init_optimizer, init_scheduler
-from src.models.metrics_classifier import metrics, minibatch_metrics, minibatch_metrics_string
+from src.models.metrics_regression import metrics, minibatch_metrics, minibatch_metrics_string
+from src.models.lorentz_metric import normsq4, dot4
 
 from src.dataloaders import initialize_datasets, collate_fn
 
@@ -57,7 +58,7 @@ def main():
                    for split, dataset in datasets.items()}
 
     # Initialize model
-    model = PELICANClassifier(args.num_channels_m, args.num_channels1, args.num_channels2, args.num_channels_m_out,
+    model = PELICANRegression(args.num_channels_m, args.num_channels1, args.num_channels2, args.num_channels_m_out,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, sig=args.sig, config1=args.config1, config2=args.config2,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
@@ -73,13 +74,19 @@ def main():
     optimizer = init_optimizer(args, model)
     scheduler, restart_epochs, summarize = init_scheduler(args, optimizer)
 
-    # Define a loss function.
-    # loss_fn = torch.nn.functional.cross_entropy
-    loss_fn = torch.nn.CrossEntropyLoss().cuda()
+    # Define a loss function. This is the loss function whose gradients are actually computed. 
+    # The loss function in engine.py is used only for the log and choosing best epoch!
+
+    loss_fn_inv = lambda predict, targets:  normsq4(predict - targets).abs().mean()
+    loss_fn_m2 = lambda predict, targets:  (normsq4(predict) - normsq4(targets)).abs().mean()
+    loss_fn_3d = lambda predict, targets:  (predict[:,[1,2,3]] - targets[:,[1,2,3]]).norm(dim=-1).mean()
+    loss_fn_4d = lambda predict, targets:  (predict-targets).pow(2).sum(-1).mean()
+    loss_fn = lambda predict, targets: 0.1 * loss_fn_inv(predict,targets) + loss_fn_m2(predict,targets) #+ 0.001 * loss_fn_4d(predict, targets)
+    # loss_fn = lambda predict, targets: loss_fn_m2(predict,targets) + loss_fn_4d(predict, targets)
     
     # Apply the covariance and permutation invariance tests.
     if args.test:
-        tests(model, dataloaders['train'], args, tests=['permutation','batch','irc'])
+        raise NotImplementedError()
 
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize, device, dtype)

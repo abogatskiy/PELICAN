@@ -6,7 +6,7 @@ import logging
 from .lorentz_metric import normsq4, dot4
 from ..layers import BasicMLP, get_activation_fn, Net1to1, Net2to2, Eq2to1, Eq2to0, MessageNet, InputEncoder
 
-class PELICANClassifier(nn.Module):
+class PELICANRegression(nn.Module):
     """
     Permutation Invariant, Lorentz Invariant/Covariant Awesome Network
     """
@@ -24,13 +24,7 @@ class PELICANClassifier(nn.Module):
         num_channels1 = expand_var_list(num_channels1)
         num_channels2 = expand_var_list(num_channels2)
 
-        # logging.info('num_channels0: {}'.format(num_channels0))
-        # logging.info('num_channelsm: {}'.format(num_channels_m))
-        # logging.info('num_channels1: {}'.format(num_channels1))
-        # logging.info('num_channels2: {}'.format(num_channels2))
-
         self.device, self.dtype = device, dtype
-        # self.num_channels0 = num_channels0
         self.num_channels_m = num_channels_m
         self.num_channels1 = num_channels1
         self.num_channels2 = num_channels2
@@ -44,14 +38,6 @@ class PELICANClassifier(nn.Module):
 
         if dropout:
             self.dropout_layer = torch.nn.Dropout(drop_rate)
-
-        # self.mlp0 = BasicMLP([num_scalars_in] + num_channels0 + [num_channels1[0]], activation = activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
-        # self.mlp_mass = BasicMLP([num_scalars_in] + num_channels0 + [num_channels1[0]], activation = activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
-        # self.net2to2 = Net2to2(num_channels1, activation = activation, batchnorm = batchnorm, device = device, dtype = dtype)
-        # self.eq2to1 = Eq2to1(num_channels1[-1], num_channels2[0], activation = activation, device = device, dtype = dtype)
-        # self.message = MessageNet(num_channels2[0], activation=activation,  batchnorm = batchnorm, device=device, dtype=dtype)
-        # self.net1to1 = Net1to1(num_channels2, activation = activation,  batchnorm = batchnorm, device = device, dtype = dtype)
-        # self.mlp_out = BasicMLP([num_channels2[-1], 15] + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
 
         if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
             embedding_dim = self.num_channels_m[0][0]
@@ -67,11 +53,9 @@ class PELICANClassifier(nn.Module):
 
         self.net2to2 = Net2to2(num_channels1, num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, device = device, dtype = dtype)
         self.message_layer = MessageNet([num_channels1[-1]] + num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
-        self.eq2to0 = Eq2to0(num_channels_m_out[-1], num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
+        self.eq2to1 = Eq2to1(num_channels_m_out[-1], num_channels2[0] if mlp_out else 1,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
         if mlp_out:
-            self.mlp_out = BasicMLP(self.num_channels2 + [2], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
-
-        self.apply(init_weights)
+            self.mlp_out = BasicMLP(self.num_channels2 + [1], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
         logging.info('_________________________\n')
         for n, p in self.named_parameters(): logging.info(f'{"Parameter: " + n:<80} {p.shape}')
@@ -95,8 +79,7 @@ class PELICANClassifier(nn.Module):
             The output of the layer
         """
         # Get and prepare the data
-
-        atom_scalars, atom_mask, edge_mask, event_momenta = self.prepare_input(data)
+        atom_scalars, atom_mask, edge_mask, event_momenta, label = self.prepare_input(data)
 
         # Calculate spherical harmonics and radial functions
         num_atom = atom_mask.shape[1]
@@ -111,7 +94,6 @@ class PELICANClassifier(nn.Module):
         if self.layernorm:
             inputs = self.layernorm(inputs)
 
-        # Simplest version with only 2->2 and 2->0 layers
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
 
         act2 = self.message_layer(act1, mask=edge_mask.unsqueeze(-1))
@@ -119,42 +101,13 @@ class PELICANClassifier(nn.Module):
         if self.dropout:
             act2 = self.dropout_layer(act2)
 
-        act3 = self.eq2to0(act2, nobj=nobj)
-        
-        # if self.dropout:
-        #     act2 = self.dropout_layer(act2)
+        act3 = self.eq2to1(act2, nobj=nobj, mask=atom_mask.unsqueeze(-1))
 
-        if self.mlp_out:
-            prediction = self.mlp_out(act3)
-        else:
-            prediction = act3
-
-        if torch.isnan(prediction).any():
-            logging.info(f"inputs: {torch.isnan(inputs).any()}")
-            logging.info(f"act1: {torch.isnan(act1).any()}")
-            logging.info(f"act2: {torch.isnan(act2).any()}")
-            logging.info(f"prediction: {torch.isnan(prediction).any()}")
-        assert not torch.isnan(prediction).any(), "There are NaN entries in the output! Evaluation terminated."
-
-        # Verion with 2->1 and 1->1 layers
-        # D = torch.ones((num_atom,num_atom), dtype=self.dtype, device=self.device) - torch.eye(num_atom, dtype=self.dtype, device=self.device)
-        # D_mask = D.unsqueeze(0).bool() * edge_mask  # Mask to consistently exclude the diagonal (mass features) from mlp0
-        # mass_features = torch.permute(torch.diagonal(inputs, dim1 = 1, dim2 = 2), (0, 2, 1))
-        # mass_features = self.mlp_mass(mass_features, mask=atom_mask.unsqueeze(-1))        
-        # act1 = self.mlp0(inputs * D_mask.unsqueeze(-1), mask=D_mask.unsqueeze(-1))
-        # act1[:, range(num_atom), range(num_atom), :] = mass_features
-        # act2 = self.net2to2(act1, mask=edge_mask.unsqueeze(-1))
-        # act3 = self.eq2to1(act2, mask=atom_mask.unsqueeze(-1))
-        # act4 = self.message(act3, mask=atom_mask.unsqueeze(-1))
-        # act5 = self.net1to1(act4, mask=atom_mask.unsqueeze(-1))
-        # if self.dropout:
-        #     act4 = self.dropout_layer(act5)
-        # prediction = self.mlp_out(act5.mean(dim=1))
-
-
+        invariant_particle_coefficients = self.mlp_out(act3, mask=atom_mask.unsqueeze(-1))
+        prediction = (event_momenta * invariant_particle_coefficients).sum(1) # / nobj.squeeze(-1)
 
         if covariance_test:
-            return prediction, [inputs, act1, act2, act3]
+            return prediction, [inputs, act1, act2]
         else:
             return prediction
 
@@ -191,7 +144,8 @@ class PELICANClassifier(nn.Module):
         else:
             # scalars = torch.ones_like(atom_ps[:, :, 0]).unsqueeze(-1)
             scalars = normsq4(atom_ps).abs().sqrt().unsqueeze(-1)
-        return scalars, atom_mask, edge_mask, atom_ps
+        return scalars, atom_mask, edge_mask, atom_ps, data['is_signal']
+
 
 def expand_var_list(var):
     if type(var) is list:
@@ -199,7 +153,3 @@ def expand_var_list(var):
     else:
         raise ValueError('Incorrect type {}'.format(type(var)))
     return var_list
-
-def init_weights(m):
-    if type(m) == nn.Linear:
-        torch.nn.init.kaiming_normal_(m.weight, a=0.01, mode='fan_in', nonlinearity='leaky_relu')

@@ -85,15 +85,27 @@ def eops_2_to_0(inputs, nobj=None, aggregation='mean'):
     ops = [op1, op2]
     return torch.stack(ops, dim=2)
 
-def eops_2_to_1(inputs, normalize=False):
+def eops_2_to_1(inputs, nobj=None, aggregation='mean'):
+    inputs = inputs.permute(0, 3, 1, 2)
     N, D, m, m = inputs.shape
     dim = inputs.shape[-1]
 
     diag_part = torch.diagonal(inputs, dim1=-2, dim2=-1)
-    sum_diag_part = diag_part.sum(dim=2, keepdims=True) / dim
-    sum_rows = inputs.sum(dim=3) / dim
-    sum_cols = inputs.sum(dim=2) / dim
-    sum_all = inputs.sum(dim=(2,3)) / dim**2
+    if aggregation == 'mean':
+        aggregation_fn = masked_mean
+    elif aggregation == 'max':
+        aggregation_fn = masked_amax
+    elif aggregation == 'min':
+        aggregation_fn = masked_amin
+    elif aggregation == 'var':
+        aggregation_fn = masked_var
+    elif aggregation == 'sum':
+        aggregation_fn = masked_sum
+
+    sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True)
+    sum_rows = aggregation_fn(inputs, nobj, dim=3)
+    sum_cols = aggregation_fn(inputs, nobj, dim=2)
+    sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # N x D
 
     op1 = diag_part
     op2 = sum_diag_part.expand(-1, -1, dim)
@@ -103,21 +115,21 @@ def eops_2_to_1(inputs, normalize=False):
     ops = [op1, op2, op3, op4, op5]
     return torch.stack(ops, dim=2)
 
-def eops_2_to_1_sym(inputs, normalize=False):
-    N, D, m, m = inputs.shape
-    dim = inputs.shape[-1]
+# def eops_2_to_1_sym(inputs, normalize=False):
+#     N, D, m, m = inputs.shape
+#     dim = inputs.shape[-1]
 
-    diag_part = torch.diagonal(inputs, dim1=-2, dim2=-1)
-    sum_diag_part = diag_part.sum(dim=2, keepdims=True) / dim
-    sum_rows = inputs.sum(dim=3) / dim
-    sum_all = inputs.sum(dim=(2,3)) / dim**2
+#     diag_part = torch.diagonal(inputs, dim1=-2, dim2=-1)
+#     sum_diag_part = diag_part.sum(dim=2, keepdims=True) / dim
+#     sum_rows = inputs.sum(dim=3) / dim
+#     sum_all = inputs.sum(dim=(2,3)) / dim**2
 
-    op1 = diag_part
-    op2 = sum_diag_part.expand(-1, -1, dim)
-    op3 = sum_rows
-    op4 = sum_all.unsqueeze(2).expand(-1, -1, dim)
-    ops = [op1, op2, op3, op4]
-    return torch.stack([op1, op2, op3, op4], dim=2)
+#     op1 = diag_part
+#     op2 = sum_diag_part.expand(-1, -1, dim)
+#     op3 = sum_rows
+#     op4 = sum_all.unsqueeze(2).expand(-1, -1, dim)
+#     ops = [op1, op2, op3, op4]
+#     return torch.stack([op1, op2, op3, op4], dim=2)
 
 # def eops_2_to_2_sym(inputs, mask=None):
 #     inputs = inputs.permute(0, 3, 1, 2)

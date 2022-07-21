@@ -114,28 +114,64 @@ class Eq2to0(nn.Module):
         return output
 
 class Eq2to1(nn.Module):
-    def __init__(self, in_dim, out_dim, activation = 'leakyrelu', sym=False, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe=False, config='s', device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to1, self).__init__()
-        self.basis_dim = 4 if sym else 5
+        self.basis_dim = 5
         self.out_dim = out_dim
         self.in_dim = in_dim
+        self.activate_agg = activate_agg
+        self.activate_lin = activate_lin
         self.activation_fn = get_activation_fn(activation)
-        self.ops_func = eops_2_to_1_sym if sym else eops_2_to_1
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2. / (in_dim * self.basis_dim + out_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
-        self.bias = nn.Parameter(torch.zeros(1, out_dim, 1, device=device, dtype=dtype))
+        self.ir_safe = ir_safe
+        self.config = config
+
+        self.average_nobj = 49                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
+        self.alphas = nn.ParameterList([None] * len(config))
+        for i, char in enumerate(config):
+            if char in ['M', 'X', 'N']:
+                self.alphas[i] = nn.Parameter(torch.zeros(1, 1, 2, device=device, dtype=dtype))
+            elif char=='S':
+                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 2, device=device, dtype=dtype))
+
+        self.ops_func = eops_2_to_1
+        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        self.bias = nn.Parameter(torch.zeros(1, 1, out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
 
-    def forward(self, inputs, mask=None):
+    def forward(self, inputs, mask=None, nobj=None):
         '''
         inputs: N x D x m x m
         Returns: N x D x m
         '''
-        inputs = inputs.permute(0, 3, 1, 2)
-        # ops = self.activation_fn(self.ops_func(inputs))
-        output = torch.einsum('dsb,ndbi->nsi', self.coefs, ops)
-        output = output + self.bias
+        d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
+
+        ops = []
+        for i, char in enumerate(self.config):
+            if char in ['s', 'm', 'x', 'n']:
+                ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char]))
+            elif char in ['S', 'M', 'X', 'N']:
+                ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()]))
+                mult = (nobj).view([-1,1,1])**self.alphas[i]
+                mult = mult / (self.average_nobj** self.alphas[i])
+                ops[i] = ops[i] * mult            
+            else:
+                raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
+
+        ops = torch.cat(ops, dim=2)
+
+        if self.activate_agg:
+            ops = self.activation_fn(ops)
+
+        output = torch.einsum('dsb,ndbi->nis', self.coefs, ops)
+
+        if not self.ir_safe:
+            output = output + self.bias
+
+        if self.activate_lin:
+            output = self.activation_fn(output)
+
         if mask is not None:
-            output = output.permute(0, 2, 1) * mask
+            output = output * mask
         return output
 
 class Eq2to2(nn.Module):
@@ -154,18 +190,14 @@ class Eq2to2(nn.Module):
 
         self.alphas = nn.ParameterList([None] * len(config))
         # self.betas = nn.ParameterList([None] * len(config))
-        self.betas = [None] * len(config)
         self.dummy_alphas = torch.zeros(1, in_dim, 5, 1, 1, device=device, dtype=dtype)
-        self.dummy_betas = torch.zeros(1, 1, 5, 1, 1, device=device, dtype=dtype)
         # countM = 0
         for i, char in enumerate(config):
             if char in ['M', 'X', 'N']:
                 self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 10,  1, 1, device=device, dtype=dtype))
                 # self.betas[i] = nn.Parameter(torch.zeros([1, 1, 10, 1, 1], device=device, dtype=dtype))
-                self.betas[i] = torch.zeros([1, 1, 10, 1, 1], device=device, dtype=dtype)
             elif char=='S':
                 self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 10,  1, 1, device=device, dtype=dtype))
-                self.betas[i] = torch.zeros([1, 1, 10, 1, 1], device=device, dtype=dtype)
                 # self.betas[i] = torch.cat([(100/self.average_nobj)    * torch.ones( 1, 1, 8,  1, 1, device=device, dtype=dtype),
                 #                            (100/self.average_nobj)**2 * torch.ones( 1, 1, 2,  1, 1, device=device, dtype=dtype)], dim=2).log()
             # elif char == 'M':
@@ -225,12 +257,10 @@ class Eq2to2(nn.Module):
                 if i==0:
                     ops = [self.ops_func(inputs, nobj, aggregation=d[char.lower()])]
                     alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
-                    betas = torch.cat([self.dummy_betas, self.betas[0]], dim=2).exp()
                 else:
                     ops.append(self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=True))
                     alphas = self.alphas[i]
-                    betas = self.betas[i].exp()
-                mult = betas * (nobj).view([-1,1,1,1,1])**alphas
+                mult = (nobj).view([-1,1,1,1,1])**alphas
                 mult = mult / (self.average_nobj**alphas)
                 ops[i] = ops[i] * mult
             else:

@@ -285,14 +285,15 @@ class Trainer:
         Get the learning target.
         If a stats dictionary is included, return a normalized learning target.
         """
-        targets = data[self.args.target].to(self.device, self.dtype)
+        target_type = torch.long if self.args.target=='is_signal' else self.dtype
+        targets = data[self.args.target].to(self.device, target_type)
 
         # if stats is not None:
         #     mu, sigma = stats[self.args.target]
         #     targets = (targets - mu) / sigma
 
         # print("TARGETS:", targets)
-        return targets.long()
+        return targets
 
     def train_epoch(self):
         dataloader = self.dataloaders['train']
