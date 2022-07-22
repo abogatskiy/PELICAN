@@ -74,11 +74,12 @@ class MessageNet(nn.Module):
     If num_channels has length 2, this becomes a linear layer.
     """
 
-    def __init__(self, num_channels, depth=2, activation='leakyrelu', ir_safe=False, batchnorm = None, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, depth=2, activation='leakyrelu', ir_safe=False, batchnorm = None, masked=True, device=torch.device('cpu'), dtype=torch.float):
         super().__init__()
 
         self.num_channels = num_channels
         self.batchnorm = batchnorm
+        self.masked = masked
 
         if type(num_channels) not in [list, tuple]:
             num_channels = [num_channels,] * (depth + 1)
@@ -94,8 +95,10 @@ class MessageNet(nn.Module):
             self.batchnorm = 'b'
         if self.batchnorm:
             if self.batchnorm.startswith('b'):
-                # self.normlayer = nn.BatchNorm2d(num_channels[-1], device=device, dtype=dtype)
-                self.normlayer = MaskedBatchNorm2d(num_channels[-1], device=device, dtype=dtype)
+                if masked:
+                    self.normlayer = MaskedBatchNorm2d(num_channels[-1], device=device, dtype=dtype)
+                else:
+                    self.normlayer = nn.BatchNorm2d(num_channels[-1], device=device, dtype=dtype)
             elif self.batchnorm.startswith('i'):
                 self.normlayer = nn.InstanceNorm2d(num_channels[-1], device=device, dtype=dtype)
             else:
@@ -116,11 +119,15 @@ class MessageNet(nn.Module):
 
         if self.batchnorm: 
             if len(x.shape)==3:
-                # x = self.normlayer(x.unsqueeze(0).permute(0,3,1,2)).squeeze(0).permute(1,2,0)
-                x = self.normlayer(x.unsqueeze(-1).permute(0,2,1,3)).permute(0,2,1,3).squeeze(-1)
+                if self.masked:
+                    x = self.normlayer(x.unsqueeze(1), mask).squeeze(1)
+                else:
+                    x = self.normlayer(x.unsqueeze(-1).permute(0,2,1,3)).permute(0,2,1,3).squeeze(-1)
             elif len(x.shape)==4:
-                # x = self.normlayer(x.permute(0,3,1,2)).permute(0,2,3,1)
-                x = self.normlayer(x, mask)
+                if self.masked:
+                    x = self.normlayer(x, mask)
+                else:
+                    x = self.normlayer(x.permute(0,3,1,2)).permute(0,2,3,1)
 
         return x
 
