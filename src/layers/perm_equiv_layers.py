@@ -12,7 +12,7 @@ def masked_mean(x, nobj, dim=None, keepdims=False):
     # print((x.sum(dim=1))[x.sum(dim=1)!=0].std())
     x = torch.sum(x, dim=dim, keepdims=keepdims)
     if type(dim)!=int:
-        nobj = nobj**(1/2+len(dim)/2)
+        nobj = nobj**(len(dim))
     nobj = nobj.view([-1]+[1,]*(len(x.shape)-1))
     x = x / nobj
     # print(x[x!=0].std())
