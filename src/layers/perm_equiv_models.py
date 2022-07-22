@@ -172,7 +172,7 @@ class Eq2to1(nn.Module):
         return output
 
 class Eq2to2(nn.Module):
-    def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe = False, config='s', device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe = False, config='s', factorize=False, device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to2, self).__init__()
         self.device = device
         self.dtype = dtype
@@ -181,6 +181,7 @@ class Eq2to2(nn.Module):
         self.activation_fn = get_activation_fn(activation)
         self.ir_safe = ir_safe
         self.config = config
+        self.factorize=factorize
 
         self.average_nobj = 49                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
         self.basis_dim = 15 + 10 * (len(config) - 1)
@@ -214,7 +215,11 @@ class Eq2to2(nn.Module):
 
         self.out_dim = out_dim
         self.in_dim = in_dim
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        if factorize:
+            self.coefs0 = nn.Parameter(torch.normal(0, np.sqrt(2. / self.basis_dim), (in_dim, self.basis_dim), device=device, dtype=dtype))
+            self.coefs1 = nn.Parameter(torch.normal(0, np.sqrt(2. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))
+        else:
+            self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         if not ir_safe:
             self.bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
             self.diag_bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
@@ -268,7 +273,11 @@ class Eq2to2(nn.Module):
         if self.activate_agg:
             ops = self.activation_fn(ops)
 
-        output = torch.einsum('dsb,ndbij->nijs', self.coefs, ops)
+        if self.factorize:
+            output = torch.einsum('db,ndbij->ndij', self.coefs0, ops) # d=ind_im, s=out_dim, b=basis_dim, n=event number, ij=particle indices
+            output = torch.einsum('bd,nbij->nijd', self.coefs1, output) # d=ind_im, s=out_dim, b=basis_dim, n=event number, ij=particle indices
+        else:
+            output = torch.einsum('dsb,ndbij->nijs', self.coefs, ops)
 
         if not self.ir_safe:
             diag_eye = torch.eye(inputs.shape[1], device=self.device, dtype=self.dtype).unsqueeze(0).unsqueeze(-1)
@@ -295,7 +304,7 @@ class Net1to1(nn.Module):
         return x
 
 class Net2to2(nn.Module):
-    def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sig=False, ir_safe=False, config='s', device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sig=False, ir_safe=False, config='s', factorize=False, device=torch.device('cpu'), dtype=torch.float):
         super(Net2to2, self).__init__()
         
         self.sig = sig
@@ -312,7 +321,7 @@ class Net2to2(nn.Module):
         if sig: 
             self.attention = nn.ModuleList([nn.Linear(num_channels[i], 1, bias=False, device=device, dtype=dtype) for i in range(num_layers)])
             self.normlayers = nn.ModuleList([nn.LayerNorm(num_channels[i], device=device, dtype=dtype) for i in range(num_layers)])
-        self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, ir_safe=ir_safe, config=config, device=device, dtype=dtype) for i in range(num_layers)])
+        self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, ir_safe=ir_safe, config=config, factorize=factorize, device=device, dtype=dtype) for i in range(num_layers)])
         self.to(device=device, dtype=dtype)
 
     def forward(self, x, mask=None, nobj=None):

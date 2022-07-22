@@ -205,6 +205,8 @@ def setup_argparse():
                     help='Apply an activation function right after the linear mixing following Eq2to0 aggregation (default = False)')
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Include an output MLP (default = True)')
+    parser.add_argument('--factorize', action=argparse.BooleanOptionalAction, default=False,
+                    help='Use this option to significantly reduce the number of weights used in Eq2to2 layers (default = False)')
 
 
     parser.add_argument('--scale', type=float, default=0.33, metavar='N',

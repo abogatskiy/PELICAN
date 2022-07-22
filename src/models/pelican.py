@@ -11,7 +11,7 @@ class PELICANClassifier(nn.Module):
     Permutation Invariant, Lorentz Invariant/Covariant Awesome Network
     """
     def __init__(self, num_channels_m, num_channels1, num_channels2, num_channels_m_out,
-                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s',
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s', factorize=False,
                  activate_agg2=True, activate_lin2=False, mlp_out=True,
                  scale=1, ir_safe=False, dropout = False, drop_rate=0.2, batchnorm=None, layernorm=True,
                  device=torch.device('cpu'), dtype=None, cg_dict=None):
@@ -41,6 +41,7 @@ class PELICANClassifier(nn.Module):
         self.add_beams = add_beams
         self.ir_safe = ir_safe
         self.mlp_out = mlp_out
+        self.factorize = factorize
 
         if dropout:
             self.dropout_layer = torch.nn.Dropout(drop_rate)
@@ -65,7 +66,7 @@ class PELICANClassifier(nn.Module):
         if layernorm:
             self.layernorm = nn.LayerNorm(embedding_dim, device = device, dtype = dtype)
 
-        self.net2to2 = Net2to2(num_channels1, num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, device = device, dtype = dtype)
+        self.net2to2 = Net2to2(num_channels1, num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, factorize=factorize, device = device, dtype = dtype)
         self.message_layer = MessageNet([num_channels1[-1]] + num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
         self.eq2to0 = Eq2to0(num_channels_m_out[-1], num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
         if mlp_out:
