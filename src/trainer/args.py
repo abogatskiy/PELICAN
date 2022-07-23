@@ -21,7 +21,7 @@ def setup_argparse():
     # Optimizer options
     parser.add_argument('--num-epoch', type=int, default=80, metavar='N',
                         help='number of epochs to train (default: 10)')
-    parser.add_argument('--batch-size', '-bs', type=int, default=10, metavar='N',
+    parser.add_argument('--batch-size', '-bs', type=int, default=16, metavar='N',
                         help='Mini-batch size (default: 10)')
     parser.add_argument('--batch-group-size', '-bgs', type=int, default=1, metavar='N',
                         help='Mini-batch size (default: 10)')    

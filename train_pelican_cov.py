@@ -62,7 +62,7 @@ def main():
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, sig=args.sig, config1=args.config1, config2=args.config2, factorize=args.factorize,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
-                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, batchnorm=args.batchnorm, layernorm=args.layernorm,
+                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, batchnorm=args.batchnorm, layernorm=args.layernorm,
                       device=device, dtype=dtype)
     
     model.to(device)
