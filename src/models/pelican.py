@@ -13,7 +13,7 @@ class PELICANClassifier(nn.Module):
     def __init__(self, num_channels_m, num_channels1, num_channels2, num_channels_m_out,
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s', factorize=False,
                  activate_agg2=True, activate_lin2=False, mlp_out=True,
-                 scale=1, ir_safe=False, dropout = False, drop_rate=0.2, batchnorm=None, layernorm=True,
+                 scale=1, ir_safe=False, dropout = False, drop_rate=0.25, batchnorm=None, layernorm=True,
                  device=torch.device('cpu'), dtype=None, cg_dict=None):
         super().__init__()
 

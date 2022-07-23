@@ -241,7 +241,7 @@ if __name__ == '__main__':
     #                 }
     # study.enqueue_trial(init_params)
                             
-    study.optimize(objective, n_trials=10, callbacks=[optuna.study.MaxTrialsCallback(200, states=(TrialState.COMPLETE,))])
+    study.optimize(objective, n_trials=200, callbacks=[optuna.study.MaxTrialsCallback(200, states=(TrialState.COMPLETE,))])
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
