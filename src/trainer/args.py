@@ -207,6 +207,8 @@ def setup_argparse():
                     help='Include an output MLP (default = True)')
     parser.add_argument('--factorize', action=argparse.BooleanOptionalAction, default=False,
                     help='Use this option to significantly reduce the number of weights used in Eq2to2 layers (default = False)')
+    parser.add_argument('--masked', action=argparse.BooleanOptionalAction, default=True,
+                    help='Use a masked version of Batchnorm (has no effect if --batchnorm is False) (default = False)')
 
 
     parser.add_argument('--scale', type=float, default=0.33, metavar='N',

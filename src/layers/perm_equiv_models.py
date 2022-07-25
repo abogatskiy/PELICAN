@@ -304,10 +304,11 @@ class Net1to1(nn.Module):
         return x
 
 class Net2to2(nn.Module):
-    def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sig=False, ir_safe=False, config='s', factorize=False, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sig=False, ir_safe=False, config='s', factorize=False, masked=True, device=torch.device('cpu'), dtype=torch.float):
         super(Net2to2, self).__init__()
         
         self.sig = sig
+        self.masked = masked
         self.num_channels = num_channels
         self.num_channels_message = num_channels_m
         # self.softmax = nn.LogSoftmax(dim=-1)
@@ -317,7 +318,7 @@ class Net2to2(nn.Module):
 
         eq_out_dims = [num_channels_m[i+1][0] if len(num_channels_m[i+1]) > 0 else num_channels[i+1] for i in range(num_layers-1)] + [num_channels[-1]]
 
-        self.message_layers = nn.ModuleList(([MessageNet(num_channels_m[i]+[num_channels[i],], activation=activation, batchnorm=batchnorm, ir_safe=ir_safe, device=device, dtype=dtype) for i in range(num_layers)]))        
+        self.message_layers = nn.ModuleList(([MessageNet(num_channels_m[i]+[num_channels[i],], activation=activation, batchnorm=batchnorm, ir_safe=ir_safe, masked=masked, device=device, dtype=dtype) for i in range(num_layers)]))        
         if sig: 
             self.attention = nn.ModuleList([nn.Linear(num_channels[i], 1, bias=False, device=device, dtype=dtype) for i in range(num_layers)])
             self.normlayers = nn.ModuleList([nn.LayerNorm(num_channels[i], device=device, dtype=dtype) for i in range(num_layers)])
