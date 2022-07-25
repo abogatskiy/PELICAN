@@ -28,9 +28,9 @@ def setup_argparse():
 
     parser.add_argument('--weight-decay', type=float, default=0, metavar='N',
                         help='Set the weight decay used in optimizer (default: 0)')
-    parser.add_argument('--lr-init', type=float, default=0.0015, metavar='N',
+    parser.add_argument('--lr-init', type=float, default=0.0025, metavar='N',
                         help='Initial learning rate (default: 0.005)')
-    parser.add_argument('--lr-final', type=float, default=5e-6, metavar='N',
+    parser.add_argument('--lr-final', type=float, default=1e-5, metavar='N',
                         help='Final (held) learning rate (default: 1e-5)')
     parser.add_argument('--lr-decay', type=int, default=-1, metavar='N',
                         help='Timescale over which to decay the learning rate (-1 to disable) (default: -1)')
@@ -170,21 +170,21 @@ def setup_argparse():
     parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: [[40],[25],[10],[25],[30],[40]])',
                         # default=[[38], [24], [11], [24], [32], [40]]
-                        default = [[20],[20],[20],[20],[20],[20]]
+                        default = [[20], [30], [25], [25]]
                         )
     parser.add_argument('--num-channels1', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: [35,20,20,15,20,20,35])',
                         # default=[37,20,19,16,21,22,23]
-                        default=[35,20,20,20,20,20,35]
+                        default=[30, 30, 30, 10, 20]
                         )
-    parser.add_argument('--num-channels2', nargs='*', type=int, default=[30], metavar='N',
+    parser.add_argument('--num-channels2', nargs='*', type=int, default=[20], metavar='N',
                         help='Number of channels to allow after mixing (default: [30])')
     parser.add_argument('--num-channels-m-out', nargs='*', type=int, metavar='N',
-                        help='Number of channels to allow after mixing (default: [30])', default =[30])
+                        help='Number of channels to allow after mixing (default: [30])', default =[20, 10])
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,
                     help='Enable a dropout layer at the end of the network (default = False)')
     parser.add_argument('--drop-rate', type=float, default=0.25, metavar='N',
-                    help='Dropout rate (default = 0.2)')
+                    help='Dropout rate (default = 0.25)')
     parser.add_argument('--batchnorm', type=str, default='b',
                     help='Enable batch/instance normalization at the end of each MessageNet (batch | instance | None) (default = b)')
     parser.add_argument('--layernorm', action=argparse.BooleanOptionalAction, default=False,

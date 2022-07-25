@@ -35,11 +35,13 @@ def suggest_params(args, trial):
     # args.batch_size = trial.suggest_categorical("batch_size", [16, 32])
     args.double = trial.suggest_categorical("double", [False, True])
     args.factorize = trial.suggest_categorical("factorize", [False, True])
+    args.nobj = trial.suggest_int("nobj", 50, 90)
+    args.ir_safe = trial.suggest_categorical("ir_safe", [False, True])
 
     args.config1 = trial.suggest_categorical("config1", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     args.config2 = trial.suggest_categorical("config2", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     
-    n_layers1 = trial.suggest_int("n_layers1", 4, 8)
+    n_layers1 = trial.suggest_int("n_layers1", 2, 6)
 
     # n_layersm = trial.suggest_int("n_layersm", 1, 2)
     # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(k)+']', 10, 30) for k in range(n_layersm)]] * n_layers1
@@ -156,7 +158,7 @@ def objective(trial):
     trainer.load_checkpoint()
 
     # Train model.  
-    metric_to_report='loss' 
+    metric_to_report='accuracy' 
     best_epoch, best_metrics = trainer.train(trial=trial, metric_to_report=metric_to_report)
 
     print(f"Best epoch was {best_epoch} with metrics {best_metrics}")
@@ -177,13 +179,13 @@ if __name__ == '__main__':
     elif args.storage == 'local':
         storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
 
-    direction = 'minimize'
+    direction = 'maximize'
     # directions=['minimize', 'maximize', 'maximize']
 
     if args.sampler.lower() == 'random':
         sampler = optuna.samplers.RandomSampler()
     elif args.sampler.lower().startswith('tpe'):
-        sampler = optuna.samplers.TPESampler(n_startup_trials=10, multivariate=True, group=True, constant_liar=True)
+        sampler = optuna.samplers.TPESampler(n_startup_trials=100, multivariate=True, group=True, constant_liar=True)
 
     if args.pruner == 'hyperband':
         pruner = optuna.pruners.HyperbandPruner()
