@@ -4,16 +4,16 @@ import torch.nn as nn
 import logging
 
 from .lorentz_metric import normsq4, dot4
-from ..layers import BasicMLP, get_activation_fn, Net1to1, Net2to2, Eq2to1, Eq2to0, MessageNet, InputEncoder
+from ..layers import BasicMLP, get_activation_fn, Net1to1, Net2to2, Eq2to1, Eq2to0, MessageNet, InputEncoder, SoftMask
 
 class PELICANClassifier(nn.Module):
     """
     Permutation Invariant, Lorentz Invariant/Covariant Awesome Network
     """
     def __init__(self, num_channels_m, num_channels1, num_channels2, num_channels_m_out,
-                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s', factorize=False, masked=True,
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s', factorize=False, masked=True, softmasked=True,
                  activate_agg2=True, activate_lin2=False, mlp_out=True,
-                 scale=1, ir_safe=False, dropout = False, drop_rate=0.25, batchnorm=None, layernorm=True,
+                 scale=1, ir_safe=False, dropout = False, drop_rate=0.25, batchnorm=None,
                  device=torch.device('cpu'), dtype=None, cg_dict=None):
         super().__init__()
 
@@ -36,13 +36,13 @@ class PELICANClassifier(nn.Module):
         self.num_channels2 = num_channels2
         self.batchnorm = batchnorm
         self.dropout = dropout
-        self.layernorm = layernorm
         self.scale = scale
         self.add_beams = add_beams
         self.ir_safe = ir_safe
         self.mlp_out = mlp_out
         self.factorize = factorize
         self.masked = masked
+        self.softmasked = softmasked
 
         if dropout:
             self.dropout_layer = torch.nn.Dropout(drop_rate)
@@ -63,10 +63,9 @@ class PELICANClassifier(nn.Module):
             assert embedding_dim > 2, f"num_channels_m[0][0] has to be at least 3 when using --add_beams but got {embedding_dim}"
             embedding_dim -= 2
 
+        if softmasked:
+            self.softmask_layer = SoftMask(device=device,dtype=dtype)
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
-        if layernorm:
-            self.layernorm = nn.LayerNorm(embedding_dim, device = device, dtype = dtype)
-
         self.net2to2 = Net2to2(num_channels1, num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet([num_channels1[-1]] + num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
         self.eq2to0 = Eq2to0(num_channels_m_out[-1], num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
@@ -103,18 +102,18 @@ class PELICANClassifier(nn.Module):
         # Calculate spherical harmonics and radial functions
         num_atom = atom_mask.shape[1]
         nobj = atom_mask.sum(-1, keepdim=True)
-
         dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
+
+        if self.softmasked:
+            softmask = self.softmask_layer(dot_products.unsqueeze(-1), mask=edge_mask.unsqueeze(-1))
+
         inputs = self.input_encoder(dot_products, mask=edge_mask.unsqueeze(-1))
 
         if self.add_beams:
             inputs = torch.cat([inputs, atom_scalars], dim=-1)
 
-        if self.layernorm:
-            inputs = self.layernorm(inputs)
-
         # Simplest version with only 2->2 and 2->0 layers
-        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj)
+        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask=softmask if self.softmasked else None)
 
         act2 = self.message_layer(act1, mask=edge_mask.unsqueeze(-1))
 

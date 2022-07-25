@@ -163,6 +163,35 @@ class InputEncoder(nn.Module):
         return x
 
 
+class SoftMask(nn.Module):
+    """
+    Multilayer perceptron used in various locations.  Operates only on the last axis of the data.
+    If num_channels has length 2, this becomes a linear layer.
+    """
+
+    def __init__(self, device=torch.device('cpu'), dtype=torch.float):
+        super(SoftMask, self).__init__()
+
+        self.beta = nn.Parameter(torch.tensor(10., device=device, dtype=dtype))
+        self.mu = 2.# nn.Parameter(torch.tensor(2., device=device, dtype=dtype))
+
+        self.zero = torch.tensor(0, device=device, dtype=dtype)
+
+        self.to(device=device, dtype=dtype)
+
+    def forward(self, x, mask=None):
+        # x = ((x-self.mu)*self.beta).sigmoid()
+
+        x = (self.beta * x).tanh() ** self.mu
+        if x.isnan().any():
+            breakpoint()
+        # If mask is included, mask the output
+        if mask is not None:
+            x = torch.where(mask, x, self.zero)
+
+        return x
+
+
 def get_activation_fn(activation):
     activation = activation.lower()
     if activation == 'leakyrelu':

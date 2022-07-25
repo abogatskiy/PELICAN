@@ -5,7 +5,7 @@ import torch.nn.functional as F
 # from models import MLP
 # from lgn.nn.perm_equiv_layers import ops_2_to_1, ops_1_to_1,eops_2_to_2, set_ops_3_to_3, set_ops_4_to_4, ops_1_to_2
 from .perm_equiv_layers import eops_1_to_1, eops_2_to_2, eops_2_to_1, eops_2_to_0 #, eset_ops_3_to_3, eset_ops_4_to_4, eset_ops_1_to_3, eops_1_to_2
-from .generic_layers import get_activation_fn, MessageNet, BasicMLP
+from .generic_layers import get_activation_fn, MessageNet, BasicMLP, SoftMask
 
 
 class Eq1to1(nn.Module):
@@ -319,13 +319,14 @@ class Net2to2(nn.Module):
         eq_out_dims = [num_channels_m[i+1][0] if len(num_channels_m[i+1]) > 0 else num_channels[i+1] for i in range(num_layers-1)] + [num_channels[-1]]
 
         self.message_layers = nn.ModuleList(([MessageNet(num_channels_m[i]+[num_channels[i],], activation=activation, batchnorm=batchnorm, ir_safe=ir_safe, masked=masked, device=device, dtype=dtype) for i in range(num_layers)]))        
+        self.softmask_layer = SoftMask(device=device, dtype=dtype)
         if sig: 
             self.attention = nn.ModuleList([nn.Linear(num_channels[i], 1, bias=False, device=device, dtype=dtype) for i in range(num_layers)])
             self.normlayers = nn.ModuleList([nn.LayerNorm(num_channels[i], device=device, dtype=dtype) for i in range(num_layers)])
         self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, ir_safe=ir_safe, config=config, factorize=factorize, device=device, dtype=dtype) for i in range(num_layers)])
         self.to(device=device, dtype=dtype)
 
-    def forward(self, x, mask=None, nobj=None):
+    def forward(self, x, mask=None, nobj=None, softmask=None):
         '''
         x: N x m x m x in_dim
         Returns: N x m x m x out_dim
@@ -347,5 +348,9 @@ class Net2to2(nn.Module):
         else:
             for layer, message in zip(self.eq_layers, self.message_layers):
                 x = message(x, mask)
+                if softmask is not None:
+                    x = x * softmask
                 x = layer(x, mask, nobj)
+                if softmask is not None:
+                    x = x * softmask
         return x

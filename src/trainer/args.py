@@ -187,8 +187,6 @@ def setup_argparse():
                     help='Dropout rate (default = 0.25)')
     parser.add_argument('--batchnorm', type=str, default='b',
                     help='Enable batch/instance normalization at the end of each MessageNet (batch | instance | None) (default = b)')
-    parser.add_argument('--layernorm', action=argparse.BooleanOptionalAction, default=False,
-                    help='Enable layer normalization in the input layer (default = False)')
     parser.add_argument('--sig', action=argparse.BooleanOptionalAction, default=False,
                         help='Enable message significance networks (default = False)')
     parser.add_argument('--config1', type=str, default='s',
@@ -209,6 +207,8 @@ def setup_argparse():
                     help='Use this option to significantly reduce the number of weights used in Eq2to2 layers (default = False)')
     parser.add_argument('--masked', action=argparse.BooleanOptionalAction, default=True,
                     help='Use a masked version of Batchnorm (has no effect if --batchnorm is False) (default = False)')
+    parser.add_argument('--softmasked', action=argparse.BooleanOptionalAction, default=True,
+                    help='Apply a soft mask after each equivariant and messaging layer (default = False)')
 
 
     parser.add_argument('--scale', type=float, default=0.33, metavar='N',
