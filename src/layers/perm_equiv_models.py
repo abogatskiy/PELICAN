@@ -232,7 +232,7 @@ class Eq2to2(nn.Module):
 
         self.to(device=device, dtype=dtype)
 
-    def forward(self, inputs, mask=None, nobj=None):
+    def forward(self, inputs, mask=None, nobj=None, softmask=None):
 
         d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
 
@@ -249,24 +249,23 @@ class Eq2to2(nn.Module):
         #     # ops = ops+[self.ops_func(inputs, nobj, aggregation=d[char.lower()]) * ((1+nobj).log().view([-1,1,1,1,1]) / 3.845) for char in self.config if char in ['S', 'M', 'X', 'N']]
         #     ops = torch.cat(ops, dim=2)
 
+        ops=[]
         for i, char in enumerate(self.config):
-            if char in ['s', 'm', 'x', 'n']:
-                if i==0:
-                    ops = [self.ops_func(inputs, nobj, aggregation=d[char])]
-                else:
-                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char], skip_order_zero=True))
-            elif char in ['S', 'M', 'X', 'N']:
-                if i==0:
-                    ops = [self.ops_func(inputs, nobj, aggregation=d[char.lower()])]
-                    alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
-                else:
-                    ops.append(self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=True))
-                    alphas = self.alphas[i]
-                mult = (nobj).view([-1,1,1,1,1])**alphas
-                mult = mult / (self.average_nobj**alphas)
-                ops[i] = ops[i] * mult
+            if char.lower() in ['s', 'm', 'x', 'n']:
+                op = self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=False if i==0 else True)
+                if char in ['S', 'M', 'X', 'N']:
+                    if i==0:
+                        alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
+                    else:
+                        alphas = self.alphas[i]
+                    mult = (nobj).view([-1,1,1,1,1])**alphas
+                    mult = mult / (self.average_nobj**alphas)
+                    op = op * mult
             else:
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
+            if softmask is not None:
+                op = torch.cat([op[:,:,:5], op[:,:,5:] * softmask], dim=2) if i==0 else op * softmask
+            ops.append(op)
 
         ops = torch.cat(ops, dim=2)
 
@@ -348,9 +347,5 @@ class Net2to2(nn.Module):
         else:
             for layer, message in zip(self.eq_layers, self.message_layers):
                 x = message(x, mask)
-                if softmask is not None:
-                    x = x * softmask
-                x = layer(x, mask, nobj)
-                if softmask is not None:
-                    x = x * softmask
+                x = layer(x, mask, nobj, softmask=softmask)
         return x

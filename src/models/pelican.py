@@ -105,7 +105,7 @@ class PELICANClassifier(nn.Module):
         dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
 
         if self.softmasked:
-            softmask = self.softmask_layer(dot_products.unsqueeze(-1), mask=edge_mask.unsqueeze(-1))
+            softmask = self.softmask_layer(dot_products, mask=edge_mask)
 
         inputs = self.input_encoder(dot_products, mask=edge_mask.unsqueeze(-1))
 
@@ -113,9 +113,12 @@ class PELICANClassifier(nn.Module):
             inputs = torch.cat([inputs, atom_scalars], dim=-1)
 
         # Simplest version with only 2->2 and 2->0 layers
-        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask=softmask if self.softmasked else None)
+        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask=softmask.unsqueeze(1).unsqueeze(2) if self.softmasked else None)
 
         act2 = self.message_layer(act1, mask=edge_mask.unsqueeze(-1))
+
+        if self.softmasked:
+            act2 = act2 * softmask.unsqueeze(-1)
 
         if self.dropout:
             act2 = self.dropout_layer(act2)

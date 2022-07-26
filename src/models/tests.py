@@ -111,7 +111,7 @@ def irc_test(model, data):
 	# First check IR safety (injection of new small momenta). This one is easier to enforce in a model -- 
 	# -- simply make sure that the outputs of the network are small whenever the inputs are.
 
-	alpha_range = 10.**np.arange(-4,0,step=1)
+	alpha_range = 10.**np.arange(-6,-2,step=1)
 	max_particles=2
 	for alpha in alpha_range:
 		temp = []

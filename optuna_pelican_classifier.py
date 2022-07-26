@@ -166,6 +166,7 @@ def objective(trial):
     if args.optuna_test:
         # Test predictions on best model.
         best_metrics=trainer.evaluate(splits=['test'], best=True, final=False)
+        trial.set_user_attr("best_test_metrics", best_metrics)
 
     return best_metrics[metric_to_report]
 

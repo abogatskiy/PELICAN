@@ -172,7 +172,7 @@ class SoftMask(nn.Module):
     def __init__(self, device=torch.device('cpu'), dtype=torch.float):
         super(SoftMask, self).__init__()
 
-        self.beta = nn.Parameter(torch.tensor(10., device=device, dtype=dtype))
+        self.beta = nn.Parameter(torch.tensor(1., device=device, dtype=dtype))
         self.mu = 2.# nn.Parameter(torch.tensor(2., device=device, dtype=dtype))
 
         self.zero = torch.tensor(0, device=device, dtype=dtype)
@@ -183,8 +183,7 @@ class SoftMask(nn.Module):
         # x = ((x-self.mu)*self.beta).sigmoid()
 
         x = (self.beta * x).tanh() ** self.mu
-        if x.isnan().any():
-            breakpoint()
+
         # If mask is included, mask the output
         if mask is not None:
             x = torch.where(mask, x, self.zero)
