@@ -70,7 +70,7 @@ class Eq2to0(nn.Module):
         self.out_dim = out_dim
         self.in_dim = in_dim
         self.ops_func = eops_2_to_0
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(3./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(4./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         if not ir_safe:
             self.bias = nn.Parameter(torch.zeros(1, out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
