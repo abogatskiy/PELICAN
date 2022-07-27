@@ -36,7 +36,8 @@ def suggest_params(args, trial):
     args.double = trial.suggest_categorical("double", [False, True])
     args.factorize = trial.suggest_categorical("factorize", [False, True])
     args.nobj = trial.suggest_int("nobj", 50, 90)
-    args.ir_safe = trial.suggest_categorical("ir_safe", [False, True])
+    # args.ir_safe = trial.suggest_categorical("ir_safe", [False, True])
+    args.masked = trial.suggest_categorical("masked", [False, True])
 
     args.config1 = trial.suggest_categorical("config1", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     args.config2 = trial.suggest_categorical("config2", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])

@@ -173,7 +173,7 @@ class SoftMask(nn.Module):
         super(SoftMask, self).__init__()
 
         self.beta = nn.Parameter(torch.tensor(1., device=device, dtype=dtype))
-        self.mu = 2.# nn.Parameter(torch.tensor(2., device=device, dtype=dtype))
+        self.mu = 1.# nn.Parameter(torch.tensor(2., device=device, dtype=dtype))
 
         self.zero = torch.tensor(0, device=device, dtype=dtype)
 

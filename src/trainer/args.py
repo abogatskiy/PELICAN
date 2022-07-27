@@ -35,7 +35,7 @@ def setup_argparse():
     parser.add_argument('--lr-decay', type=int, default=-1, metavar='N',
                         help='Timescale over which to decay the learning rate (-1 to disable) (default: -1)')
     parser.add_argument('--lr-decay-type', type=str, default='cos', metavar='str',
-                        help='Type of learning rate decay. (cos | linear | exponential | pow | restart) (default: cos)')
+                        help='Type of learning rate decay. (cos | lin | exp | pow | restart) (default: cos)')
     parser.add_argument('--lr-minibatch', '--lr-mb', action=argparse.BooleanOptionalAction, default=True,
                         help='Decay learning rate every minibatch instead of epoch.')
     parser.add_argument('--sgd-restart', type=int, default=-1, metavar='int',
@@ -169,13 +169,13 @@ def setup_argparse():
     #                     help='Number of channels to allow after mixing (default: [3])')
     parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: [[40],[25],[10],[25],[30],[40]])',
-                        # default=[[38], [24], [11], [24], [32], [40]]
-                        default = [[20], [30], [25], [25]]
+                        # default=[[20], [30], [25], [25]]
+                        default = [[25], [25], [25], [25]]
                         )
     parser.add_argument('--num-channels1', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: [35,20,20,15,20,20,35])',
-                        # default=[37,20,19,16,21,22,23]
-                        default=[30, 30, 30, 10, 20]
+                        # default=[30, 30, 30, 10, 20]
+                        default=[25, 25, 25, 25, 25]
                         )
     parser.add_argument('--num-channels2', nargs='*', type=int, default=[20], metavar='N',
                         help='Number of channels to allow after mixing (default: [30])')
@@ -207,7 +207,7 @@ def setup_argparse():
                     help='Use this option to significantly reduce the number of weights used in Eq2to2 layers (default = False)')
     parser.add_argument('--masked', action=argparse.BooleanOptionalAction, default=True,
                     help='Use a masked version of Batchnorm (has no effect if --batchnorm is False) (default = False)')
-    parser.add_argument('--softmasked', action=argparse.BooleanOptionalAction, default=True,
+    parser.add_argument('--softmasked', action=argparse.BooleanOptionalAction, default=False,
                     help='Apply a soft mask after each equivariant and messaging layer (default = False)')
 
 
