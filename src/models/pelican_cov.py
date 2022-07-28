@@ -98,7 +98,8 @@ class PELICANRegression(nn.Module):
         act3 = self.eq2to1(act2, nobj=nobj, mask=atom_mask.unsqueeze(-1))
 
         invariant_particle_coefficients = self.mlp_out(act3, mask=atom_mask.unsqueeze(-1))
-        prediction = (event_momenta * invariant_particle_coefficients).sum(1) # / nobj.squeeze(-1)
+
+        prediction = (event_momenta * invariant_particle_coefficients).sum(1) / self.scale  # / nobj.squeeze(-1)
 
         if covariance_test:
             return prediction, [inputs, act1, act2]

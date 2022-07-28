@@ -80,7 +80,7 @@ def main():
     loss_fn_m2 = lambda predict, targets:  (normsq4(predict) - normsq4(targets)).abs().mean()
     loss_fn_3d = lambda predict, targets:  (predict[:,[1,2,3]] - targets[:,[1,2,3]]).norm(dim=-1).mean()
     loss_fn_4d = lambda predict, targets:  (predict-targets).pow(2).sum(-1).mean()
-    loss_fn = lambda predict, targets: 0.1 * loss_fn_inv(predict,targets) + loss_fn_m2(predict,targets) #+ 0.001 * loss_fn_4d(predict, targets)
+    loss_fn = lambda predict, targets: 0.001 * loss_fn_inv(predict,targets) + 0.001 * loss_fn_m2(predict,targets) #+ 0.001 * loss_fn_4d(predict, targets)
     
     # Apply the covariance and permutation invariance tests.
     if args.test:

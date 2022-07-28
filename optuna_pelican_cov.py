@@ -6,12 +6,13 @@ import logging
 import optuna
 from optuna.trial import TrialState
 
-from src.models import PELICANClassifier
+from src.models import PELICANRegression
 from src.models import tests
 from src.trainer import Trainer
 from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args
 from src.trainer import init_optimizer, init_scheduler
-from src.models.metrics_classifier import metrics, minibatch_metrics, minibatch_metrics_string
+from src.models.metrics_regression import metrics, minibatch_metrics, minibatch_metrics_string
+from src.models.lorentz_metric import normsq4, dot4
 
 from src.dataloaders import initialize_datasets, collate_fn
 
@@ -23,54 +24,57 @@ logger = logging.getLogger('')
 
 def suggest_params(args, trial):
 
-    # args.lr_init = trial.suggest_loguniform("lr_init", 0.0005, 0.005)
-    # args.num_epoch = trial.suggest_int("num_epoch", 40, 80, step=10)
-    # args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
-    # args.scale = trial.suggest_loguniform("scale", 1e-2, 3)
-    # args.sig = trial.suggest_categorical("sig", [True, False])
-    # args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, step=0.05)
-    # args.layernorm = trial.suggest_categorical("layernorm", [True, False])
-    # args.lr_decay_type = trial.suggest_categorical("lr_decay_type", ['exp', 'cos'])
+    # # args.lr_init = trial.suggest_loguniform("lr_init", 0.0005, 0.005)
+    # # args.num_epoch = trial.suggest_int("num_epoch", 40, 80, step=10)
+    # # args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
+    # # args.scale = trial.suggest_loguniform("scale", 1e-2, 3)
+    # # args.sig = trial.suggest_categorical("sig", [True, False])
+    # # args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, step=0.05)
+    # # args.layernorm = trial.suggest_categorical("layernorm", [True, False])
+    # # args.lr_decay_type = trial.suggest_categorical("lr_decay_type", ['exp', 'cos'])
 
-    # args.batch_size = trial.suggest_categorical("batch_size", [16, 32])
-    args.double = trial.suggest_categorical("double", [False, True])
-    args.factorize = trial.suggest_categorical("factorize", [False, True])
-    args.nobj = trial.suggest_int("nobj", 50, 90)
-    # args.ir_safe = trial.suggest_categorical("ir_safe", [False, True])
-    args.masked = trial.suggest_categorical("masked", [False, True])
+    # # args.batch_size = trial.suggest_categorical("batch_size", [16, 32])
+    # args.double = trial.suggest_categorical("double", [False, True])
+    # args.factorize = trial.suggest_categorical("factorize", [False, True])
+    # args.nobj = trial.suggest_int("nobj", 50, 90)
+    # # args.ir_safe = trial.suggest_categorical("ir_safe", [False, True])
+    # args.masked = trial.suggest_categorical("masked", [False, True])
 
-    args.config1 = trial.suggest_categorical("config1", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
-    args.config2 = trial.suggest_categorical("config2", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
+    # args.config1 = trial.suggest_categorical("config1", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
+    # args.config2 = trial.suggest_categorical("config2", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     
-    n_layers1 = trial.suggest_int("n_layers1", 2, 6)
+    # n_layers1 = trial.suggest_int("n_layers1", 2, 6)
 
-    # n_layersm = trial.suggest_int("n_layersm", 1, 2)
-    # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(k)+']', 10, 30) for k in range(n_layersm)]] * n_layers1
-    n_layersm = [trial.suggest_int("n_layersm", 1, 2) for i in range(n_layers1)]
-    args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 10, 50) for k in range(n_layersm[i])] for i in range(n_layers1)]
+    # # n_layersm = trial.suggest_int("n_layersm", 1, 2)
+    # # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(k)+']', 10, 30) for k in range(n_layersm)]] * n_layers1
+    # n_layersm = [trial.suggest_int("n_layersm", 1, 2) for i in range(n_layers1)]
+    # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 10, 50) for k in range(n_layersm[i])] for i in range(n_layers1)]
 
-    n_layersm_out = trial.suggest_int("n_layersm2", 1, 2)
-    args.num_channels_m_out = [trial.suggest_int('n_channelsm_out['+str(k)+']', 10, 50) for k in range(n_layersm_out)]
+    # n_layersm_out = trial.suggest_int("n_layersm2", 1, 2)
+    # args.num_channels_m_out = [trial.suggest_int('n_channelsm_out['+str(k)+']', 10, 50) for k in range(n_layersm_out)]
 
-    args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 40) for i in range(n_layers1 + 1)]
-    # args.num_channels1 = [trial.suggest_int("n_channels1", 3, 30)]
-    # args.num_channels1 = args.num_channels1 * (n_layers1) + [args.num_channels_m[0][0] if n_layersm > 0 else args.num_channels1[0]]
+    # args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 40) for i in range(n_layers1 + 1)]
+    # # args.num_channels1 = [trial.suggest_int("n_channels1", 3, 30)]
+    # # args.num_channels1 = args.num_channels1 * (n_layers1) + [args.num_channels_m[0][0] if n_layersm > 0 else args.num_channels1[0]]
 
-    # args.num_channels1 = [trial.suggest_int("n_channels1", 1, 10)] * n_layers1
-    # args.num_channels_m = [[trial.suggest_int("n_channels1", 1, 10), args.num_channels1[0]*15*len(args.config)]] * n_layers1
-    # args.num_channels1 = args.num_channels1 + [args.num_channels_m[0][0]]
+    # # args.num_channels1 = [trial.suggest_int("n_channels1", 1, 10)] * n_layers1
+    # # args.num_channels_m = [[trial.suggest_int("n_channels1", 1, 10), args.num_channels1[0]*15*len(args.config)]] * n_layers1
+    # # args.num_channels1 = args.num_channels1 + [args.num_channels_m[0][0]]
 
-    n_layers2 = trial.suggest_int("n_layers2", 1, 2)
-    # n_layers2 = 1
-    args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 10, 40) for i in range(n_layers2)]
+    # n_layers2 = trial.suggest_int("n_layers2", 1, 2)
+    # # n_layers2 = 1
+    # args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 10, 40) for i in range(n_layers2)]
 
-    # args.activation = trial.suggest_categorical("activation", ["elu", "leakyrelu"]) #, "relu", "silu", "selu", "tanh"])
-    # args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
+    # # args.activation = trial.suggest_categorical("activation", ["elu", "leakyrelu"]) #, "relu", "silu", "selu", "tanh"])
+    # # args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
 
-    # args.activate_agg = trial.suggest_categorical("activate_agg", [True, False])
-    # args.activate_lin = trial.suggest_categorical("activate_lin", [True, False])
-    # args.dropout = trial.suggest_categorical("dropout", [True])
-    # args.batchnorm = trial.suggest_categorical("batchnorm", ['b'])
+    # # args.activate_agg = trial.suggest_categorical("activate_agg", [True, False])
+    # # args.activate_lin = trial.suggest_categorical("activate_lin", [True, False])
+    # # args.dropout = trial.suggest_categorical("dropout", [True])
+    # # args.batchnorm = trial.suggest_categorical("batchnorm", ['b'])
+
+    trial.suggest_float("c1", 0., 0.002)
+    trial.suggest_float("c2", 0., 0.002)
 
     return args
 
@@ -101,7 +105,7 @@ def define_model(trial):
     device, dtype = init_cuda(args)
 
     # Initialize model
-    model = PELICANClassifier(args.num_channels_m, args.num_channels1, args.num_channels2, args.num_channels_m_out,
+    model = PELICANRegression(args.num_channels_m, args.num_channels1, args.num_channels2, args.num_channels_m_out,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, sig=args.sig, config1=args.config1, config2=args.config2, factorize=args.factorize, masked=args.masked, softmasked=args.softmasked,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
@@ -145,8 +149,11 @@ def objective(trial):
     scheduler, restart_epochs, summarize = init_scheduler(args, optimizer)
 
     # Define a loss function.
-    # loss_fn = torch.nn.functional.cross_entropy
-    loss_fn = torch.nn.CrossEntropyLoss().cuda()
+    loss_fn_inv = lambda predict, targets:  normsq4(predict - targets).abs().mean()
+    loss_fn_m2 = lambda predict, targets:  (normsq4(predict) - normsq4(targets)).abs().mean()
+    loss_fn_3d = lambda predict, targets:  (predict[:,[1,2,3]] - targets[:,[1,2,3]]).norm(dim=-1).mean()
+    loss_fn_4d = lambda predict, targets:  (predict-targets).pow(2).sum(-1).mean()
+    loss_fn = lambda predict, targets: trial.params['c1'] * loss_fn_inv(predict,targets) + trial.params['c2'] * loss_fn_m2(predict,targets) #+ 0.001 * loss_fn_4d(predict, targets)
     
     # Apply the covariance and permutation invariance tests.
     if args.test:
@@ -159,7 +166,6 @@ def objective(trial):
     trainer.load_checkpoint()
 
     # Train model.  
-    metric_to_report='accuracy' 
     best_epoch, best_metrics = trainer.train(trial=None, metric_to_report=None)
 
     print(f"Best epoch was {best_epoch} with metrics {best_metrics}")
@@ -169,7 +175,7 @@ def objective(trial):
         best_metrics=trainer.evaluate(splits=['test'], best=True, final=False)
         trial.set_user_attr("best_test_metrics", best_metrics)
 
-    return best_metrics[metric_to_report]
+    return best_metrics['∆Ψ'], best_metrics['∆m']
 
 if __name__ == '__main__':
 
@@ -179,10 +185,10 @@ if __name__ == '__main__':
     if args.storage == 'remote':
         storage=optuna.storages.RDBStorage(url=f'postgresql://{os.environ["USER"]}:{args.password}@{args.host}:{args.port}', heartbeat_interval=100)  # For running on nodes with a distributed file system
     elif args.storage == 'local':
-        storage='sqlite:///file:'+args.study_name+'.db?vfs=unix-dotfile&uri=true'  # For running on a local machine
+        storage=optuna.storages.RDBStorage(url='sqlite:///'+args.study_name+'.db')  # For running on a local machine
 
-    direction = 'maximize'
-    # directions=['minimize', 'maximize', 'maximize']
+    # direction = 'minimize'
+    directions=['minimize', 'minimize']
 
     if args.sampler.lower() == 'random':
         sampler = optuna.samplers.RandomSampler()
@@ -198,7 +204,7 @@ if __name__ == '__main__':
 
     # os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
-    study = optuna.create_study(study_name=args.study_name, storage=storage, direction=direction, load_if_exists=True,
+    study = optuna.create_study(study_name=args.study_name, storage=storage, directions=directions, load_if_exists=True,
                                 pruner=pruner, sampler=sampler)
 
     # init_params =  {

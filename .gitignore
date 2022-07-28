@@ -3,8 +3,8 @@
 /predict/
 /model/
 
-/data/v0
-/data/btW_1
+/data/*
+!/data/sample_data
 
 /slurm/out
 /slurm/err
