@@ -169,7 +169,7 @@ class Trainer:
             # Loop over splits, predict, and output/log predictions
             for split in splits:
                 predict, targets = self.predict(set=split)
-                best_metrics = self.log_predict(predict, targets, split, description='Final')
+                best_metrics, logstring = self.log_predict(predict, targets, split, description='Final')
 
         # Evaluate best model as determined by validation error
         if best:
@@ -181,10 +181,11 @@ class Trainer:
                 # Loop over splits, predict, and output/log predictions
                 for split in splits:
                     predict, targets = self.predict(split)
-                    best_metrics = self.log_predict(predict, targets, split, description='Best')
+                    best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
             else:
                 if checkpoint['epoch'] == final_epoch:
                     logger.info('BEST MODEL IS SAME AS FINAL')
+                    self.log_predict(predict, targets, split, description='Best', repeat=[best_metrics, logstring])
 
         logger.info('Inference phase complete!\n')
 
@@ -258,12 +259,12 @@ class Trainer:
             self._step_lr_epoch()
 
             train_predict, train_targets, epoch_t = self.train_epoch()
-            train_metrics= self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
+            train_metrics,_ = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
 
             self._save_checkpoint()
 
             valid_predict, valid_targets = self.predict(set='valid')
-            valid_metrics = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
+            valid_metrics, _ = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
 
             self._save_checkpoint(valid_metrics)
             
@@ -375,7 +376,7 @@ class Trainer:
 
         return all_predict, all_targets
 
-    def log_predict(self, predict, targets, dataset, epoch=-1, epoch_t=None, description=''):
+    def log_predict(self, predict, targets, dataset, epoch=-1, epoch_t=None, description='', repeat=None):
         predict = predict.cpu().double()
         targets = targets.cpu().double()
 
@@ -387,11 +388,16 @@ class Trainer:
             suffix = 'best'
 
         prefix = self.args.predictfile + '.' + suffix + '.' + dataset
-        metrics, logstring = self.metrics_fn(predict, targets, self.loss_fn, prefix, logger)
+
+        if repeat is None:
+            metrics, logstring = self.metrics_fn(predict, targets, self.loss_fn, prefix, logger)
+        else:
+            metrics, logstring = repeat[0], repeat[1]
+
         if epoch >= 0:
             logger.info(f'Epoch {epoch} {description} {datastrings[dataset]}'+logstring)
         else:
-            logger.info(f'{description} {datastrings[dataset]}'+logstring)
+            logger.info(f'{description:<5} {datastrings[dataset]:<10}'+logstring)
 
         if epoch_t:
             logger.info(f'Total epoch time:      {(datetime.now() - epoch_t).total_seconds()}s')
@@ -415,10 +421,13 @@ class Trainer:
                 file_.write("\n")  # Next line.
 
 
-        if self.args.predict:
+        if self.args.predict and (repeat is None):
             file = self.args.predictfile + '.' + suffix + '.' + dataset + '.pt'
             logger.info('Saving predictions to file: {}'.format(file))
             torch.save({'predict': predict, 'targets': targets}, file)
+        
+        if repeat is not None:
+            logger.info('Predictions already saved above')
 
         if self.summarize:
             if description == 'Best': dataset = 'Best_' + dataset
@@ -426,4 +435,4 @@ class Trainer:
             for name, metric in metrics.items():
                 self.writer.add_scalar(dataset+'/'+name, metric, epoch)
 
-        return metrics
+        return metrics, logstring
