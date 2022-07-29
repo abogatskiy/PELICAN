@@ -217,11 +217,12 @@ class Eq2to2(nn.Module):
         self.out_dim = out_dim
         self.in_dim = in_dim
         if factorize:
-            self.coefs00 = nn.Parameter(torch.normal(0, np.sqrt(2. / self.basis_dim), (in_dim, self.basis_dim), device=device, dtype=dtype))
-            self.coefs01 = nn.Parameter(torch.normal(0, np.sqrt(2. / self.basis_dim), (out_dim, self.basis_dim), device=device, dtype=dtype))            
+            self.coefs00 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (in_dim, self.basis_dim), device=device, dtype=dtype))
+            self.coefs01 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (out_dim, self.basis_dim), device=device, dtype=dtype))            
             self.coefs10 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))
+            self.coefs11 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))
         else:
-            self.coefs = nn.Parameter(torch.normal(0, np.sqrt(4./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+            self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         if not ir_safe:
             self.bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
             self.diag_bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
@@ -275,10 +276,10 @@ class Eq2to2(nn.Module):
             ops = self.activation_fn(ops)
 
         if self.factorize:
-            output00 = torch.einsum('db,ndbij->ndij', self.coefs00, ops) # d=in_dim,  b=basis_dim, n=event number, ij=particle indices
-            output = torch.einsum('bd,nbij->nijd', self.coefs10, output00) # d=out_im, b=in_dim, n=event number, ij=particle indices
-            output10 = torch.einsum('do,ndbij->nobij', self.coefs10, ops) # o=out_im, d=in_dim, b=basis_dim, n=event number, ij=particle indices
-            output = output + torch.einsum('ob,nobij->nijo', self.coefs01, output10) # d=out_dim, b=basis_dim, n=event number, ij=particle indices   
+            output0 = torch.einsum('db,ndbij->ndij', self.coefs00, ops) # d=in_dim,  b=basis_dim, n=event number, ij=particle indices
+            output = torch.einsum('bd,nbij->nijd', self.coefs10, output0) # d=out_im, b=in_dim, n=event number, ij=particle indices
+            output1 = torch.einsum('do,ndbij->nobij', self.coefs11, ops) # o=out_im, d=in_dim, b=basis_dim, n=event number, ij=particle indices
+            output = output + torch.einsum('ob,nobij->nijo', self.coefs01, output1) # d=out_dim, b=basis_dim, n=event number, ij=particle indices   
         else:
             output = torch.einsum('dsb,ndbij->nijs', self.coefs, ops)
 
