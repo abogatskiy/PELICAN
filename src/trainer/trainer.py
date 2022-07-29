@@ -55,7 +55,7 @@ class Trainer:
     Class to train network. Includes checkpoints, optimizer, scheduler,
     """
     def __init__(self, args, dataloaders, model, loss_fn, metrics_fn, minibatch_metrics_fn, minibatch_metrics_string_fn, 
-                 optimizer, scheduler, restart_epochs, summarize, device, dtype):
+                 optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype):
         np.set_printoptions(precision=3)
         self.args = args
         self.dataloaders = dataloaders
@@ -80,6 +80,7 @@ class Trainer:
         self.stats = None  # dataloaders['train'].dataset.stats
 
         # TODO: Fix this until TB summarize is implemented.
+        self.summarize_csv = summarize_csv
         self.summarize = summarize
         if summarize:
             from torch.utils.tensorboard import SummaryWriter
@@ -396,12 +397,21 @@ class Trainer:
             logger.info(f'Total epoch time:      {(datetime.now() - epoch_t).total_seconds()}s')
 
         metricsfile = self.args.predictfile + '.metrics.' + dataset + '.csv'   
-        
-        if epoch >= 0:
+        testmetricsfile = os.path.join(self.args.workdir, self.args.logdir, self.args.prefix.split("-")[0]+'.'+description+'.metrics.csv')
+
+        if epoch >= 0 and self.summarize_csv=='all':
             with open(metricsfile, mode='a' if (self.args.load or epoch>1) else 'w') as file_:
                 if epoch == 1:
                     file_.write(",".join(metrics.keys()))
                 file_.write(",".join(map(str, metrics.values())))
+                file_.write("\n")  # Next line.
+        if epoch < 0 and self.summarize_csv in ['test','all']:
+            if not os.path.exists(testmetricsfile):
+                with open(testmetricsfile, mode='a') as file_:
+                    file_.write("prefix,timestamp,"+",".join(metrics.keys()))
+                    file_.write("\n")  # Next line.
+            with open(testmetricsfile, mode='a') as file_:
+                file_.write(self.args.prefix+','+str(datetime.now())+','+",".join(map(str, metrics.values())))
                 file_.write("\n")  # Next line.
 
 

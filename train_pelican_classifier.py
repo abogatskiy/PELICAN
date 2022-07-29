@@ -71,7 +71,7 @@ def main():
 
     # Initialize the scheduler and optimizer
     optimizer = init_optimizer(args, model)
-    scheduler, restart_epochs, summarize = init_scheduler(args, optimizer)
+    scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
 
     # Define a loss function.
     # loss_fn = torch.nn.functional.cross_entropy
@@ -79,17 +79,17 @@ def main():
     
     # Apply the covariance and permutation invariance tests.
     if args.test:
-        tests(model, dataloaders['train'], args, tests=['permutation','batch','irc'])
+        tests(model, dataloaders['train'], args, tests=['irc'])
 
     # Instantiate the training class
-    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize, device, dtype)
+    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype)
     
     # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
     trainer.load_checkpoint()
 
     # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
     if args.reproducible:
-        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
     # Train model.
     trainer.train()

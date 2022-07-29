@@ -43,7 +43,7 @@ class PELICANRegression(nn.Module):
         else:
             embedding_dim = self.num_channels1[0]
         if add_beams: 
-            assert embedding_dim > 2, f"num_channels_m[0][0] has to be at least 3 when using --add_beams but got {embedding_dim}"
+            assert embedding_dim > 2, f"num_channels_m[0][0] or num-channels1[0] has to be at least 3 when using --add_beams but got {embedding_dim}"
             embedding_dim -= 2
 
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)

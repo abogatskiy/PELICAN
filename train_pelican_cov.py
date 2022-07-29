@@ -72,7 +72,7 @@ def main():
 
     # Initialize the scheduler and optimizer
     optimizer = init_optimizer(args, model)
-    scheduler, restart_epochs, summarize = init_scheduler(args, optimizer)
+    scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
 
     # Define a loss function. This is the loss function whose gradients are actually computed. 
 
@@ -87,7 +87,7 @@ def main():
         raise NotImplementedError()
 
     # Instantiate the training class
-    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize, device, dtype)
+    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype)
     
     # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
     trainer.load_checkpoint()

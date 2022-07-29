@@ -266,7 +266,7 @@ class Eq2to2(nn.Module):
             else:
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
             if softmask is not None:
-                op = torch.cat([op[:,:,:5], op[:,:,5:] * softmask], dim=2) if i==0 else op * softmask
+                op = torch.cat([op[:,:,:3], op[:,:,3:] * softmask], dim=2) if i==0 else op * softmask
             ops.append(op)
 
         ops = torch.cat(ops, dim=2)

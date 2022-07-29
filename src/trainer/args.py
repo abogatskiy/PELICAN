@@ -49,6 +49,8 @@ def setup_argparse():
                         help='Use nn.DataParallel when multiple GPUs are available.')
     parser.add_argument('--summarize', action=argparse.BooleanOptionalAction, default=True,
                         help='Use a TensorBoard SummaryWriter() to log metrics.')
+    parser.add_argument('--summarize-csv', type=str, default='test', metavar='str',
+                        help='Use CSV files to log validation and testing metrics. (test | all | none)')
 
     # Dataloader and randomness options
     parser.add_argument('--shuffle', action=argparse.BooleanOptionalAction, default=True,
