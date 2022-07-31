@@ -179,16 +179,20 @@ def setup_argparse():
                         # default=[30, 30, 30, 10, 20]
                         default=[25, 25, 25, 25, 25]
                         )
-    parser.add_argument('--num-channels2', nargs='*', type=int, default=[20], metavar='N',
-                        help='Number of channels to allow after mixing (default: [30])')
     parser.add_argument('--num-channels-m-out', nargs='*', type=int, metavar='N',
-                        help='Number of channels to allow after mixing (default: [30])', default =[20, 10])
+                        help='Number of channels to allow after mixing (default: [20, 10])', default =[20, 10])
+    parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
+                    help='Include an output MLP (default = True)')
+    parser.add_argument('--num-channels2', nargs='*', type=int, default=[20], metavar='N',
+                        help='Numbers of channels in the output MLP (default: [20])')
+
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,
                     help='Enable a dropout layer at the end of the network (default = False)')
     parser.add_argument('--drop-rate', type=float, default=0.25, metavar='N',
                     help='Dropout rate (default = 0.25)')
     parser.add_argument('--batchnorm', type=str, default='b',
                     help='Enable batch/instance normalization at the end of each MessageNet (batch | instance | None) (default = b)')
+
     parser.add_argument('--sig', action=argparse.BooleanOptionalAction, default=False,
                         help='Enable message significance networks (default = False)')
     parser.add_argument('--config1', type=str, default='s',
@@ -203,8 +207,6 @@ def setup_argparse():
                     help='Apply an activation function right after permutation-equvariant Eq2to0 aggregation (default = True)')
     parser.add_argument('--activate-lin2', action=argparse.BooleanOptionalAction, default=False,
                     help='Apply an activation function right after the linear mixing following Eq2to0 aggregation (default = False)')
-    parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
-                    help='Include an output MLP (default = True)')
     parser.add_argument('--factorize', action=argparse.BooleanOptionalAction, default=False,
                     help='Use this option to significantly reduce the number of weights used in Eq2to2 layers (default = False)')
     parser.add_argument('--masked', action=argparse.BooleanOptionalAction, default=True,

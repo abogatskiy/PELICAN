@@ -45,7 +45,7 @@ class PELICANClassifier(nn.Module):
         self.softmasked = softmasked
 
         if dropout:
-            self.dropout_layer = torch.nn.Dropout(drop_rate)
+            self.dropout_layer = nn.Dropout(0.1)
 
         # self.mlp0 = BasicMLP([num_scalars_in] + num_channels0 + [num_channels1[0]], activation = activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
         # self.mlp_mass = BasicMLP([num_scalars_in] + num_channels0 + [num_channels1[0]], activation = activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
@@ -66,7 +66,7 @@ class PELICANClassifier(nn.Module):
         if softmasked:
             self.softmask_layer = SoftMask(device=device,dtype=dtype)
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
-        self.net2to2 = Net2to2(num_channels1, num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, factorize=factorize, masked=masked, device = device, dtype = dtype)
+        self.net2to2 = Net2to2(num_channels1, num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet([num_channels1[-1]] + num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
         self.eq2to0 = Eq2to0(num_channels_m_out[-1], num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
         if mlp_out:
@@ -117,16 +117,16 @@ class PELICANClassifier(nn.Module):
 
         act2 = self.message_layer(act1, mask=edge_mask.unsqueeze(-1))
 
-        if self.softmasked:
-            act2 = act2 * softmask.unsqueeze(-1)
-
         if self.dropout:
             act2 = self.dropout_layer(act2)
 
+        if self.softmasked:
+            act2 = act2 * softmask.unsqueeze(-1)
+
         act3 = self.eq2to0(act2, nobj=nobj)
         
-        # if self.dropout:
-        #     act2 = self.dropout_layer(act2)
+        if self.dropout:
+            act3 = self.dropout_layer(act3)
 
         if self.mlp_out:
             prediction = self.mlp_out(act3)

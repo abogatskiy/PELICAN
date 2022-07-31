@@ -308,7 +308,7 @@ class Net1to1(nn.Module):
         return x
 
 class Net2to2(nn.Module):
-    def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', batchnorm=None, sig=False, ir_safe=False, config='s', factorize=False, masked=True, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True, activation='leakyrelu', dropout=True, drop_rate=0.25, batchnorm=None, sig=False, ir_safe=False, config='s', factorize=False, masked=True, device=torch.device('cpu'), dtype=torch.float):
         super(Net2to2, self).__init__()
         
         self.sig = sig
@@ -321,6 +321,10 @@ class Net2to2(nn.Module):
         self.in_dim = num_channels_m[0][0] if len(num_channels_m[0]) > 0 else num_channels[0]
 
         eq_out_dims = [num_channels_m[i+1][0] if len(num_channels_m[i+1]) > 0 else num_channels[i+1] for i in range(num_layers-1)] + [num_channels[-1]]
+
+        self.dropout = dropout
+        if dropout:
+            self.dropout_layer = nn.Dropout2d(drop_rate)
 
         self.message_layers = nn.ModuleList(([MessageNet(num_channels_m[i]+[num_channels[i],], activation=activation, batchnorm=batchnorm, ir_safe=ir_safe, masked=masked, device=device, dtype=dtype) for i in range(num_layers)]))        
         self.softmask_layer = SoftMask(device=device, dtype=dtype)
@@ -352,5 +356,7 @@ class Net2to2(nn.Module):
         else:
             for layer, message in zip(self.eq_layers, self.message_layers):
                 x = message(x, mask)
+                if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
                 x = layer(x, mask, nobj, softmask=softmask)
+                if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
         return x
