@@ -31,6 +31,7 @@ class GradualWarmupScheduler(_LRScheduler):
                 if not self.finished:
                     self.after_scheduler.base_lrs = [base_lr * self.multiplier for base_lr in self.base_lrs]
                     self.finished = True
+                    breakpoint()
                 return self.after_scheduler.get_last_lr()
             return [base_lr * self.multiplier for base_lr in self.base_lrs]
 
