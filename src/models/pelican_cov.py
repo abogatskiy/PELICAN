@@ -5,6 +5,7 @@ import logging
 
 from .lorentz_metric import normsq4, dot4
 from ..layers import BasicMLP, get_activation_fn, Net1to1, Net2to2, Eq2to1, Eq2to0, MessageNet, InputEncoder
+from ..trainer import init_weights
 
 class PELICANRegression(nn.Module):
     """
@@ -53,6 +54,8 @@ class PELICANRegression(nn.Module):
         self.eq2to1 = Eq2to1(num_channels_m_out[-1], num_channels2[0] if mlp_out else 1,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
         if mlp_out:
             self.mlp_out = BasicMLP(self.num_channels2 + [1], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
+
+        self.apply(init_weights)
 
         logging.info('_________________________\n')
         for n, p in self.named_parameters(): logging.info(f'{"Parameter: " + n:<80} {p.shape}')

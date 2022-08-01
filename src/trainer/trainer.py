@@ -1,5 +1,5 @@
 import torch
-from .utils import init_scheduler, init_optimizer
+from .utils import init_scheduler, init_optimizer, _max_norm
 # from torch.utils.data import DataLoader
 # import torch.optim as optim
 # import torch.optim.lr_scheduler as sched
@@ -335,6 +335,7 @@ class Trainer:
 
                 # Step optimizer and learning rate
                 self.optimizer.step()
+                self.model.apply(_max_norm)
             self._step_lr_batch()
 
             targets, predict = targets.detach().cpu(), predict.detach().cpu()

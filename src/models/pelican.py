@@ -5,6 +5,7 @@ import logging
 
 from .lorentz_metric import normsq4, dot4
 from ..layers import BasicMLP, get_activation_fn, Net1to1, Net2to2, Eq2to1, Eq2to0, MessageNet, InputEncoder, SoftMask
+from ..trainer import init_weights
 
 class PELICANClassifier(nn.Module):
     """
@@ -203,7 +204,3 @@ def expand_var_list(var):
     else:
         raise ValueError('Incorrect type {}'.format(type(var)))
     return var_list
-
-def init_weights(m):
-    if type(m) == nn.Linear:
-        torch.nn.init.kaiming_normal_(m.weight, a=0.01, mode='fan_in', nonlinearity='leaky_relu')

@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch.optim.lr_scheduler as sched
@@ -239,3 +240,16 @@ def init_cuda(args):
         raise ValueError('Incorrect data type chosen!')
 
     return device, dtype
+
+def init_weights(m):
+    if type(m) == nn.Linear:
+        torch.nn.init.kaiming_normal_(m.weight, a=0.01, mode='fan_in', nonlinearity='leaky_relu')
+
+def _max_norm(m):
+    _max_norm_val = 4.
+    if hasattr(m, 'weight'):
+        with torch.no_grad():
+            w = m.weight
+            norm = w.norm(2, dim=0, keepdim=True).clamp(min=_max_norm_val / 2)
+            desired = torch.clamp(norm, max=_max_norm_val)
+            m.weight *= (desired / norm)
