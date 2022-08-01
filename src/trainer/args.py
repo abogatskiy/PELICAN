@@ -26,8 +26,6 @@ def setup_argparse():
     parser.add_argument('--batch-group-size', '-bgs', type=int, default=1, metavar='N',
                         help='Mini-batch size (default: 10)')    
 
-    parser.add_argument('--weight-decay', type=float, default=0, metavar='N',
-                        help='Set the weight decay used in optimizer (default: 0)')
     parser.add_argument('--lr-init', type=float, default=0.0025, metavar='N',
                         help='Initial learning rate (default: 0.005)')
     parser.add_argument('--lr-final', type=float, default=1e-5, metavar='N',
@@ -45,6 +43,8 @@ def setup_argparse():
 
     parser.add_argument('--optim', type=str, default='adamw', metavar='str',
                         help='Set optimizer. (SGD, AMSgrad, Adam, AdamW, RMSprop)')
+    parser.add_argument('--weight-decay', type=float, default=0, metavar='N',
+                        help='Set the weight decay used in optimizer (default: 0)')
     parser.add_argument('--parallel', action=argparse.BooleanOptionalAction, default=False,
                         help='Use nn.DataParallel when multiple GPUs are available.')
     parser.add_argument('--summarize', action=argparse.BooleanOptionalAction, default=True,
@@ -172,12 +172,12 @@ def setup_argparse():
     parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: [[40],[25],[10],[25],[30],[40]])',
                         # default=[[20], [30], [25], [25]]
-                        default = [[25], [25], [25], [25]]
+                        default = [[20], [30], [25], [25]]
                         )
     parser.add_argument('--num-channels1', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: [35,20,20,15,20,20,35])',
                         # default=[30, 30, 30, 10, 20]
-                        default=[25, 25, 25, 25, 25]
+                        default=[30, 30, 30, 10, 20]
                         )
     parser.add_argument('--num-channels-m-out', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: [20, 10])', default =[20, 10])

@@ -335,7 +335,7 @@ class Trainer:
 
                 # Step optimizer and learning rate
                 self.optimizer.step()
-                self.model.apply(_max_norm)
+                # self.model.apply(_max_norm)
             self._step_lr_batch()
 
             targets, predict = targets.detach().cpu(), predict.detach().cpu()

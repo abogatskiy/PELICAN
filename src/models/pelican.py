@@ -46,7 +46,8 @@ class PELICANClassifier(nn.Module):
         self.softmasked = softmasked
 
         if dropout:
-            self.dropout_layer = nn.Dropout(0.1)
+            self.dropout_layer = nn.Dropout(drop_rate)
+            self.dropout_layer_out = nn.Dropout(0.1)
 
         # self.mlp0 = BasicMLP([num_scalars_in] + num_channels0 + [num_channels1[0]], activation = activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
         # self.mlp_mass = BasicMLP([num_scalars_in] + num_channels0 + [num_channels1[0]], activation = activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
@@ -127,7 +128,7 @@ class PELICANClassifier(nn.Module):
         act3 = self.eq2to0(act2, nobj=nobj)
         
         if self.dropout:
-            act3 = self.dropout_layer(act3)
+            act3 = self.dropout_layer_out(act3)
 
         if self.mlp_out:
             prediction = self.mlp_out(act3)

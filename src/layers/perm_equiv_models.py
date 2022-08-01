@@ -222,7 +222,7 @@ class Eq2to2(nn.Module):
             self.coefs10 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))
             self.coefs11 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))
         else:
-            self.weight = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+            self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         if not ir_safe:
             self.bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
             self.diag_bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
@@ -281,7 +281,7 @@ class Eq2to2(nn.Module):
             output1 = torch.einsum('do,ndbij->nobij', self.coefs11, ops) # o=out_im, d=in_dim, b=basis_dim, n=event number, ij=particle indices
             output = output + torch.einsum('ob,nobij->nijo', self.coefs01, output1) # d=out_dim, b=basis_dim, n=event number, ij=particle indices   
         else:
-            output = torch.einsum('dsb,ndbij->nijs', self.weight, ops)
+            output = torch.einsum('dsb,ndbij->nijs', self.coefs, ops)
 
         if not self.ir_safe:
             diag_eye = torch.eye(inputs.shape[1], device=self.device, dtype=self.dtype).unsqueeze(0).unsqueeze(-1)
@@ -324,7 +324,7 @@ class Net2to2(nn.Module):
 
         self.dropout = dropout
         if dropout:
-            self.dropout_layer = nn.Dropout2d(drop_rate)
+            self.dropout_layer = nn.Dropout(drop_rate)
 
         self.message_layers = nn.ModuleList(([MessageNet(num_channels_m[i]+[num_channels[i],], activation=activation, batchnorm=batchnorm, ir_safe=ir_safe, masked=masked, device=device, dtype=dtype) for i in range(num_layers)]))        
         self.softmask_layer = SoftMask(device=device, dtype=dtype)
@@ -358,5 +358,5 @@ class Net2to2(nn.Module):
                 x = message(x, mask)
                 if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
                 x = layer(x, mask, nobj, softmask=softmask)
-                if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
+                # if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
         return x
