@@ -70,7 +70,7 @@ class Trainer:
             warmup_epochs = int(self.args.num_epoch/9)
             cooldown_epochs = int(self.args.num_epoch/12)
             self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=4*len(dataloaders['train']), after_scheduler=scheduler)
-            coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
+            coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs - 1)*len(dataloaders['train'])
             cooldown_length = cooldown_epochs*len(dataloaders['train'])
             self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
         self.restart_epochs = restart_epochs

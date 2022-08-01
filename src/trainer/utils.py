@@ -157,7 +157,7 @@ def init_optimizer(args, model):
     elif optim_type == 'adamw':
         optimizer = optim.AdamW(params, amsgrad=False)
     elif optim_type == 'amsgrad':
-        optimizer = optim.Adam(params, amsgrad=True)
+        optimizer = optim.Adam(params, amsgrad=False)
     elif optim_type == 'rmsprop':
         optimizer = optim.RMSprop(params)
     elif optim_type == 'sgd':
@@ -197,7 +197,7 @@ def init_scheduler(args, optimizer):
     if args.lr_decay_type.startswith('cos'):
         scheduler = sched.CosineAnnealingLR(optimizer, lr_hold, eta_min=lr_final)
     elif args.lr_decay_type.startswith('warm'):
-        scheduler = sched.CosineAnnealingWarmRestarts(optimizer, 4*minibatch_per_epoch, 2)
+        scheduler = sched.CosineAnnealingWarmRestarts(optimizer, T_0=4*minibatch_per_epoch, T_mult=2, eta_min=lr_final)
     elif args.lr_decay_type.startswith('exp'):
         # lr_lambda = lambda epoch: lr_bounds(exp(epoch / lr_decay * log(lr_ratio)), lr_ratio)
         # scheduler = sched.LambdaLR(optimizer, lr_lambda)

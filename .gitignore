@@ -8,7 +8,7 @@
 
 /slurm/out
 /slurm/err
-/slurm/log
+/slurm/log*
 /slurm/predict
 /slurm/model
 
