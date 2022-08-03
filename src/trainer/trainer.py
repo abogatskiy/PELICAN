@@ -67,7 +67,7 @@ class Trainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
         if args.lr_decay_type == 'warm':
-            warmup_epochs = int(self.args.num_epoch/9)
+            warmup_epochs = 4 #int(self.args.num_epoch/9)
             cooldown_epochs = int(self.args.num_epoch/12)
             # self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=4*len(dataloaders['train']), after_scheduler=scheduler)
             self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
@@ -110,7 +110,7 @@ class Trainer:
         if valid_metrics is None:
             logger.info('Saving model to checkpoint file: {}'.format(self.args.checkfile))
             torch.save(save_dict, self.args.checkfile)
-        elif valid_metrics['loss'] < self.best_metrics['loss']:
+        elif valid_metrics['loss'] < self.best_metrics['loss'] and self.epoch/self.args.num_epoch >= 0.5:
             self.best_epoch = self.epoch
             self.best_metrics = save_dict['best_metrics'] = valid_metrics
             logger.info('Lowest loss achieved! Saving best model to file: {}'.format(self.args.bestfile))

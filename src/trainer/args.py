@@ -15,6 +15,9 @@ def setup_argparse():
     parser.add_argument('--sampler', default='random')
     parser.add_argument('--pruner', default='median')
 
+    parser.add_argument('--fix-data', action=argparse.BooleanOptionalAction, default=True,
+                        help='Fix the seed for the random choice of training samples in the train_pelican script')
+
     parser.add_argument('--task', type=str, default='train', metavar='str',
                         help='Train or evaluate model. (train | eval)')
 
@@ -190,6 +193,8 @@ def setup_argparse():
                     help='Enable a dropout layer at the end of the network (default = False)')
     parser.add_argument('--drop-rate', type=float, default=0.25, metavar='N',
                     help='Dropout rate (default = 0.25)')
+    parser.add_argument('--drop-rate-out', type=float, default=0.1, metavar='N',
+                        help='Dropout rate on the Eq2to0 layer (default: 0.01)')
     parser.add_argument('--batchnorm', type=str, default='b',
                     help='Enable batch/instance normalization at the end of each MessageNet (batch | instance | None) (default = b)')
 
