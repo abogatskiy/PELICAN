@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from .masked_batchnorm import MaskedBatchNorm1d, MaskedBatchNorm2d
-
+from .masked_instancenorm import MaskedInstanceNorm2d, MaskedInstanceNorm3d
 class BasicMLP(nn.Module):
     """
     Multilayer perceptron used in various locations.  Operates only on the last axis of the data.
@@ -100,7 +100,15 @@ class MessageNet(nn.Module):
                 else:
                     self.normlayer = nn.BatchNorm2d(num_channels[-1], device=device, dtype=dtype)
             elif self.batchnorm.startswith('i'):
-                self.normlayer = nn.InstanceNorm2d(num_channels[-1], device=device, dtype=dtype)
+                if masked:
+                    self.normlayer = MaskedInstanceNorm2d(num_channels[-1], device=device, dtype=dtype)
+                else:
+                    self.normlayer = nn.InstanceNorm2d(num_channels[-1], device=device, dtype=dtype)
+            elif self.batchnorm.startswith('l'):
+                if masked:
+                    self.normlayer = MaskedInstanceNorm3d(1, device=device, dtype=dtype)
+                else:
+                    self.normlayer = nn.InstanceNorm3d(1, device=device, dtype=dtype)
             else:
                 self.batchnorm = False
 
@@ -118,16 +126,28 @@ class MessageNet(nn.Module):
             x = torch.where(mask, x, self.zero)
 
         if self.batchnorm: 
-            if len(x.shape)==3:
-                if self.masked:
-                    x = self.normlayer(x.unsqueeze(1), mask).squeeze(1)
-                else:
-                    x = self.normlayer(x.unsqueeze(-1).permute(0,2,1,3)).permute(0,2,1,3).squeeze(-1)
-            elif len(x.shape)==4:
-                if self.masked:
-                    x = self.normlayer(x, mask)
-                else:
-                    x = self.normlayer(x.permute(0,3,1,2)).permute(0,2,3,1)
+            if self.batchnorm.startswith('b') or self.batchnorm.startswith('i'):
+                if len(x.shape)==3:
+                    if self.masked:
+                        x = self.normlayer(x.unsqueeze(1), mask).squeeze(1)
+                    else:
+                        x = self.normlayer(x.unsqueeze(-1).permute(0,2,1,3)).permute(0,2,1,3).squeeze(-1)
+                elif len(x.shape)==4:
+                    if self.masked:
+                        x = self.normlayer(x, mask)
+                    else:
+                        x = self.normlayer(x.permute(0,3,1,2)).permute(0,2,3,1)
+            elif self.batchnorm.startswith('l'):
+                if len(x.shape)==3:
+                    if self.masked:
+                        x = self.normlayer(x.unsqueeze(1).unsqueeze(1), mask.unsqueeze(1).unsqueeze(1)).squeeze(1).squeeze(1)
+                    else:
+                        x = self.normlayer(x.unsqueeze(1)).squeeze(-1)
+                elif len(x.shape)==4:
+                    if self.masked:
+                        x = self.normlayer(x.unsqueeze(1), mask.expand(x.shape).unsqueeze(1)).squeeze(1)
+                    else:
+                        x = self.normlayer(x.unsqueeze(1)).squeeze(1)
 
         return x
 
