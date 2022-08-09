@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch.optim.lr_scheduler as sched
+from .lookahead import Lookahead
 
 import os, sys, pickle
 from datetime import datetime
@@ -162,6 +163,8 @@ def init_optimizer(args, model):
         optimizer = optim.RMSprop(params)
     elif optim_type == 'sgd':
         optimizer = optim.SGD(params)
+    elif optim_type == 'look':
+        optimizer = Lookahead(torch.optim.RAdam(params), alpha=0.6 , k=10)
     else:
         raise ValueError('Incorrect choice of optimizer')
 
@@ -197,7 +200,7 @@ def init_scheduler(args, optimizer):
     if args.lr_decay_type.startswith('cos'):
         scheduler = sched.CosineAnnealingLR(optimizer, lr_hold, eta_min=lr_final)
     elif args.lr_decay_type.startswith('warm'):
-        scheduler = sched.CosineAnnealingWarmRestarts(optimizer, T_0=4*minibatch_per_epoch, T_mult=2, eta_min=lr_final)
+        scheduler = sched.CosineAnnealingWarmRestarts(optimizer, T_0=4*minibatch_per_epoch, T_mult=2, eta_min=lr_final)     
     elif args.lr_decay_type.startswith('exp'):
         # lr_lambda = lambda epoch: lr_bounds(exp(epoch / lr_decay * log(lr_ratio)), lr_ratio)
         # scheduler = sched.LambdaLR(optimizer, lr_lambda)
