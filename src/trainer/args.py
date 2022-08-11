@@ -173,17 +173,17 @@ def setup_argparse():
     # parser.add_argument('--num-channels0', nargs='*', type=int, default=[5,]*2, metavar='N',
     #                     help='Number of channels to allow after mixing (default: [3])')
     parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
-                        help='Number of channels to allow after mixing (default: [[40],[25],[10],[25],[30],[40]])',
+                        help='Number of channels to allow after mixing (default: )',
                         # default=[[20], [30], [25], [25]]
                         default = [[20], [30], [25], [25]]
                         )
     parser.add_argument('--num-channels1', nargs='*', type=int, metavar='N',
-                        help='Number of channels to allow after mixing (default: [35,20,20,15,20,20,35])',
-                        # default=[30, 30, 30, 10, 20]
-                        default=[30, 30, 30, 10, 20]
+                        help='Number of channels to allow after mixing (default: )',
+                        # default=[30, 30, 30, 10]
+                        default=[30, 30, 30, 10]
                         )
     parser.add_argument('--num-channels-m-out', nargs='*', type=int, metavar='N',
-                        help='Number of channels to allow after mixing (default: [20, 10])', default =[20, 10])
+                        help='Number of channels to allow after mixing (default: )', default =[20, 20, 10])
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Include an output MLP (default = True)')
     parser.add_argument('--num-channels2', nargs='*', type=int, default=[20], metavar='N',
