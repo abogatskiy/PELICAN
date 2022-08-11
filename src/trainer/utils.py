@@ -157,6 +157,8 @@ def init_optimizer(args, model):
         optimizer = optim.Adam(params, amsgrad=False)
     elif optim_type == 'adamw':
         optimizer = optim.AdamW(params, amsgrad=False)
+    elif optim_type == 'radam':
+        optimizer = optim.RAdam(params)
     elif optim_type == 'amsgrad':
         optimizer = optim.Adam(params, amsgrad=False)
     elif optim_type == 'rmsprop':
@@ -164,7 +166,7 @@ def init_optimizer(args, model):
     elif optim_type == 'sgd':
         optimizer = optim.SGD(params)
     elif optim_type == 'look':
-        optimizer = Lookahead(torch.optim.RAdam(params), alpha=0.6 , k=10)
+        optimizer = Lookahead(torch.optim.RAdam(params), alpha=0.5 , k=5)
     else:
         raise ValueError('Incorrect choice of optimizer')
 
@@ -199,6 +201,8 @@ def init_scheduler(args, optimizer):
 
     if args.lr_decay_type.startswith('cos'):
         scheduler = sched.CosineAnnealingLR(optimizer, lr_hold, eta_min=lr_final)
+    elif args.lr_decay_type.startswith('flat'):
+        scheduler = sched.ConstantLR(optimizer, factor=1)     
     elif args.lr_decay_type.startswith('warm'):
         scheduler = sched.CosineAnnealingWarmRestarts(optimizer, T_0=4*minibatch_per_epoch, T_mult=2, eta_min=lr_final)     
     elif args.lr_decay_type.startswith('exp'):
