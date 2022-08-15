@@ -15,7 +15,7 @@ def setup_argparse():
     parser.add_argument('--sampler', default='random')
     parser.add_argument('--pruner', default='median')
 
-    parser.add_argument('--fix-data', action=argparse.BooleanOptionalAction, default=True,
+    parser.add_argument('--fix-data', action=argparse.BooleanOptionalAction, default=False,
                         help='Fix the seed for the random choice of training samples in the train_pelican script')
 
     parser.add_argument('--task', type=str, default='train', metavar='str',
@@ -144,7 +144,7 @@ def setup_argparse():
                         help='Number of test samples to use. Set to -1 to use entire dataset. (default: -1)')
     parser.add_argument('--add-beams', action=argparse.BooleanOptionalAction, default=True,
                         help='Append two proton beams of the form (m^2,0,0,+-1) to each event')
-    parser.add_argument('--beam-mass', type=float, default=1, metavar='N',
+    parser.add_argument('--beam-mass', type=float, default=0.01, metavar='N',
                     help='Set mass m of the beams, so that E=sqrt(1 + m^2) (default = 1)')
     parser.add_argument('--force-download', action=argparse.BooleanOptionalAction, default=False,
                         help='Force download and processing of dataset.')
@@ -175,19 +175,19 @@ def setup_argparse():
     parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: )',
                         # default=[[20], [30], [25], [25]]
-                        default = [[20], [30], [25], [25]]
+                        default = [[10], [50], [35], [50]]
                         )
     parser.add_argument('--num-channels1', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: )',
-                        # default=[30, 30, 30, 10]
-                        default=[30, 30, 30, 10]
+                        # default=[30, 30, 30, 10, 20]
+                        default=[40, 30, 20, 30]
                         )
     parser.add_argument('--num-channels-m-out', nargs='*', type=int, metavar='N',
-                        help='Number of channels to allow after mixing (default: )', default =[20, 20, 10])
+                        help='Number of channels to allow after mixing (default: )', default =[30, 20])
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Include an output MLP (default = True)')
     parser.add_argument('--num-channels2', nargs='*', type=int, default=[20], metavar='N',
-                        help='Numbers of channels in the output MLP (default: [20])')
+                        help='Numbers of channels in the output MLP (default: )')
 
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,
                     help='Enable a dropout layer at the end of the network (default = False)')

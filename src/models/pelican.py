@@ -105,6 +105,7 @@ class PELICANClassifier(nn.Module):
         num_atom = atom_mask.shape[1]
         nobj = atom_mask.sum(-1, keepdim=True)
         dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
+        # dot_products[:,range(num_atom), range(num_atom)] = dot_products[:,range(num_atom), range(num_atom)] * 20
 
         if self.softmasked:
             softmask = self.softmask_layer(dot_products, mask=edge_mask)
