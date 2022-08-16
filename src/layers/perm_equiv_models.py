@@ -6,7 +6,7 @@ import torch.nn.functional as F
 # from lgn.nn.perm_equiv_layers import ops_2_to_1, ops_1_to_1,eops_2_to_2, set_ops_3_to_3, set_ops_4_to_4, ops_1_to_2
 from .perm_equiv_layers import eops_1_to_1, eops_2_to_2, eops_2_to_1, eops_2_to_0 #, eset_ops_3_to_3, eset_ops_4_to_4, eset_ops_1_to_3, eops_1_to_2
 from .generic_layers import get_activation_fn, MessageNet, BasicMLP, SoftMask
-
+from .masked_batchnorm import MaskedBatchNorm3d
 
 class Eq1to1(nn.Module):
     def __init__(self, in_dim, out_dim, ops_func=None, activation = 'leakyrelu', device=torch.device('cpu'), dtype=torch.float):
@@ -216,11 +216,12 @@ class Eq2to2(nn.Module):
 
         self.out_dim = out_dim
         self.in_dim = in_dim
+        self.normlayer = MaskedBatchNorm3d(self.basis_dim, device=device, dtype=dtype)
         if factorize:
             self.coefs00 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (in_dim, self.basis_dim), device=device, dtype=dtype))
             self.coefs01 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (out_dim, self.basis_dim), device=device, dtype=dtype))            
-            self.coefs10 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))
-            self.coefs11 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))
+            self.coefs10 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))   # Replace 1. with 2. when using ELU/GELU, leave 1. for LeakyReLU
+            self.coefs11 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))   # Replace 1. with 2. when using ELU/GELU, leave 1. for LeakyReLU
         else:
             self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         if not ir_safe:
@@ -255,7 +256,7 @@ class Eq2to2(nn.Module):
         ops=[]
         for i, char in enumerate(self.config):
             if char.lower() in ['s', 'm', 'x', 'n']:
-                op = self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=False if i==0 else True)
+                op, agg_mask = self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=False if i==0 else True)
                 if char in ['S', 'M', 'X', 'N']:
                     if i==0:
                         alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
@@ -271,6 +272,11 @@ class Eq2to2(nn.Module):
             ops.append(op)
 
         ops = torch.cat(ops, dim=2)
+
+        if agg_mask is not None: 
+            ops = ops.permute(0,1,3,4,2) * mask.unsqueeze(1)
+            agg_mask = (agg_mask.permute(0,1,3,4,2) * mask.unsqueeze(1)).expand(-1,ops.shape[1],-1,-1,-1)
+            ops = self.normlayer(ops, agg_mask).permute(0,1,4,2,3)
 
         if self.activate_agg:
             ops = self.activation_fn(ops)
