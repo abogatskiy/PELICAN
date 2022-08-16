@@ -273,10 +273,12 @@ class Eq2to2(nn.Module):
 
         ops = torch.cat(ops, dim=2)
 
-        if agg_mask is not None: 
-            ops = ops.permute(0,1,3,4,2) * mask.unsqueeze(1)
-            agg_mask = (agg_mask.permute(0,1,3,4,2) * mask.unsqueeze(1)).expand(-1,ops.shape[1],-1,-1,-1)
-            ops = self.normlayer(ops, agg_mask).permute(0,1,4,2,3)
+        # if agg_mask is not None: 
+        #     ops = ops.permute(0,1,3,4,2) * mask.unsqueeze(1)
+        #     agg_mask = (agg_mask.permute(0,1,3,4,2) * mask.unsqueeze(1)).expand(-1,ops.shape[1],-1,-1,-1)
+        #     start = timer.time()
+        #     ops = self.normlayer(ops, agg_mask).permute(0,1,4,2,3)
+        #     print("BN3d", timer.time() - start)
 
         if self.activate_agg:
             ops = self.activation_fn(ops)
