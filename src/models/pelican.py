@@ -49,14 +49,6 @@ class PELICANClassifier(nn.Module):
             self.dropout_layer = nn.Dropout(drop_rate)
             self.dropout_layer_out = nn.Dropout(drop_rate_out)
 
-        # self.mlp0 = BasicMLP([num_scalars_in] + num_channels0 + [num_channels1[0]], activation = activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
-        # self.mlp_mass = BasicMLP([num_scalars_in] + num_channels0 + [num_channels1[0]], activation = activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
-        # self.net2to2 = Net2to2(num_channels1, activation = activation, batchnorm = batchnorm, device = device, dtype = dtype)
-        # self.eq2to1 = Eq2to1(num_channels1[-1], num_channels2[0], activation = activation, device = device, dtype = dtype)
-        # self.message = MessageNet(num_channels2[0], activation=activation,  batchnorm = batchnorm, device=device, dtype=dtype)
-        # self.net1to1 = Net1to1(num_channels2, activation = activation,  batchnorm = batchnorm, device = device, dtype = dtype)
-        # self.mlp_out = BasicMLP([num_channels2[-1], 15] + [2], activation=activation, ir_safe=ir_safe, dropout = dropout, batchnorm = False, device=device, dtype=dtype)
-
         if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
             embedding_dim = self.num_channels_m[0][0]
         else:
@@ -67,7 +59,15 @@ class PELICANClassifier(nn.Module):
 
         if softmasked:
             self.softmask_layer = SoftMask(device=device,dtype=dtype)
+
+        # The input stack applies an encoding function
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
+        # then a dense layer:
+        self.input_mix_and_norm = MessageNet([embedding_dim, embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=False, device=device, dtype=dtype)
+        # followed by a self.dropout_layer, 
+        # only then it gets concatenated with beam labels if add_beams==True
+        # and the first layer inside net2to2 is another dense layer with batchnorm and dropout
+
         self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet(num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
         self.eq2to0 = Eq2to0(num_channels_m_out[-1], num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
@@ -105,12 +105,14 @@ class PELICANClassifier(nn.Module):
         num_atom = atom_mask.shape[1]
         nobj = atom_mask.sum(-1, keepdim=True)
         dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
-        dot_products[:,range(num_atom), range(num_atom)] = dot_products[:,range(num_atom), range(num_atom)] * 20000
+        # dot_products[:,range(num_atom), range(num_atom)] = dot_products[:,range(num_atom), range(num_atom)] * 1000
 
         if self.softmasked:
             softmask = self.softmask_layer(dot_products, mask=edge_mask)
 
         inputs = self.input_encoder(dot_products, mask=edge_mask.unsqueeze(-1))
+        inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
+        inputs = self.dropout_layer(inputs)
 
         if self.add_beams:
             inputs = torch.cat([inputs, atom_scalars], dim=-1)
@@ -142,23 +144,6 @@ class PELICANClassifier(nn.Module):
             logging.info(f"act2: {torch.isnan(act2).any()}")
             logging.info(f"prediction: {torch.isnan(prediction).any()}")
         assert not torch.isnan(prediction).any(), "There are NaN entries in the output! Evaluation terminated."
-
-        # Verion with 2->1 and 1->1 layers
-        # D = torch.ones((num_atom,num_atom), dtype=self.dtype, device=self.device) - torch.eye(num_atom, dtype=self.dtype, device=self.device)
-        # D_mask = D.unsqueeze(0).bool() * edge_mask  # Mask to consistently exclude the diagonal (mass features) from mlp0
-        # mass_features = torch.permute(torch.diagonal(inputs, dim1 = 1, dim2 = 2), (0, 2, 1))
-        # mass_features = self.mlp_mass(mass_features, mask=atom_mask.unsqueeze(-1))        
-        # act1 = self.mlp0(inputs * D_mask.unsqueeze(-1), mask=D_mask.unsqueeze(-1))
-        # act1[:, range(num_atom), range(num_atom), :] = mass_features
-        # act2 = self.net2to2(act1, mask=edge_mask.unsqueeze(-1))
-        # act3 = self.eq2to1(act2, mask=atom_mask.unsqueeze(-1))
-        # act4 = self.message(act3, mask=atom_mask.unsqueeze(-1))
-        # act5 = self.net1to1(act4, mask=atom_mask.unsqueeze(-1))
-        # if self.dropout:
-        #     act4 = self.dropout_layer(act5)
-        # prediction = self.mlp_out(act5.mean(dim=1))
-
-
 
         if covariance_test:
             return prediction, [inputs, act1, act2, act3]

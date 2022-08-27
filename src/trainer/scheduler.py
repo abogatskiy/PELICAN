@@ -94,8 +94,12 @@ class GradualCooldownScheduler(_LRScheduler):
     def step(self, epoch=None, metrics=None):
         if self.last_epoch == -1:
             return super(GradualCooldownScheduler, self).step(epoch)
-        if self.after_scheduler.after_scheduler.last_epoch >= self.cooldown_epoch - 1:
-            self.started = True
+        if hasattr(self.after_scheduler, 'after_scheduler'):
+            if self.after_scheduler.after_scheduler.last_epoch >= self.cooldown_epoch - 1:
+                self.started = True
+        else:
+            if self.after_scheduler.last_epoch >= self.cooldown_epoch - 1:
+                self.started = True
 
         if (not self.started) and self.after_scheduler:
             self.after_scheduler.step(epoch)

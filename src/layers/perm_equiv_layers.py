@@ -212,16 +212,16 @@ def eops_2_to_2(inputs, nobj=None, aggregation='mean', skip_order_zero=False):
 
     # Now define a mask for the particle indices that can be used to properly normalize the aggregators that use diag_embed. 
     # This does NOT include information about nobj, so it should be multiplied by the particle mask
-    d = torch.eye(m, device=inputs.device).bool()
-    o = torch.ones((m,m), device=inputs.device).bool()
-    mask = torch.stack([o,o,o,o,d,o,o,o,o,o,d,d,d,o,d], dim=0).unsqueeze(0).unsqueeze(0)
+    # d = torch.eye(m, device=inputs.device).bool()
+    # o = torch.ones((m,m), device=inputs.device).bool()
+    # mask = torch.stack([o,o,o,o,d,o,o,o,o,o,d,d,d,o,d], dim=0).unsqueeze(0).unsqueeze(0)
 
     if skip_order_zero:
         ops = torch.stack(ops[6:], dim=2)
     else:
         ops = torch.stack(ops[1:], dim=2)
 
-    return ops, mask
+    return ops
 
 # def eset_ops_1_to_3(inputs):
 #     N, D, m = inputs.shape

@@ -69,8 +69,8 @@ class Trainer:
         if args.lr_decay_type == 'warm':
             warmup_epochs = 4 #int(self.args.num_epoch/9)
             cooldown_epochs = int(self.args.num_epoch/12)
-            # self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=4*len(dataloaders['train']), after_scheduler=scheduler)
-            self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
+            if warmup_epochs > 0:
+                self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
             coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
             cooldown_length = cooldown_epochs*len(dataloaders['train'])
             self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)

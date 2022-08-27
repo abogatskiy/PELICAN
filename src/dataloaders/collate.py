@@ -87,7 +87,8 @@ def batch_stack(props, edge_mat=False, nobj=None):
     -----
     TODO : Review whether the behavior when elements are not tensors is safe.
     """
-
+    if nobj < 0:
+        nobj = None
     if not torch.is_tensor(props[0]):
         return torch.tensor(props)
     elif props[0].dim() == 0:
@@ -162,14 +163,15 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
     atom_mask = torch.cat((torch.ones(s[0],2).bool().to(device=device), data['Pmu'][...,0] != 0.),dim=-1)
     edge_mask = atom_mask.unsqueeze(1) * atom_mask.unsqueeze(2)
     if add_beams:
-        beams = torch.tensor([[[sqrt(1+beam_mass**2),0,0,1], [sqrt(1+beam_mass**2),0,0,-1]]], dtype=data['Pmu'].dtype).expand(data['Pmu'].shape[0], 2, 4)
+        p = 1
+        beams = torch.tensor([[[sqrt(p**2+beam_mass**2),0,0,p], [sqrt(p**2+beam_mass**2),0,0,-p]]], dtype=data['Pmu'].dtype).expand(data['Pmu'].shape[0], 2, 4)
         data['Pmu'] = torch.cat([beams, data['Pmu'] * scale], dim=1)
     else:
         data['Pmu'] = data['Pmu'] * scale
     labels = torch.cat((torch.ones(s[0], 2), torch.zeros(s[0], s[1])), dim=1)
     labelsi = labels.unsqueeze(1).expand(s[0], s[1]+2, s[1]+2)
     labelsj = labels.unsqueeze(2).expand(s[0], s[1]+2, s[1]+2)
-    labels = torch.where(edge_mask.unsqueeze(-1), torch.stack([labelsi, labelsj], dim=-1), zero)
+    labels = 100 * torch.where(edge_mask.unsqueeze(-1), torch.stack([labelsi, labelsj], dim=-1), zero)
     if 'scalars' not in data.keys():
         data['scalars'] = labels.to(dtype=data['Pmu'].dtype)
     else:

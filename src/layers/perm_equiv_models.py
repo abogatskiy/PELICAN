@@ -132,7 +132,7 @@ class Eq2to1(nn.Module):
                 self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 5, 1, device=device, dtype=dtype))
 
         self.ops_func = eops_2_to_1
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(8./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         self.bias = nn.Parameter(torch.zeros(1, 1, out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
 
@@ -216,7 +216,7 @@ class Eq2to2(nn.Module):
 
         self.out_dim = out_dim
         self.in_dim = in_dim
-        self.normlayer = MaskedBatchNorm3d(self.basis_dim, device=device, dtype=dtype)
+        # self.normlayer = MaskedBatchNorm3d(self.basis_dim, device=device, dtype=dtype)
         if factorize:
             self.coefs00 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (in_dim, self.basis_dim), device=device, dtype=dtype))
             self.coefs01 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (out_dim, self.basis_dim), device=device, dtype=dtype))            
@@ -256,7 +256,7 @@ class Eq2to2(nn.Module):
         ops=[]
         for i, char in enumerate(self.config):
             if char.lower() in ['s', 'm', 'x', 'n']:
-                op, agg_mask = self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=False if i==0 else True)
+                op = self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=False if i==0 else True)
                 if char in ['S', 'M', 'X', 'N']:
                     if i==0:
                         alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
