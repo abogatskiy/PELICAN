@@ -63,10 +63,11 @@ class PELICANClassifier(nn.Module):
         # The input stack applies an encoding function
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
         # then a dense layer:
-        self.input_mix_and_norm = MessageNet([embedding_dim, embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=False, device=device, dtype=dtype)
+        self.input_mix_and_norm = MessageNet([embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)
         # followed by a self.dropout_layer, 
         # only then it gets concatenated with beam labels if add_beams==True
         # and the first layer inside net2to2 is another dense layer with batchnorm and dropout
+        # self.input_dense = MessageNet([embedding_dim, embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=False, device=device, dtype=dtype)
 
         self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet(num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
@@ -112,7 +113,9 @@ class PELICANClassifier(nn.Module):
 
         inputs = self.input_encoder(dot_products, mask=edge_mask.unsqueeze(-1))
         inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
-        inputs = self.dropout_layer(inputs)
+        # inputs = self.dropout_layer(inputs)
+        # inputs = self.input_dense(inputs, mask=edge_mask.unsqueeze(-1))
+        # inputs = self.dropout_layer(inputs)
 
         if self.add_beams:
             inputs = torch.cat([inputs, atom_scalars], dim=-1)

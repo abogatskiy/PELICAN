@@ -171,7 +171,7 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
     labels = torch.cat((torch.ones(s[0], 2), torch.zeros(s[0], s[1])), dim=1)
     labelsi = labels.unsqueeze(1).expand(s[0], s[1]+2, s[1]+2)
     labelsj = labels.unsqueeze(2).expand(s[0], s[1]+2, s[1]+2)
-    labels = 100 * torch.where(edge_mask.unsqueeze(-1), torch.stack([labelsi, labelsj], dim=-1), zero)
+    labels = torch.where(edge_mask.unsqueeze(-1), torch.stack([labelsi, labelsj], dim=-1), zero)
     if 'scalars' not in data.keys():
         data['scalars'] = labels.to(dtype=data['Pmu'].dtype)
     else:
