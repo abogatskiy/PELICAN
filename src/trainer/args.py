@@ -187,7 +187,7 @@ def setup_argparse():
                                 number of layers (linear + activation) is len(num-channels-m-out) - 1. 
                                 The first number also specifies the output dimension of the last Eq2to2,
                                 and the last number specifies the input dimension of Eq2to0 (or Eq2to1)
-                                (default: )""", default =[50, 30])
+                                (default: )""", default = [50, 30])
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Include an output MLP (default = True)')
     parser.add_argument('--num-channels2', nargs='*', type=int, default=[30], metavar='N',
