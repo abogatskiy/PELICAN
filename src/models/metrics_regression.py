@@ -20,9 +20,10 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
 
 def minibatch_metrics(predict, targets, loss):
     angle = AngleDeviation(predict, targets)
-    pTsigma = pTSigma(predict, targets)
     phisigma = PhiSigma(predict, targets)
+    pTsigma = pTSigma(predict, targets)
     massdelta = MassSigma(predict, targets)
+
     return [loss, angle, phisigma, pTsigma, massdelta]
 
 def minibatch_metrics_string(metrics):
@@ -37,12 +38,7 @@ def AngleDeviation(predict, targets):
     """
     Measures the (always positive) angle between any two 3D vectors and returns the batch mean
     """
-    predict3 = predict[:,1:4]
-    targets3 = targets[:,1:4]
-    aux1 = predict3.norm(dim=-1).unsqueeze(-1) * targets3
-    aux2 = targets3.norm(dim=-1).unsqueeze(-1) * predict3
-    angles = 2*torch.atan2((aux1 - aux2).norm(dim=-1), (aux1 + aux2).norm(dim=-1)).unsqueeze(-1)
-
+    angles = Angle3D(predict[:,1:4], targets[:,1:4])
     if not torch.isnan(angles).any():
         return  angles.mean()
     else:
@@ -52,16 +48,30 @@ def PhiSigma(predict, targets):
     """
     Measures the oriented angle between any two 2D vectors and returns the batch standard deviation
     """
-    predict2 = predict[:,1:3]
-    targets2 = targets[:,1:3]
-    dots = (predict2 * targets2).sum(dim=-1)
-    j = torch.tensor([[0,1],[-1,0]], device=predict.device, dtype=predict.dtype)
-    dets = (predict2 * torch.einsum("ab,cb->ca", j, targets2)).sum(dim=-1)
-    angles = torch.atan2(dets, dots).unsqueeze(-1)
+    angles = Angle2D(predict[:,1:3], targets[:,1:3])
     if not torch.isnan(angles).any():
         return  angles.std()
     else:
         return torch.tensor(0., device=predict.device, dtype=predict.dtype)
+
+def Angle2D(u, v):
+    """
+    Measures the oriented angle between any two 2D vectors (allows batches)
+    """
+    dots = (u * v).sum(dim=-1)
+    j = torch.tensor([[0,1],[-1,0]], device=u.device, dtype=u.dtype)
+    dets = (u * torch.einsum("ab,cb->ca", j, v)).sum(dim=-1)
+    angles = torch.atan2(dets, dots).unsqueeze(-1)
+    return angles
+
+def Angle3D(u, v):
+    """
+    Measures the (always positive) angle between any two 3D vectors (allows batches)
+    """
+    aux1 = u.norm(dim=-1).unsqueeze(-1) * v
+    aux2 = v.norm(dim=-1).unsqueeze(-1) * u
+    angles = 2*torch.atan2((aux1 - aux2).norm(dim=-1), (aux1 + aux2).norm(dim=-1)).unsqueeze(-1)
+    return angles
 
 def MassSigma(predict, targets):
     return ((normsq4(predict).abs().sqrt()-normsq4(targets).abs().sqrt())/normsq4(targets).abs().sqrt()).std().item()  # mass relative error
