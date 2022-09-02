@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
+from scipy.stats import iqr
 from .lorentz_metric import normsq4, dot4
 
 def metrics(predict, targets, loss_fn, prefix, logger=None):
@@ -40,7 +41,7 @@ def AngleDeviation(predict, targets):
     """
     angles = Angle3D(predict[:,1:4], targets[:,1:4])
     if not torch.isnan(angles).any():
-        return  angles.mean()
+        return  iqr(torch.cat((angles,-angles)), rng=(16,84))
     else:
         return torch.tensor(0., device=predict.device, dtype=predict.dtype)
 
@@ -50,7 +51,7 @@ def PhiSigma(predict, targets):
     """
     angles = Angle2D(predict[:,1:3], targets[:,1:3])
     if not torch.isnan(angles).any():
-        return  angles.std()
+        return  iqr(angles, rng=(16,84))
     else:
         return torch.tensor(0., device=predict.device, dtype=predict.dtype)
 
