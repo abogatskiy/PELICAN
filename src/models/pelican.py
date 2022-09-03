@@ -99,7 +99,6 @@ class PELICANClassifier(nn.Module):
             The output of the layer
         """
         # Get and prepare the data
-
         atom_scalars, atom_mask, edge_mask, event_momenta = self.prepare_input(data)
 
         # Calculate spherical harmonics and radial functions
@@ -120,7 +119,6 @@ class PELICANClassifier(nn.Module):
         if self.add_beams:
             inputs = torch.cat([inputs, atom_scalars], dim=-1)
 
-        # Simplest version with only 2->2 and 2->0 layers
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask=softmask.unsqueeze(1).unsqueeze(2) if self.softmasked else None)
 
         act2 = self.message_layer(act1, mask=edge_mask.unsqueeze(-1))

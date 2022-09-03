@@ -41,7 +41,12 @@ def main():
     device, dtype = init_cuda(args)
 
     # Initialize dataloder
+    if args.fix_data:
+        torch.manual_seed(165937750084982)
     args, datasets = initialize_datasets(args, args.datadir, num_pts=None)
+
+    # Fix possible inconsistencies in arguments
+    args = fix_args(args)
 
     if args.task.startswith('eval'):
         args.load = True
@@ -62,7 +67,7 @@ def main():
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, sig=args.sig, config1=args.config1, config2=args.config2, factorize=args.factorize, masked=args.masked, softmasked=args.softmasked,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
-                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, batchnorm=args.batchnorm,
+                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
     
     model.to(device)
@@ -94,7 +99,7 @@ def main():
 
     # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
     if args.reproducible:
-        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
     # Train model.
     trainer.train()
