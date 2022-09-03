@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
-from scipy.stats import iqr
 from .lorentz_metric import normsq4, dot4
 
 def metrics(predict, targets, loss_fn, prefix, logger=None):
@@ -46,14 +45,15 @@ def AngleDeviation(predict, targets):
     Measures the (always positive) angle between any two 3D vectors and returns half of the 68% interpercentile range over the batch
     """
     angles = Angle3D(predict[:,1:4], targets[:,1:4])
-    return  iqr(torch.cat((angles,-angles)), rng=(16,84)) / 2.
+    return  torch.quantile(angles, 0.68).item()
 
 def PhiSigma(predict, targets):
     """
     Measures the oriented angle between any two 2D vectors and returns  half of the 68% interpercentile range over the batch
     """
     angles = Angle2D(predict[:,1:3], targets[:,1:3])
-    return  iqr(angles, rng=(16,84)) / 2.
+    breakpoint()
+    return  iqr(angles)
 
 def Angle2D(u, v):
     """
@@ -79,14 +79,14 @@ def MassSigma(predict, targets):
     half of the 68% interpercentile range over of relative deviation in mass
     """
     rel = ((normsq4(predict).abs().sqrt()-normsq4(targets).abs().sqrt())/normsq4(targets).abs().sqrt())
-    return iqr(rel, rng=(16,84)) / 2.  # mass relative error
+    return iqr(rel)  # mass relative error
 
 def pTSigma(predict, targets):
     """
      half of the 68% interpercentile range of relative deviation in pT
     """
     rel = ((predict[...,[1,2]].norm(dim=-1)-targets[...,[1,2]].norm(dim=-1))/targets[...,[1,2]].norm(dim=-1))
-    return iqr(rel, rng=(16,84)) / 2.  # pT relative error
+    return iqr(rel)  # pT relative error
 
 def loss_fn_inv(predict, targets):
     return normsq4(predict - targets).abs().mean().item()
@@ -99,3 +99,7 @@ def loss_fn_3d(predict, targets):
 
 def loss_fn_4d(predict, targets):
     return (predict-targets).pow(2).sum(-1).mean().item()
+
+def iqr(x, rng=(0.16, 0.84)):
+    rng = sorted(rng)
+    return ((torch.quantile(x,rng[1])-torch.quantile(x,rng[0]))).item() / 2.
