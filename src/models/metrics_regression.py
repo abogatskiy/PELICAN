@@ -5,6 +5,9 @@ from scipy.stats import iqr
 from .lorentz_metric import normsq4, dot4
 
 def metrics(predict, targets, loss_fn, prefix, logger=None):
+    """
+    This generates metrics reported at the end of each epoch and during validation/testing, as well as the logstring printed to the logger.
+    """    
     loss = loss_fn(predict,targets)
     angle = AngleDeviation(predict, targets)
     phisigma = PhiSigma(predict, targets)
@@ -20,6 +23,9 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     return metrics, string
 
 def minibatch_metrics(predict, targets, loss):
+    """
+    This computes metrics for each minibatch (if verbose mode is used). The logstring is defined separately in minibatch_metrics_string.
+    """    
     angle = AngleDeviation(predict, targets)
     phisigma = PhiSigma(predict, targets)
     pTsigma = pTSigma(predict, targets)
@@ -37,23 +43,17 @@ def minibatch_metrics_string(metrics):
 
 def AngleDeviation(predict, targets):
     """
-    Measures the (always positive) angle between any two 3D vectors and returns the batch mean
+    Measures the (always positive) angle between any two 3D vectors and returns half of the 68% interpercentile range over the batch
     """
     angles = Angle3D(predict[:,1:4], targets[:,1:4])
-    if not torch.isnan(angles).any():
-        return  iqr(torch.cat((angles,-angles)), rng=(16,84))
-    else:
-        return torch.tensor(0., device=predict.device, dtype=predict.dtype)
+    return  iqr(torch.cat((angles,-angles)), rng=(16,84)) / 2.
 
 def PhiSigma(predict, targets):
     """
-    Measures the oriented angle between any two 2D vectors and returns the batch standard deviation
+    Measures the oriented angle between any two 2D vectors and returns  half of the 68% interpercentile range over the batch
     """
     angles = Angle2D(predict[:,1:3], targets[:,1:3])
-    if not torch.isnan(angles).any():
-        return  iqr(angles, rng=(16,84))
-    else:
-        return torch.tensor(0., device=predict.device, dtype=predict.dtype)
+    return  iqr(angles, rng=(16,84)) / 2.
 
 def Angle2D(u, v):
     """
@@ -75,10 +75,18 @@ def Angle3D(u, v):
     return angles
 
 def MassSigma(predict, targets):
-    return ((normsq4(predict).abs().sqrt()-normsq4(targets).abs().sqrt())/normsq4(targets).abs().sqrt()).std().item()  # mass relative error
+    """
+    half of the 68% interpercentile range over of relative deviation in mass
+    """
+    rel = ((normsq4(predict).abs().sqrt()-normsq4(targets).abs().sqrt())/normsq4(targets).abs().sqrt())
+    return iqr(rel, rng=(16,84)) / 2.  # mass relative error
 
 def pTSigma(predict, targets):
-    return ((predict[...,[1,2]].norm(dim=-1)-targets[...,[1,2]].norm(dim=-1))/targets[...,[1,2]].norm(dim=-1)).std().item()  # pT relative error
+    """
+     half of the 68% interpercentile range of relative deviation in pT
+    """
+    rel = ((predict[...,[1,2]].norm(dim=-1)-targets[...,[1,2]].norm(dim=-1))/targets[...,[1,2]].norm(dim=-1))
+    return iqr(rel, rng=(16,84)) / 2.  # pT relative error
 
 def loss_fn_inv(predict, targets):
     return normsq4(predict - targets).abs().mean().item()
