@@ -33,6 +33,9 @@ def main():
     # Write input paramaters and paths to log
     logging_printout(args)
 
+    # Fix possible inconsistencies in arguments
+    args = fix_args(args)
+
     # Initialize device and data type
     device, dtype = init_cuda(args)
 
@@ -63,7 +66,7 @@ def main():
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, sig=args.sig, config1=args.config1, config2=args.config2, factorize=args.factorize, masked=args.masked, softmasked=args.softmasked,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
-                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, batchnorm=args.batchnorm, drop_rate_out=args.drop_rate_out,
+                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
     
     model.to(device)
