@@ -8,7 +8,7 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     """
     This generates metrics reported at the end of each epoch and during validation/testing, as well as the logstring printed to the logger.
     """    
-    loss = loss_fn(predict,targets)
+    loss = loss_fn(predict,targets).item()
     angle = AngleDeviation(predict, targets)
     phisigma = PhiSigma(predict, targets)
     pTsigma = pTSigma(predict, targets)
