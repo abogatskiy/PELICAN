@@ -38,6 +38,9 @@ class PELICANRegression(nn.Module):
         self.factorize = factorize
         self.masked = masked
         self.softmasked = softmasked
+        self.factorize = factorize
+        self.masked = masked
+        self.softmasked = softmasked
 
         if dropout:
             self.dropout_layer = nn.Dropout(drop_rate)
@@ -106,8 +109,14 @@ class PELICANRegression(nn.Module):
         if self.softmasked:
             act2 = act2 * softmask.unsqueeze(-1)
 
+        if self.softmasked:
+            act2 = act2 * softmask.unsqueeze(-1)
+
         act3 = self.eq2to1(act2, nobj=nobj, mask=atom_mask.unsqueeze(-1))
         
+        if self.dropout:
+            act3 = self.dropout_layer_out(act3)
+
         if self.dropout:
             act3 = self.dropout_layer_out(act3)
 
