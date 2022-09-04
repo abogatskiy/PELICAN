@@ -48,7 +48,6 @@ def PhiSigma(predict, targets):
     Measures the oriented angle between any two 2D vectors and returns  half of the 68% interquantile range over the batch
     """
     angles = Angle2D(predict[:,1:3], targets[:,1:3])
-    breakpoint()
     return  iqr(angles)
 
 def Angle2D(u, v):
