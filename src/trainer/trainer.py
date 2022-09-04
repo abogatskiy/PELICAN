@@ -117,7 +117,7 @@ class Trainer:
         if valid_metrics is None:
             logger.info('Saving model to checkpoint file: {}'.format(self.args.checkfile))
             torch.save(save_dict, self.args.checkfile)
-        elif valid_metrics['loss'] < self.best_metrics['loss'] and self.epoch/self.args.num_epoch >= 0.5:
+        elif valid_metrics['loss'] < self.best_metrics['loss']: # and self.epoch/self.args.num_epoch >= 0.5:
             self.best_epoch = self.epoch
             self.best_metrics = save_dict['best_metrics'] = valid_metrics
             logger.info('Lowest loss achieved! Saving best model to file: {}'.format(self.args.bestfile))

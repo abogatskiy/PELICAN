@@ -36,20 +36,16 @@ def minibatch_metrics_string(metrics):
     string = '   L: {:12.4f}, ∆Ψ: {:9.4f}, ∆φ: {:9.4f}, ∆pT: {:9.4f}, ∆m: {:9.4f}'.format(*metrics)
     return string
 
-
-# The loss function used for training is defined in the training script and passed to Trainer as an argument, here called self.loss_fn
-# The Alternative losses defined below are used only for logging
-
 def AngleDeviation(predict, targets):
     """
-    Measures the (always positive) angle between any two 3D vectors and returns half of the 68% interpercentile range over the batch
+    Measures the (always positive) angle between any two 3D vectors and returns the 68% quantile over the batch
     """
     angles = Angle3D(predict[:,1:4], targets[:,1:4])
     return  torch.quantile(angles, 0.68).item()
 
 def PhiSigma(predict, targets):
     """
-    Measures the oriented angle between any two 2D vectors and returns  half of the 68% interpercentile range over the batch
+    Measures the oriented angle between any two 2D vectors and returns  half of the 68% interquantile range over the batch
     """
     angles = Angle2D(predict[:,1:3], targets[:,1:3])
     breakpoint()
@@ -76,14 +72,14 @@ def Angle3D(u, v):
 
 def MassSigma(predict, targets):
     """
-    half of the 68% interpercentile range over of relative deviation in mass
+    half of the 68% interquantile range over of relative deviation in mass
     """
     rel = ((normsq4(predict).abs().sqrt()-normsq4(targets).abs().sqrt())/normsq4(targets).abs().sqrt())
     return iqr(rel)  # mass relative error
 
 def pTSigma(predict, targets):
     """
-     half of the 68% interpercentile range of relative deviation in pT
+     half of the 68% interquantile range of relative deviation in pT
     """
     rel = ((predict[...,[1,2]].norm(dim=-1)-targets[...,[1,2]].norm(dim=-1))/targets[...,[1,2]].norm(dim=-1))
     return iqr(rel)  # pT relative error
