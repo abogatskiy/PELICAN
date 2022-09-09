@@ -9,31 +9,37 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     """    
     loss = loss_fn(predict,targets).item()
     massdelta = MassSigma(predict, targets)
+    massmean = MassMean(predict, targets))
     loss_m2 = loss_fn_m2(predict, targets)
 
     metrics = {'loss': loss, '∆m': massdelta, 'loss_m2': loss_m2}
-    string = ' L: {:10.4f}, ∆m: {:10.4f}, loss_m2: {:10.4f}'.format(loss, massdelta, loss_m2)
+    string = ' L: {:10.4f}, m/m: {:10.4f}, ∆m: {:10.4f}, loss_m2: {:10.4f}'.format(loss, massmean, massdelta, loss_m2)
     return metrics, string
 
 def minibatch_metrics(predict, targets, loss):
     """
     This computes metrics for each minibatch (if verbose mode is used). The logstring is defined separately in minibatch_metrics_string.
     """    
+    massmean = MassMean(predict, targets))
     massdelta = MassSigma(predict, targets)
 
-    return [loss, massdelta]
+    return [loss, massmean, massdelta]
 
 def minibatch_metrics_string(metrics):
-    string = '   L: {:12.4f}, ∆m: {:9.4f}'.format(*metrics)
+    string = '   L: {:12.4f}, m/m: {:9.4f}, ∆m: {:9.4f}'.format(*metrics)
     return string
+
+def MassMean(predict, targets):
+    """
+    half of the 68% interquantile range over of relative deviation in mass
+    """
+    rel = (predict-normsq4(targets).abs().sqrt())/normsq4(targets).abs().sqrt()
+    return rel.mean()  #  mean relative mass bias
 
 def MassSigma(predict, targets):
     """
     half of the 68% interquantile range over of relative deviation in mass
     """
-    print(predict)
-    print(normsq4(targets).abs().sqrt())
-    breakpoint()
     rel = (predict-normsq4(targets).abs().sqrt())/normsq4(targets).abs().sqrt()
     return iqr(rel)  # mass relative error
 

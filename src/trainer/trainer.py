@@ -151,7 +151,7 @@ class Trainer:
         self.best_metrics = checkpoint['best_metrics']
         self.minibatch = checkpoint['minibatch']
 
-        logger.info(f'Best metrics from checkpoint is at epoch {self.epoch}:\n{self.best_metrics}')
+        logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.best_epoch}:\n{self.best_metrics}')
 
     def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True):
         """
