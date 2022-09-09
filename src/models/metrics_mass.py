@@ -20,7 +20,7 @@ def minibatch_metrics(predict, targets, loss):
     """
     This computes metrics for each minibatch (if verbose mode is used). The logstring is defined separately in minibatch_metrics_string.
     """    
-    massmean = MassMean(predict, targets))
+    massmean = MassMean(predict, targets)
     massdelta = MassSigma(predict, targets)
 
     return [loss, massmean, massdelta]
