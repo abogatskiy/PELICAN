@@ -9,7 +9,7 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     """    
     loss = loss_fn(predict,targets).item()
     massdelta = MassSigma(predict, targets)
-    massmean = MassMean(predict, targets))
+    massmean = MassMean(predict, targets)
     loss_m2 = loss_fn_m2(predict, targets)
 
     metrics = {'loss': loss, '∆m': massdelta, 'loss_m2': loss_m2}
