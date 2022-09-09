@@ -220,7 +220,7 @@ def setup_argparse():
                     help='Apply an activation function right after permutation-equvariant Eq2to0 aggregation (default = True)')
     parser.add_argument('--activate-lin2', action=argparse.BooleanOptionalAction, default=False,
                     help='Apply an activation function right after the linear mixing following Eq2to0 aggregation (default = False)')
-    parser.add_argument('--factorize', action=argparse.BooleanOptionalAction, default=False,
+    parser.add_argument('--factorize', action=argparse.BooleanOptionalAction, default=True,
                     help='Use this option to significantly reduce the number of weights used in Eq2to2 layers (default = False)')
     parser.add_argument('--masked', action=argparse.BooleanOptionalAction, default=True,
                     help='Use a masked version of Batchnorm (has no effect if --batchnorm is False) (default = False)')
