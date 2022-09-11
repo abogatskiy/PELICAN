@@ -57,8 +57,11 @@ class PELICANRegression(nn.Module):
         self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet(num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
         self.eq2to1 = Eq2to1(num_channels_m_out[-1], num_channels2[0] if mlp_out else 1,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
+        self.eq2to0 = Eq2to0(num_channels_m_out[-1], num_channels2[0] if mlp_out else 1,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
+        
         if mlp_out:
-            self.mlp_out = BasicMLP(self.num_channels2 + [1], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
+            self.mlp_out_1 = BasicMLP(self.num_channels2 + [1], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
+            self.mlp_out_0 = BasicMLP(self.num_channels2 + [1], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
         self.apply(init_weights)
 
@@ -106,12 +109,15 @@ class PELICANRegression(nn.Module):
         if self.softmasked:
             act2 = act2 * softmask.unsqueeze(-1)
 
-        act3 = self.eq2to1(act2, nobj=nobj, mask=atom_mask.unsqueeze(-1))
-        
-        if self.dropout:
-            act3 = self.dropout_layer_out(act3)
+        act3_1 = self.eq2to1(act2, nobj=nobj, mask=atom_mask.unsqueeze(-1))
+        act3_0 = self.eq2to0(act2, nobj=nobj)
 
-        invariant_particle_coefficients = self.mlp_out(act3, mask=atom_mask.unsqueeze(-1))
+        if self.dropout:
+            act3_1 = self.dropout_layer_out(act3_1)
+            act3_0 = self.dropout_layer_out(act3_0)
+
+        mass_correction_factor = self.mlp_out_0(act3_0).unsqueeze(-1)
+        invariant_particle_coefficients = (1. + mass_correction_factor) * self.mlp_out_1(act3_1, mask=atom_mask.unsqueeze(-1))
 
         prediction = (event_momenta * invariant_particle_coefficients).sum(1) / self.scale  # / nobj.squeeze(-1)
 
