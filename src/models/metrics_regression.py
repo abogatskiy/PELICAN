@@ -13,12 +13,13 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     pTsigma = pTSigma(predict, targets)
     massdelta = MassSigma(predict, targets)
     loss_inv = loss_fn_inv(predict, targets)
+    loss_m = loss_fn_m(predict, targets)
     loss_m2 = loss_fn_m2(predict, targets)
     loss_3d = loss_fn_3d(predict, targets)
     loss_4d = loss_fn_4d(predict, targets)
 
-    metrics = {'loss': loss, '∆Ψ': angle, '∆φ': phisigma, '∆pT': pTsigma, '∆m': massdelta, 'loss_inv': loss_inv, 'loss_m2': loss_m2, 'loss_3d': loss_3d, 'loss_4d': loss_4d}
-    string = ' L: {:10.4f}, ∆Ψ: {:10.4f}, ∆φ: {:10.4f}, ∆pT: {:10.4f}, ∆m: {:10.4f}, loss_inv: {:10.4f}, loss_m2: {:10.4f}, loss_3d: {:10.4f}, loss_4d: {:10.4f}'.format(loss, angle, phisigma, pTsigma, massdelta, loss_inv, loss_m2, loss_3d, loss_4d)
+    metrics = {'loss': loss, '∆Ψ': angle, '∆φ': phisigma, '∆pT': pTsigma, '∆m': massdelta, 'loss_inv': loss_inv, 'loss_m': loss_m, 'loss_m2': loss_m2, 'loss_3d': loss_3d, 'loss_4d': loss_4d}
+    string = ' L: {:10.4f}, ∆Ψ: {:10.4f}, ∆φ: {:10.4f}, ∆pT: {:10.4f}, ∆m: {:10.4f}, loss_inv: {:10.4f}, loss_m: {:10.4f}, loss_m2: {:10.4f}, loss_3d: {:10.4f}, loss_4d: {:10.4f}'.format(loss, angle, phisigma, pTsigma, massdelta, loss_inv, loss_m, loss_m2, loss_3d, loss_4d)
     return metrics, string
 
 def minibatch_metrics(predict, targets, loss):
@@ -84,7 +85,10 @@ def pTSigma(predict, targets):
     return iqr(rel)  # pT relative error
 
 def loss_fn_inv(predict, targets):
-    return normsq4(predict - targets).abs().mean().item()
+    return (normsq4(predict - targets).abs()+1e-6).sqrt().mean().item()
+
+def loss_fn_m(predict, targets):
+    return (mass(predict) - mass(targets)).abs().mean().item()
 
 def loss_fn_m2(predict, targets):
     return (normsq4(predict) - normsq4(targets)).abs().mean().item()
@@ -93,7 +97,12 @@ def loss_fn_3d(predict, targets):
     return ((predict[:,[1,2,3]] - targets[:,[1,2,3]]).norm(dim=-1)).mean().item()
 
 def loss_fn_4d(predict, targets):
-    return (predict-targets).pow(2).sum(-1).mean().item()
+    return (predict-targets).norm(dim=-1).mean().item()
+
+def mass(x):
+    norm=normsq4(x)
+    return norm.sign() * norm.abs().sqrt()
+
 
 def iqr(x, rng=(0.16, 0.84)):
     rng = sorted(rng)

@@ -13,7 +13,7 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     loss_m2 = loss_fn_m2(predict, targets)
 
     metrics = {'loss': loss, '∆m': massdelta, 'loss_m2': loss_m2}
-    string = ' L: {:10.4f}, m/m: {:10.4f}, ∆m: {:10.4f}, loss_m2: {:10.4f}'.format(loss, massmean, massdelta, loss_m2)
+    string = ' L: {:10.4f}, dm/m: {:10.4f}, ∆m: {:10.4f}, loss_m2: {:10.4f}'.format(loss, massmean, massdelta, loss_m2)
     return metrics, string
 
 def minibatch_metrics(predict, targets, loss):
@@ -26,7 +26,7 @@ def minibatch_metrics(predict, targets, loss):
     return [loss, massmean, massdelta]
 
 def minibatch_metrics_string(metrics):
-    string = '   L: {:12.4f}, m/m: {:9.4f}, ∆m: {:9.4f}'.format(*metrics)
+    string = '   L: {:12.4f}, dm/m: {:9.4f}, ∆m: {:9.4f}'.format(*metrics)
     return string
 
 def MassMean(predict, targets):
@@ -44,7 +44,7 @@ def MassSigma(predict, targets):
     return iqr(rel)  # mass relative error
 
 def loss_fn_m2(predict, targets):
-    return (predict - normsq4(targets).abs().sqrt()).abs().mean().item()
+    return ((predict - normsq4(targets).abs().sqrt())**2).mean()
 
 def iqr(x, rng=(0.16, 0.84)):
     rng = sorted(rng)

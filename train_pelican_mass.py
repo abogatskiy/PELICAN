@@ -81,8 +81,8 @@ def main():
 
     # Define a loss function. This is the loss function whose gradients are actually computed. 
 
-    loss_fn_m2 = lambda predict, targets:  (predict - normsq4(targets).abs().sqrt()).abs().mean()
-    loss_fn = lambda predict, targets: 0.1 * loss_fn_m2(predict,targets)
+    loss_fn_m = lambda predict, targets:  (predict - normsq4(targets).abs().sqrt()).abs().mean()
+    loss_fn = lambda predict, targets: 0.1 * loss_fn_m(predict,targets)
     
     # Apply the covariance and permutation invariance tests.
     if args.test:
