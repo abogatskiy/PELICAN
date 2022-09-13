@@ -82,14 +82,14 @@ def main():
     # Define a loss function. This is the loss function whose gradients are actually computed. 
     def mass(x):
         norm=normsq4(x)
-        return norm.sign() * norm.abs().sqrt()
+        return norm.sign() * (norm + 1e-12).abs().sqrt()
 
-    loss_fn_inv = lambda predict, targets:  (normsq4(predict - targets).abs()+1e-6).sqrt().mean()
+    loss_fn_inv = lambda predict, targets:  (normsq4(predict - targets).abs() + 1e-12).sqrt().mean()
     loss_fn_m2 = lambda predict, targets:   (normsq4(predict) - normsq4(targets)).abs().mean()
     loss_fn_m = lambda predict, targets:    (mass(predict) - mass(targets)).abs().mean()
     loss_fn_3d = lambda predict, targets:   (predict[:,[1,2,3]] - targets[:,[1,2,3]]).norm(dim=-1).mean()
     loss_fn_4d = lambda predict, targets:   (predict-targets).norm(dim=-1).mean()
-    loss_fn = lambda predict, targets:      0.3 * loss_fn_m(predict,targets) + 0.2 * loss_fn_inv(predict,targets)  #+ 0.001 * loss_fn_3d(predict, targets) 0.01 * loss_fn_4d(predict, targets)
+    loss_fn = lambda predict, targets:      0.03 * loss_fn_m(predict,targets) + 0.02 * loss_fn_inv(predict,targets)  #+ 0.05 * loss_fn_3d(predict, targets) 0.01 * loss_fn_4d(predict, targets)
     
     # Apply the covariance and permutation invariance tests.
     if args.test:

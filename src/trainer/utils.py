@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch.optim.lr_scheduler as sched
-from .lookahead import Lookahead
+from .optimizers import DemonRanger
 
 import os, sys, pickle
 from datetime import datetime
@@ -146,7 +146,7 @@ def logging_printout(args, trial=None):
 
 #### Initialize optimizer ####
 
-def init_optimizer(args, model):
+def init_optimizer(args, model, step_per_epoch=None):
 
     params = {'params': model.parameters(), 'lr': args.lr_init, 'weight_decay': args.weight_decay}
     params = [params]
@@ -165,8 +165,24 @@ def init_optimizer(args, model):
         optimizer = optim.RMSprop(params)
     elif optim_type == 'sgd':
         optimizer = optim.SGD(params)
-    elif optim_type == 'look':
-        optimizer = Lookahead(torch.optim.RAdam(params), alpha=0.5 , k=5)
+    elif optim_type == 'demon':
+        optimizer = DemonRanger(params,
+                                betas=(0.999,0.999,0.999), # default betas
+                                nus=(1.0, 1.0), # disable QHMomentum
+                                k=0,  # disable lookahead
+                                alpha=0.8, # outer learning rate (lookahead)
+                                IA=False, # Iterate Averaging
+                                IA_cycle = step_per_epoch,
+                                rectify=False, # RAdam Recitification
+                                AdaMod=True,  
+                                AdaMod_bias_correct=False,
+                                use_demon=True, # Decaying Momentum (DEMON)
+                                epochs=args.num_epoch,
+                                step_per_epoch=step_per_epoch,
+                                use_gc=True, # gradient centralization
+                                amsgrad=False, # use amsgrad instead of Adam as the underlying optimizer
+                                dropout = 0.005
+                                )
     else:
         raise ValueError('Incorrect choice of optimizer')
 
