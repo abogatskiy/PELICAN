@@ -77,7 +77,7 @@ def main():
         model = torch.nn.DataParallel(model)
 
     # Initialize the scheduler and optimizer
-    optimizer = init_optimizer(args, model)
+    optimizer = init_optimizer(args, model, len(dataloaders['train'])
     scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
 
     # Define a loss function. This is the loss function whose gradients are actually computed. 
