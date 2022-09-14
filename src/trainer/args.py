@@ -136,6 +136,8 @@ def setup_argparse():
     
     parser.add_argument('--nobj', type=int, default=None, metavar='N',
                         help='Max number of particles in each event (selects the first nobj). Set to None to use entire dataset. (default: None)')
+    parser.add_argument('--nobj-avg', type=int, default=49, metavar='N',
+                        help='Typical expected number of particles in each event (affects multiplicative constants in the Eq layers). (default: 49)')
     parser.add_argument('--num-train', type=int, default=-1, metavar='N',
                         help='Number of samples to train on. Set to -1 to use entire dataset. (default: -1)')
     parser.add_argument('--num-valid', type=int, default=-1, metavar='N',
