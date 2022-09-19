@@ -273,23 +273,15 @@ class Eq2to2(nn.Module):
 
         ops = torch.cat(ops, dim=2)
 
-        # if agg_mask is not None: 
-        #     ops = ops.permute(0,1,3,4,2) * mask.unsqueeze(1)
-        #     agg_mask = (agg_mask.permute(0,1,3,4,2) * mask.unsqueeze(1)).expand(-1,ops.shape[1],-1,-1,-1)
-        #     start = timer.time()
-        #     ops = self.normlayer(ops, agg_mask).permute(0,1,4,2,3)
-        #     print("BN3d", timer.time() - start)
-
         if self.activate_agg:
             ops = self.activation_fn(ops)
 
         if self.factorize:
-            output0 = torch.einsum('db,ndbij->ndij', self.coefs00, ops) # d=in_dim,  b=basis_dim, n=event number, ij=particle indices
-            output = torch.einsum('bd,nbij->nijd', self.coefs10, output0) # d=out_im, b=in_dim, n=event number, ij=particle indices
-            output1 = torch.einsum('do,ndbij->nobij', self.coefs11, ops) # o=out_im, d=in_dim, b=basis_dim, n=event number, ij=particle indices
-            output = output + torch.einsum('ob,nobij->nijo', self.coefs01, output1) # d=out_dim, b=basis_dim, n=event number, ij=particle indices   
+            coefs = self.coefs00.unsqueeze(1) * self.coefs10.unsqueeze(-1) + self.coefs01.unsqueeze(0) * self.coefs11.unsqueeze(-1)
         else:
-            output = torch.einsum('dsb,ndbij->nijs', self.coefs, ops)
+            coefs = self.coefs
+            
+        output = torch.einsum('dsb,ndbij->nijs', coefs, ops)
 
         if not self.ir_safe:
             diag_eye = torch.eye(inputs.shape[1], device=self.device, dtype=self.dtype).unsqueeze(0).unsqueeze(-1)
