@@ -66,24 +66,24 @@ class Trainer:
         self.minibatch_metrics_string_fn = minibatch_metrics_string_fn
         self.optimizer = optimizer
         self.scheduler = scheduler
+        warmup_epochs = 4 #int(self.args.num_epoch/8)
+        if warmup_epochs > 0:
+            self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
         if args.lr_decay_type == 'warm':
-            warmup_epochs = 4 #int(self.args.num_epoch/8)
             cooldown_epochs = int(self.args.num_epoch/11)
-            if warmup_epochs > 0:
-                self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
             coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
             cooldown_length = cooldown_epochs*len(dataloaders['train'])
             self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
         elif args.lr_decay_type == 'flat':
-            warmup_epochs = 4
             cooldown_epochs = int(self.args.num_epoch/3)
-            self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
             coodlown_start = (self.args.num_epoch - cooldown_epochs)*len(dataloaders['train'])
             cooldown_length = cooldown_epochs*len(dataloaders['train'])
             self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
-        elif args.lr_decay_type == 'exp':
-            warmup_epochs = 4
-            self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
+        elif args.lr_decay_type == 'cos':
+            cooldown_epochs = 3
+            coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
+            cooldown_length = cooldown_epochs*len(dataloaders['train'])
+            self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
         self.restart_epochs = restart_epochs
 
 

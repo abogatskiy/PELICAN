@@ -79,6 +79,7 @@ class GradualCooldownScheduler(_LRScheduler):
     """
 
     def __init__(self, optimizer, lr_final, cooldown_epoch, cooldown_length, after_scheduler):
+        self.gamma = 0.5
         self.lr_final = lr_final
         self.cooldown_epoch = cooldown_epoch
         self.cooldown_length = cooldown_length
@@ -89,7 +90,8 @@ class GradualCooldownScheduler(_LRScheduler):
     def get_lr(self):
         if (not self.started) and self.after_scheduler.last_epoch < self.cooldown_epoch:
             return self.after_scheduler.get_last_lr()
-        return [init_lr * (self.lr_final/init_lr) ** (self.last_epoch/self.cooldown_length) for init_lr in self.init_cooldown_lr]
+        return [init_lr * self.gamma ** self.last_epoch for init_lr in self.init_cooldown_lr]
+        # return [init_lr * (self.lr_final/init_lr) ** (self.last_epoch/self.cooldown_length) for init_lr in self.init_cooldown_lr]
 
     def step(self, epoch=None, metrics=None):
         if self.last_epoch == -1:

@@ -167,21 +167,24 @@ def init_optimizer(args, model, step_per_epoch=None):
         optimizer = optim.SGD(params)
     elif optim_type == 'demon':
         optimizer = DemonRanger(params,
-                                betas=(0.999,0.999,0.999), # default betas
-                                nus=(1.0, 1.0), # disable QHMomentum
+                                betas=(0.9,0.999,0.999), # default betas
+                                nus=(1.0, 1.0), # QHMomentum (1.0 to disable)
+                                # eps=1e-4,
                                 k=0,  # disable lookahead
                                 alpha=0.8, # outer learning rate (lookahead)
+                                use_grad_noise = True,
+                                gamma = 0.55, # gradient noise has time-dependent variance proportional to 1/(1+t)^gamma
                                 IA=False, # Iterate Averaging
                                 IA_cycle = step_per_epoch,
                                 rectify=False, # RAdam Recitification
-                                AdaMod=True,  
+                                AdaMod=False,  
                                 AdaMod_bias_correct=False,
-                                use_demon=True, # Decaying Momentum (DEMON)
+                                use_demon=False, # Decaying Momentum (DEMON)
                                 epochs=args.num_epoch,
                                 step_per_epoch=step_per_epoch,
-                                use_gc=True, # gradient centralization
+                                use_gc=False, # gradient centralization
                                 amsgrad=False, # use amsgrad instead of Adam as the underlying optimizer
-                                dropout = 0.005
+                                dropout = 0.
                                 )
     else:
         raise ValueError('Incorrect choice of optimizer')
