@@ -1,8 +1,22 @@
-import torch
-from torch.utils.data import DataLoader
-
 import logging
 import os
+import sys
+
+from src.trainer import which
+if which('nvidia-smi') is not None:
+    min=20000
+    deviceid = 0
+    name, mem = os.popen('"nvidia-smi" --query-gpu=gpu_name,memory.total --format=csv,nounits,noheader').read().split('\n')[deviceid].split(',')
+    print(mem)
+    mem = int(mem)
+    if mem < min:
+        print('Less GPU memory than requested. Terminating.')
+        sys.exit()
+
+logger = logging.getLogger('')
+
+import torch
+from torch.utils.data import DataLoader
 
 from src.models import PELICANClassifier
 from src.models import tests
@@ -11,24 +25,26 @@ from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, 
 from src.trainer import init_optimizer, init_scheduler
 from src.models.metrics_classifier import metrics, minibatch_metrics, minibatch_metrics_string
 
+
 from src.dataloaders import initialize_datasets, collate_fn
 
 # This makes printing tensors more readable.
 torch.set_printoptions(linewidth=1000, threshold=100000)
-
-logger = logging.getLogger('')
 
 
 def main():
 
     # Initialize arguments -- Just
     args = init_argparse()
-   
+
     # Initialize file paths
     args = init_file_paths(args)
 
     # Initialize logger
     init_logger(args)
+
+    if which('nvidia-smi') is not None:
+        logger.info(f'Using {name} with {mem} MB of GPU memory')
 
     # Write input paramaters and paths to log
     logging_printout(args)

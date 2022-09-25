@@ -15,14 +15,6 @@ from colorlog import ColoredFormatter
 
 logger = logging.getLogger(__name__)
 
-# if sys.version_info < (3, 6):
-#     logger.info('LGN requires Python version 3.6! or above!')
-#     sys.exit(1)
-
-MAE = torch.nn.L1Loss()
-MSE = torch.nn.MSELoss()
-RMSE = lambda x, y : sqrt(MSE(x, y))
-
 #### Initialize parameters for training run ####
 
 def init_argparse():

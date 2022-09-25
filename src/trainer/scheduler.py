@@ -1,4 +1,4 @@
-# Source: https://github.com/ildoonet/pytorch-gradual-warmup-lr/blob/master/warmup_scheduler/scheduler.py
+# Based on: https://github.com/ildoonet/pytorch-gradual-warmup-lr/blob/master/warmup_scheduler/scheduler.py
 
 
 from torch.optim.lr_scheduler import _LRScheduler
