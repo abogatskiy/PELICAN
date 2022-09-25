@@ -1,6 +1,6 @@
 # PELICAN Network for Particle Physics
 
-    This repo hosts PELICAN (Permutation Equivariant, Lorentz Invariant/Covariant Aggregator Network) for applications in Particle Physics.
+    Permutation Equivariant, Lorentz Invariant/Covariant Aggregator Network for applications in Particle Physics.
     At the moment it includes two main variants: a classifier (for e.g. top-tagging) and a 4-momentum regression network. 
 
 ## Description
