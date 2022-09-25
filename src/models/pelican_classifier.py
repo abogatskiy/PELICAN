@@ -9,7 +9,7 @@ from ..trainer import init_weights
 
 class PELICANClassifier(nn.Module):
     """
-    Permutation Invariant, Lorentz Invariant/Covariant Awesome Network
+    Permutation Invariant, Lorentz Invariant/Covariant Aggregator Network
     """
     def __init__(self, num_channels_m, num_channels1, num_channels2, num_channels_m_out,
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s', average_nobj=49, factorize=False, masked=True, softmasked=True,
@@ -20,18 +20,11 @@ class PELICANClassifier(nn.Module):
 
         logging.info('Initializing network!')
 
-        # num_channels0 = expand_var_list(num_channels0)
         num_channels_m = expand_var_list(num_channels_m)
         num_channels1 = expand_var_list(num_channels1)
         num_channels2 = expand_var_list(num_channels2)
 
-        # logging.info('num_channels0: {}'.format(num_channels0))
-        # logging.info('num_channelsm: {}'.format(num_channels_m))
-        # logging.info('num_channels1: {}'.format(num_channels1))
-        # logging.info('num_channels2: {}'.format(num_channels2))
-
         self.device, self.dtype = device, dtype
-        # self.num_channels0 = num_channels0
         self.num_channels_m = num_channels_m
         self.num_channels1 = num_channels1
         self.num_channels2 = num_channels2
@@ -62,12 +55,8 @@ class PELICANClassifier(nn.Module):
 
         # The input stack applies an encoding function
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
-        # then a dense layer:
+        # then a BatchNorm layer (messily implemented by calling MessageNet with zero layers):
         self.input_mix_and_norm = MessageNet([embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)
-        # followed by a self.dropout_layer, 
-        # only then it gets concatenated with beam labels if add_beams==True
-        # and the first layer inside net2to2 is another dense layer with batchnorm and dropout
-        # self.input_dense = MessageNet([embedding_dim, embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=False, device=device, dtype=dtype)
 
         self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet(num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
@@ -91,33 +80,30 @@ class PELICANClassifier(nn.Module):
         data : :obj:`dict`
             Dictionary of data to pass to the network.
         covariance_test : :obj:`bool`, optional
-            If true, returns all of the atom-level representations twice.
+            If true, returns several intermediate tensors as well.
 
         Returns
         -------
         prediction : :obj:`torch.Tensor`
-            The output of the layer
+            The output of the model with 2 classification weights per event (intended for CrossEntropyLoss). 
+            The class predicted by the classifier (0 or 1) is given by output.argmax(dim=1).
         """
         # Get and prepare the data
-        atom_scalars, atom_mask, edge_mask, event_momenta = self.prepare_input(data)
+        particle_scalars, particle_mask, edge_mask, event_momenta = self.prepare_input(data)
 
         # Calculate spherical harmonics and radial functions
-        num_atom = atom_mask.shape[1]
-        nobj = atom_mask.sum(-1, keepdim=True)
+        num_particle = particle_mask.shape[1]
+        nobj = particle_mask.sum(-1, keepdim=True)
         dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
-        # dot_products[:,range(num_atom), range(num_atom)] = dot_products[:,range(num_atom), range(num_atom)] * 1000
 
         if self.softmasked:
             softmask = self.softmask_layer(dot_products, mask=edge_mask)
 
         inputs = self.input_encoder(dot_products, mask=edge_mask.unsqueeze(-1))
         inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
-        # inputs = self.dropout_layer(inputs)
-        # inputs = self.input_dense(inputs, mask=edge_mask.unsqueeze(-1))
-        # inputs = self.dropout_layer(inputs)
 
         if self.add_beams:
-            inputs = torch.cat([inputs, atom_scalars], dim=-1)
+            inputs = torch.cat([inputs, particle_scalars], dim=-1)
 
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask=softmask.unsqueeze(1).unsqueeze(2) if self.softmasked else None)
 
@@ -162,29 +148,28 @@ class PELICANClassifier(nn.Module):
 
         Returns
         -------
-        atom_scalars : :obj:`torch.Tensor`
-            Tensor of scalars for each atom.
-        atom_mask : :obj:`torch.Tensor`
+        scalars : :obj:`torch.Tensor`
+            Tensor of scalars for each particle.
+        particle_mask : :obj:`torch.Tensor`
             Mask used for batching data.
-        atom_ps: :obj:`torch.Tensor`
-            Positions of the atoms
         edge_mask: :obj:`torch.Tensor`
             Mask used for batching data.
+        particle_ps: :obj:`torch.Tensor`
+            4-momenta of the particles
         """
         device, dtype = self.device, self.dtype
 
-        atom_ps = data['Pmu'].to(device, dtype)
+        particle_ps = data['Pmu'].to(device, dtype)
 
         data['Pmu'].requires_grad_(True)
-        atom_mask = data['atom_mask'].to(device, torch.bool)
+        particle_mask = data['particle_mask'].to(device, torch.bool)
         edge_mask = data['edge_mask'].to(device, torch.bool)
 
         if 'scalars' in data.keys():
             scalars = data['scalars'].to(device, dtype)
         else:
-            # scalars = torch.ones_like(atom_ps[:, :, 0]).unsqueeze(-1)
-            scalars = normsq4(atom_ps).abs().sqrt().unsqueeze(-1)
-        return scalars, atom_mask, edge_mask, atom_ps
+            scalars = normsq4(particle_ps).abs().sqrt().unsqueeze(-1)
+        return scalars, particle_mask, edge_mask, particle_ps
 
 def expand_var_list(var):
     if type(var) is list:

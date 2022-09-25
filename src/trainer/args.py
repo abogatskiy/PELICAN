@@ -146,7 +146,7 @@ def setup_argparse():
                         help='Number of test samples to use. Set to -1 to use entire dataset. (default: -1)')
     parser.add_argument('--add-beams', action=argparse.BooleanOptionalAction, default=True,
                         help='Append two proton beams of the form (m^2,0,0,+-1) to each event')
-    parser.add_argument('--beam-mass', type=float, default=0.01, metavar='N',
+    parser.add_argument('--beam-mass', type=float, default=0., metavar='N',
                     help='Set mass m of the beams, so that E=sqrt(1 + m^2) (default = 1)')
     parser.add_argument('--force-download', action=argparse.BooleanOptionalAction, default=False,
                         help='Force download and processing of dataset.')
@@ -210,10 +210,10 @@ def setup_argparse():
 
     parser.add_argument('--sig', action=argparse.BooleanOptionalAction, default=False,
                         help='Enable message significance networks (default = False)')
-    parser.add_argument('--config1', type=str, default='s',
-                    help='Configuration for aggregation functions in Net2to2 (any combination of letters s,S,m,M,x,X,n,N (default = s)')
-    parser.add_argument('--config2', type=str, default='s',
-                    help='Configuration for aggregation functions in Eq2to0 (any combination of letters s,S,m,M,x,X,n,N (default = s)')
+    parser.add_argument('--config1', type=str, default='M',
+                    help='Configuration for aggregation functions in Net2to2 (any combination of letters s,S,m,M,x,X,n,N (default = M)')
+    parser.add_argument('--config2', type=str, default='M',
+                    help='Configuration for aggregation functions in Eq2to0 (any combination of letters s,S,m,M,x,X,n,N (default = M)')
     parser.add_argument('--activate-agg', action=argparse.BooleanOptionalAction, default=False,
                     help='Apply an activation function right after permutation-equvariant Eq2to2 aggregation (default = False)')
     parser.add_argument('--activate-lin', action=argparse.BooleanOptionalAction, default=True,
@@ -230,8 +230,8 @@ def setup_argparse():
                     help='Apply a soft mask after each equivariant and messaging layer (default = False)')
 
 
-    parser.add_argument('--scale', type=float, default=0.33, metavar='N',
-                    help='Global scaling factor for input four-momenta (default = 1.)')
+    parser.add_argument('--scale', type=float, default=1.0, metavar='N',
+                    help='Global scaling factor for input four-momenta (default = 1.0)')
 
     parser.add_argument('--activation', type=str, default='leakyrelu',
                         help='Activation function used in MLP layers. Options: (relu, elu, leakyrelu, sigmoid, logsigmoid, atan, silu, celu, selu, soft, tanh). Default: elu.')                

@@ -4,7 +4,7 @@ import sys
 
 from src.trainer import which
 if which('nvidia-smi') is not None:
-    min=20000
+    min=8000
     deviceid = 0
     name, mem = os.popen('"nvidia-smi" --query-gpu=gpu_name,memory.total --format=csv,nounits,noheader').read().split('\n')[deviceid].split(',')
     print(mem)
@@ -101,7 +101,7 @@ def main():
     
     # Apply the covariance and permutation invariance tests.
     if args.test:
-        tests(model, dataloaders['train'], args, tests=['irc'])
+        tests(model, dataloaders['train'], args, tests=['gpu'])
 
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype)

@@ -50,13 +50,13 @@ def batch_stack_general(props):
         # Ensure that input features are matrices
         assert all((shape[0] == shape[1]) for shape in shapes), 'For batch stacking matrices, first two indices must match for every data point'
 
-        max_atoms = max([len(p) for p in props])
-        max_shape = (len(props), max_atoms, max_atoms) + props[0].shape[2:]
+        max_particles = max([len(p) for p in props])
+        max_shape = (len(props), max_particles, max_particles) + props[0].shape[2:]
         padded_tensor = torch.zeros(max_shape, dtype=props[0].dtype, device=props[0].device)
 
         for idx, prop in enumerate(props):
-            this_atoms = len(prop)
-            padded_tensor[idx, :this_atoms, :this_atoms] = prop
+            this_particles = len(prop)
+            padded_tensor[idx, :this_particles, :this_particles] = prop
 
         return padded_tensor
     else:
@@ -97,13 +97,13 @@ def batch_stack(props, edge_mat=False, nobj=None):
         props = [p[:nobj, ...] for p in props]
         return torch.nn.utils.rnn.pad_sequence(props, batch_first=True, padding_value=0)
     else:
-        max_atoms = max([len(p) for p in props])
-        max_shape = (len(props), max_atoms, max_atoms) + props[0].shape[2:]
+        max_particles = max([len(p) for p in props])
+        max_shape = (len(props), max_particles, max_particles) + props[0].shape[2:]
         padded_tensor = torch.zeros(max_shape, dtype=props[0].dtype, device=props[0].device)
 
         for idx, prop in enumerate(props):
-            this_atoms = len(prop)
-            padded_tensor[idx, :this_atoms, :this_atoms] = prop
+            this_particles = len(prop)
+            padded_tensor[idx, :this_particles, :this_particles] = prop
 
         return padded_tensor
 
@@ -145,7 +145,7 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
         The data to be collated.
     edge_features : list of strings
         Keys of properties that correspond to edge features, and therefore are
-        matrices of shapes (num_atoms, num_atoms), which when forming a batch
+        matrices of shapes (num_particles, num_particles), which when forming a batch
         need to be padded along the first two axes instead of just the first one.
 
     Returns
@@ -160,8 +160,8 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
     # to_keep = batch['Nobj'].to(torch.uint8)
     
     s = data['Pmu'].shape
-    atom_mask = torch.cat((torch.ones(s[0],2).bool().to(device=device), data['Pmu'][...,0] != 0.),dim=-1)
-    edge_mask = atom_mask.unsqueeze(1) * atom_mask.unsqueeze(2)
+    particle_mask = torch.cat((torch.ones(s[0],2).bool().to(device=device), data['Pmu'][...,0] != 0.),dim=-1)
+    edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
     if add_beams:
         p = 1
         beams = torch.tensor([[[sqrt(p**2+beam_mass**2),0,0,p], [sqrt(p**2+beam_mass**2),0,0,-p]]], dtype=data['Pmu'].dtype).expand(data['Pmu'].shape[0], 2, 4)
@@ -179,10 +179,10 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
         
 
     # batch = {key: drop_zeros(prop, to_keep) for key, prop in batch.items()}
-    atom_mask = data['Pmu'][...,0] != 0.
-    edge_mask = atom_mask.unsqueeze(1) * atom_mask.unsqueeze(2)
+    particle_mask = data['Pmu'][...,0] != 0.
+    edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
 
-    data['atom_mask'] = atom_mask.bool()
+    data['particle_mask'] = particle_mask.bool()
     data['edge_mask'] = edge_mask.bool()
 
 

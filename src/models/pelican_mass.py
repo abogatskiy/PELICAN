@@ -77,25 +77,25 @@ class PELICANMass(nn.Module):
         data : :obj:`dict`
             Dictionary of data to pass to the network.
         covariance_test : :obj:`bool`, optional
-            If true, returns all of the atom-level representations twice.
+            If true, returns several intermediate tensors as well.
 
         Returns
         -------
         prediction : :obj:`torch.Tensor`
-            The output of the layer
+            The output of the layer has shape [Batch, 4], i.e. one 4-vector per event.
         """
         # Get and prepare the data
-        atom_scalars, atom_mask, edge_mask, event_momenta, label = self.prepare_input(data)
+        particle_scalars, particle_mask, edge_mask, event_momenta, label = self.prepare_input(data)
 
         # Calculate spherical harmonics and radial functions
-        num_atom = atom_mask.shape[1]
-        nobj = atom_mask.sum(-1, keepdim=True)
+        num_particle = particle_mask.shape[1]
+        nobj = particle_mask.sum(-1, keepdim=True)
         dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
         inputs = self.input_encoder(dot_products, mask=edge_mask.unsqueeze(-1))
         inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
         
         if self.add_beams:
-            inputs = torch.cat([inputs, atom_scalars], dim=-1)
+            inputs = torch.cat([inputs, particle_scalars], dim=-1)
 
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask=softmask.unsqueeze(1).unsqueeze(2) if self.softmasked else None)
 
@@ -130,29 +130,29 @@ class PELICANMass(nn.Module):
 
         Returns
         -------
-        atom_scalars : :obj:`torch.Tensor`
-            Tensor of scalars for each atom.
-        atom_mask : :obj:`torch.Tensor`
+        particle_scalars : :obj:`torch.Tensor`
+            Tensor of scalars for each particle.
+        particle_mask : :obj:`torch.Tensor`
             Mask used for batching data.
-        atom_ps: :obj:`torch.Tensor`
-            Positions of the atoms
+        particle_ps: :obj:`torch.Tensor`
+            Positions of the particles
         edge_mask: :obj:`torch.Tensor`
             Mask used for batching data.
         """
         device, dtype = self.device, self.dtype
 
-        atom_ps = data['Pmu'].to(device, dtype)
+        particle_ps = data['Pmu'].to(device, dtype)
 
         data['Pmu'].requires_grad_(True)
-        atom_mask = data['atom_mask'].to(device, torch.bool)
+        particle_mask = data['particle_mask'].to(device, torch.bool)
         edge_mask = data['edge_mask'].to(device, torch.bool)
 
         if 'scalars' in data.keys():
             scalars = data['scalars'].to(device, dtype)
         else:
-            # scalars = torch.ones_like(atom_ps[:, :, 0]).unsqueeze(-1)
-            scalars = normsq4(atom_ps).abs().sqrt().unsqueeze(-1)
-        return scalars, atom_mask, edge_mask, atom_ps, data['is_signal']
+            # scalars = torch.ones_like(particle_ps[:, :, 0]).unsqueeze(-1)
+            scalars = normsq4(particle_ps).abs().sqrt().unsqueeze(-1)
+        return scalars, particle_mask, edge_mask, particle_ps, data['is_signal']
 
 
 def expand_var_list(var):

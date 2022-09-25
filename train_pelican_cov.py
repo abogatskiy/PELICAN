@@ -23,7 +23,7 @@ from src.models import tests
 from src.trainer import Trainer
 from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args
 from src.trainer import init_optimizer, init_scheduler
-from src.models.metrics_regression import metrics, minibatch_metrics, minibatch_metrics_string
+from src.models.metrics_cov import metrics, minibatch_metrics, minibatch_metrics_string
 from src.models.lorentz_metric import normsq4, dot4
 
 from src.dataloaders import initialize_datasets, collate_fn

@@ -153,6 +153,7 @@ class Trainer:
         self.epoch = checkpoint['epoch']
         self.best_metrics = checkpoint['best_metrics']
         self.minibatch = checkpoint['minibatch']
+        del checkpoint
 
         logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.best_epoch}:\n{self.best_metrics}')
 
@@ -214,7 +215,7 @@ class Trainer:
                 self.scheduler.T_max *= ceil(self.args.num_train / (self.args.back_batch_size if self.args.back_batch_size is not None else self.args.batch_size))
             self.scheduler.step(0)
 
-    def _log_minibatch(self, batch_idx, loss, targets, predict, batch_t, epoch_t):
+    def _log_minibatch(self, batch_idx, loss, targets, predict, batch_t, fwd_t, bwd_t, epoch_t):
         mini_batch_loss = loss.item()
         minibatch_metrics = self.minibatch_metrics_fn(predict, targets, mini_batch_loss)
 
@@ -235,15 +236,17 @@ class Trainer:
             for i, metric in enumerate(minibatch_metrics):
                 self.minibatch_metrics[i] = alpha * self.minibatch_metrics[i] + (1 - alpha) * metric
 
-        dtb = (datetime.now() - batch_t).total_seconds()
+        dt_batch = (datetime.now() - batch_t).total_seconds()
+        dt_fwd = (fwd_t - batch_t).total_seconds()
+        dt_bwd = (bwd_t - fwd_t).total_seconds()
         tepoch = (datetime.now() - epoch_t).total_seconds()
-        self.batch_time += dtb
+        self.batch_time += dt_batch
         tcollate = tepoch - self.batch_time
 
         if self.args.textlog:
             logstring = self.args.prefix + ' E:{:3}/{}, B: {:5}/{}'.format(self.epoch, self.args.num_epoch, batch_idx + 1, len(self.dataloaders['train']))
             logstring += self.minibatch_metrics_string_fn(self.minibatch_metrics)
-            logstring += '  dt:{:> 6.3f}{:> 8.2f}{:> 8.2f}'.format(dtb, tepoch, tcollate)
+            logstring += '  dt:({:> 4.3f}+{:> 4.3f}={:> 4.3f}){:> 8.2f}{:> 8.2f}'.format(dt_fwd, dt_bwd, dt_batch, tepoch, tcollate)
             logstring += '  {:.2E}'.format(self.scheduler.get_last_lr()[0])
             if self.args.verbose:
                 logger.info(logstring)
@@ -301,11 +304,6 @@ class Trainer:
         target_type = torch.long if self.args.target=='is_signal' else self.dtype
         targets = data[self.args.target].to(self.device, target_type)
 
-        # if stats is not None:
-        #     mu, sigma = stats[self.args.target]
-        #     targets = (targets - mu) / sigma
-
-        # print("TARGETS:", targets)
         return targets
 
     def train_epoch(self):
@@ -326,36 +324,33 @@ class Trainer:
             # Get targets and predictions
             targets = self._get_target(data, self.stats)
             predict = self.model(data)
-
+            fwd_t = datetime.now()
             # predict_t = datetime.now()
 
             # Calculate loss and backprop
             loss = self.loss_fn(predict, targets)
             total_loss += loss
-            if (batch_idx % self.args.batch_group_size == 0) or batch_idx + 1 == len(dataloader):
-                ave_loss = total_loss / (self.args.batch_group_size if batch_idx % self.args.batch_group_size == 0 else len(dataloader) % self.args.batch_group_size)
                 
-                # Standard zero-gradient and backward propagation
-                self.optimizer.zero_grad()
-                total_loss.backward()
+            # Standard zero-gradient and backward propagation
+            self.optimizer.zero_grad()
+            total_loss.backward()
+            bwd_t = datetime.now()
+            total_loss = 0
+            if not self.args.quiet and not all(param.grad is not None for param in dict(self.model.named_parameters()).values()):
+                print("WARNING: The following params have missing gradients at backward pass (they are probably not being used in output):\n", {key: '' for key, param in self.model.named_parameters() if param.grad is None})
 
-                total_loss = 0
+            # Step optimizer and learning rate
+            self.optimizer.step()
+            # self.model.apply(_max_norm)
 
-                if not self.args.quiet and not all(param.grad is not None for param in dict(self.model.named_parameters()).values()):
-                    print("WARNING: The following params have missing gradients at backward pass (they are probably not being used in output):\n", {key: '' for key, param in self.model.named_parameters() if param.grad is None})
-
-                # Step optimizer and learning rate
-                self.optimizer.step()
-                # self.model.apply(_max_norm)
             self._step_lr_batch()
+
 
             targets, predict = targets.detach().cpu(), predict.detach().cpu()
             all_predict.append(predict)
             all_targets.append(targets)
 
-            # print((predict_t-batch_t).total_seconds(), (datetime.now()-predict_t).total_seconds())
-
-            self._log_minibatch(batch_idx, loss, targets, predict, batch_t, epoch_t)
+            self._log_minibatch(batch_idx, loss, targets, predict, batch_t, fwd_t, bwd_t, epoch_t)
 
             self.minibatch += 1
 

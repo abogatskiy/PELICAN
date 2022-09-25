@@ -80,7 +80,7 @@ class PELICANRegression(nn.Module):
         data : :obj:`dict`
             Dictionary of data to pass to the network.
         covariance_test : :obj:`bool`, optional
-            If true, returns all of the atom-level representations twice.
+            If true, returns all of the Particle-level representations twice.
 
         Returns
         -------
@@ -88,17 +88,17 @@ class PELICANRegression(nn.Module):
             The output of the layer
         """
         # Get and prepare the data
-        atom_scalars, atom_mask, edge_mask, event_momenta, label = self.prepare_input(data)
+        Particle_scalars, Particle_mask, edge_mask, event_momenta, label = self.prepare_input(data)
 
         # Calculate spherical harmonics and radial functions
-        num_atom = atom_mask.shape[1]
-        nobj = atom_mask.sum(-1, keepdim=True)
+        num_Particle = Particle_mask.shape[1]
+        nobj = Particle_mask.sum(-1, keepdim=True)
         dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
         inputs = self.input_encoder(dot_products, mask=edge_mask.unsqueeze(-1))
         inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
         
         if self.add_beams:
-            inputs = torch.cat([inputs, atom_scalars], dim=-1)
+            inputs = torch.cat([inputs, Particle_scalars], dim=-1)
 
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask=softmask.unsqueeze(1).unsqueeze(2) if self.softmasked else None)
 
@@ -110,7 +110,7 @@ class PELICANRegression(nn.Module):
         if self.softmasked:
             act2 = act2 * softmask.unsqueeze(-1)
 
-        act3_1 = self.eq2to1(act2, nobj=nobj, mask=atom_mask.unsqueeze(-1))
+        act3_1 = self.eq2to1(act2, nobj=nobj, mask=Particle_mask.unsqueeze(-1))
         # act3_0 = self.eq2to0(act2, nobj=nobj)
 
         if self.dropout:
@@ -118,7 +118,7 @@ class PELICANRegression(nn.Module):
             # act3_0 = self.dropout_layer_out(act3_0)
 
         # mass_correction_factor = self.mlp_out_0(act3_0).unsqueeze(-1)
-        invariant_particle_coefficients =  self.mlp_out_1(act3_1, mask=atom_mask.unsqueeze(-1))
+        invariant_particle_coefficients =  self.mlp_out_1(act3_1, mask=Particle_mask.unsqueeze(-1))
         # invariant_particle_coefficients =  mass_correction_factor * invariant_particle_coefficients
 
         prediction = (event_momenta * invariant_particle_coefficients).sum(1) / self.scale  # / nobj.squeeze(-1)
@@ -140,29 +140,29 @@ class PELICANRegression(nn.Module):
 
         Returns
         -------
-        atom_scalars : :obj:`torch.Tensor`
-            Tensor of scalars for each atom.
-        atom_mask : :obj:`torch.Tensor`
+        Particle_scalars : :obj:`torch.Tensor`
+            Tensor of scalars for each Particle.
+        Particle_mask : :obj:`torch.Tensor`
             Mask used for batching data.
-        atom_ps: :obj:`torch.Tensor`
-            Positions of the atoms
+        Particle_ps: :obj:`torch.Tensor`
+            Positions of the Particles
         edge_mask: :obj:`torch.Tensor`
             Mask used for batching data.
         """
         device, dtype = self.device, self.dtype
 
-        atom_ps = data['Pmu'].to(device, dtype)
+        Particle_ps = data['Pmu'].to(device, dtype)
 
         data['Pmu'].requires_grad_(True)
-        atom_mask = data['atom_mask'].to(device, torch.bool)
+        Particle_mask = data['Particle_mask'].to(device, torch.bool)
         edge_mask = data['edge_mask'].to(device, torch.bool)
 
         if 'scalars' in data.keys():
             scalars = data['scalars'].to(device, dtype)
         else:
-            # scalars = torch.ones_like(atom_ps[:, :, 0]).unsqueeze(-1)
-            scalars = normsq4(atom_ps).abs().sqrt().unsqueeze(-1)
-        return scalars, atom_mask, edge_mask, atom_ps, data['is_signal']
+            # scalars = torch.ones_like(Particle_ps[:, :, 0]).unsqueeze(-1)
+            scalars = normsq4(Particle_ps).abs().sqrt().unsqueeze(-1)
+        return scalars, Particle_mask, edge_mask, Particle_ps, data['is_signal']
 
 
 def expand_var_list(var):

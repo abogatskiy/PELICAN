@@ -8,15 +8,11 @@ def check_shape(x, shape):
         assert xs == s
 
 def masked_mean(x, nobj, dim=None, keepdims=False):
-    # print(x[x!=0].std())
-    # print((x.sum(dim=1))[x.sum(dim=1)!=0].std())
     x = torch.sum(x, dim=dim, keepdims=keepdims)
     if type(dim)!=int:
         nobj = nobj**(len(dim))
     nobj = nobj.view([-1]+[1,]*(len(x.shape)-1))
     x = x / nobj
-    # print(x[x!=0].std())
-    # print("--------")
     return x
 
 def masked_amax(x, nobj, dim=None, keepdims=False):
@@ -38,10 +34,9 @@ def masked_sum(x, nobj, dim=None, keepdims=False):
     if type(dim)!=int:
         N = N**(len(dim))
     return x.sum(dim=dim, keepdims=keepdims) / N
-    # return x.mean(dim=dim, keepdims=keepdims)
 
 def eops_1_to_1(inputs, normalize=False):
-    """inputs: Tensor of shape (Batch, Channel, Num_Atom), aggregation over the last dimension"""
+    """inputs: Tensor of shape (Batch, Channel, Num_Particle), aggregation over the last dimension"""
     inputs = inputs.permute(0, 2, 1)
     dim = inputs.shape[-1]
     sums = inputs.sum(dim=-1, keepdim=True) / dim
