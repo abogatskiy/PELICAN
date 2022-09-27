@@ -100,7 +100,8 @@ def main():
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
     # Train model.
-    trainer.train()
+    if not args.task.startswith('eval'):
+        trainer.train()
 
     # Test predictions on best model and also last checkpointed model.
     trainer.evaluate(splits=['test'])

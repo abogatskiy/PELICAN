@@ -105,7 +105,7 @@ def main():
     loss_fn_m = lambda predict, targets:    (mass(predict) - mass(targets)).abs().mean()
     loss_fn_3d = lambda predict, targets:   (predict[:,[1,2,3]] - targets[:,[1,2,3]]).norm(dim=-1).mean()
     loss_fn_4d = lambda predict, targets:   (predict-targets).norm(dim=-1).mean()
-    loss_fn = lambda predict, targets:      0.03 * loss_fn_m(predict,targets) + 0.02 * loss_fn_inv(predict,targets)  #+ 0.05 * loss_fn_3d(predict, targets) 0.01 * loss_fn_4d(predict, targets)
+    loss_fn = lambda predict, targets:      0.05 * loss_fn_m(predict,targets) + 0.01 * loss_fn_3d(predict, targets) #0.03 * loss_fn_inv(predict,targets) + 0.01 * loss_fn_4d(predict, targets)
     
     # Apply the covariance and permutation invariance tests.
     if args.test:
@@ -122,7 +122,8 @@ def main():
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
 
     # Train model.
-    trainer.train()
+    if not args.task.startswith('eval'):
+        trainer.train()
 
     # Test predictions on best model and also last checkpointed model.
     trainer.evaluate(splits=['test'])
