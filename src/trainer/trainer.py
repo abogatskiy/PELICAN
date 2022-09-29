@@ -67,23 +67,24 @@ class Trainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
         warmup_epochs = 4 #int(self.args.num_epoch/8)
-        if warmup_epochs > 0:
-            self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
-        if args.lr_decay_type == 'warm':
-            cooldown_epochs = int(self.args.num_epoch/11)
-            coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
-            cooldown_length = cooldown_epochs*len(dataloaders['train'])
-            self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
-        elif args.lr_decay_type == 'flat':
-            cooldown_epochs = int(self.args.num_epoch/3)
-            coodlown_start = (self.args.num_epoch - cooldown_epochs)*len(dataloaders['train'])
-            cooldown_length = cooldown_epochs*len(dataloaders['train'])
-            self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
-        elif args.lr_decay_type == 'cos':
-            cooldown_epochs = 3
-            coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
-            cooldown_length = cooldown_epochs*len(dataloaders['train'])
-            self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
+        if args.num_epoch > warmup_epochs:
+            if warmup_epochs > 0:
+                self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
+            if args.lr_decay_type == 'warm':
+                cooldown_epochs = int(self.args.num_epoch/11)
+                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
+                cooldown_length = cooldown_epochs*len(dataloaders['train'])
+                self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
+            elif args.lr_decay_type == 'flat':
+                cooldown_epochs = int(self.args.num_epoch/3)
+                coodlown_start = (self.args.num_epoch - cooldown_epochs)*len(dataloaders['train'])
+                cooldown_length = cooldown_epochs*len(dataloaders['train'])
+                self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
+            elif args.lr_decay_type == 'cos':
+                cooldown_epochs = 3
+                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
+                cooldown_length = cooldown_epochs*len(dataloaders['train'])
+                self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
         self.restart_epochs = restart_epochs
 
 
@@ -155,7 +156,7 @@ class Trainer:
         self.minibatch = checkpoint['minibatch']
         del checkpoint
 
-        logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.best_epoch}:\n{self.best_metrics}')
+        logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.epoch}:\n{self.best_metrics}')
 
     def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True):
         """
@@ -171,12 +172,11 @@ class Trainer:
 
         # Evaluate final model (at end of training)
         if final:
-            logger.info('Getting predictions for model in last checkpoint.')
-
             # Load checkpoint model to make predictions
             checkpoint = torch.load(self.args.checkfile, map_location=torch.device(self.device))
             final_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['model_state'])
+            logger.info(f'Getting predictions for final model (epoch {final_epoch}).')
 
             # Loop over splits, predict, and output/log predictions
             for split in splits:
@@ -187,17 +187,17 @@ class Trainer:
         if best:
             # Load best model to make predictions
             checkpoint = torch.load(self.args.bestfile, map_location=torch.device(self.device))
+            best_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['model_state'])
-            if (not final) or (final and not checkpoint['epoch'] == final_epoch):
-                logger.info(f'Getting predictions for best model (epoch {checkpoint["epoch"]}).')
+            if (not final) or (final and not best_epoch == final_epoch):
+                logger.info(f'Getting predictions for best model (epoch {best_epoch}).')
                 # Loop over splits, predict, and output/log predictions
                 for split in splits:
                     predict, targets = self.predict(split)
                     best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
-            else:
-                if checkpoint['epoch'] == final_epoch:
-                    logger.info('BEST MODEL IS SAME AS FINAL')
-                    self.log_predict(predict, targets, split, description='Best', repeat=[best_metrics, logstring])
+            elif best_epoch == final_epoch:
+                logger.info('BEST MODEL IS SAME AS FINAL')
+                self.log_predict(predict, targets, split, description='Best', repeat=[best_metrics, logstring])
 
         logger.info('Inference phase complete!\n')
 

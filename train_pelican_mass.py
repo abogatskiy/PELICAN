@@ -50,7 +50,6 @@ def main():
 
     if args.task.startswith('eval'):
         args.load = True
-        args.num_epoch = 0
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass)

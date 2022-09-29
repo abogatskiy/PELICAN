@@ -2,6 +2,8 @@ import torch
 import numpy as np
 
 import logging, os, h5py, glob
+import logging
+logger = logging.getLogger(__name__)
 
 from torch.utils.data import DataLoader
 from torch.utils.data import ConcatDataset
@@ -20,9 +22,12 @@ def initialize_datasets(args, datadir='../../../data/samples_h5', num_pts=None):
     splits = ['train', 'test', 'valid'] # We will consider all HDF5 files in datadir with one of these keywords in the filename
     files = glob.glob(datadir + '/*.h5')
     datafiles = {split:[] for split in splits}
-    for file in files:
-        for split in splits:
-            if split in file: datafiles[split].append(file)
+    for split in splits:
+        logger.info(f'Looking for {split} files in datadir:')
+        for file in files:
+            if split in file: 
+                datafiles[split].append(file)
+                logger.info(file)
     nfiles = {split:len(datafiles[split]) for split in splits}
     
     ### ------ 2: Set the number of data points ------ ###
