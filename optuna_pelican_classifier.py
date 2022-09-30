@@ -16,7 +16,7 @@ from src.models.metrics_classifier import metrics, minibatch_metrics, minibatch_
 from src.dataloaders import initialize_datasets, collate_fn
 
 # This makes printing tensors more readable.
-torch.set_printoptions(linewidth=1000, threshold=100000)
+torch.set_printoptions(linewidth=1000, threshold=100000, sci_mode=False)
 
 logger = logging.getLogger('')
 

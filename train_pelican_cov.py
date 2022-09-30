@@ -29,7 +29,7 @@ from src.models.lorentz_metric import normsq4, dot4
 from src.dataloaders import initialize_datasets, collate_fn
 
 # This makes printing tensors more readable.
-torch.set_printoptions(linewidth=1000, threshold=100000)
+torch.set_printoptions(linewidth=1000, threshold=100000, sci_mode=False)
 
 
 def main():

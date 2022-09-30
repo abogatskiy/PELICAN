@@ -20,6 +20,8 @@ def initialize_datasets(args, datadir='../../../data/samples_h5', num_pts=None):
     # We will look for the keywords defined in splits to be be in the filenames, and will thus determine what
     # set each file belongs to.
     splits = ['train', 'test', 'valid'] # We will consider all HDF5 files in datadir with one of these keywords in the filename
+    shuffle = {'train': True, 'valid': False, 'test': False} # Shuffle only the training set
+
     files = glob.glob(datadir + '/*.h5')
     datafiles = {split:[] for split in splits}
     for split in splits:
@@ -64,7 +66,7 @@ def initialize_datasets(args, datadir='../../../data/samples_h5', num_pts=None):
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data
-    torch_datasets = {split: ConcatDataset([JetDataset(data, num_pts=num_pts_per_file[split][idx]) for idx, data in enumerate(datasets[split])]) for split in splits}
+    torch_datasets = {split: ConcatDataset([JetDataset(data, num_pts=num_pts_per_file[split][idx], shuffle=shuffle[split]) for idx, data in enumerate(datasets[split])]) for split in splits}
 
     # Now, update the number of training/test/validation sets in args
     args.num_train = torch_datasets['train'].cumulative_sizes[-1]
