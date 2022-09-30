@@ -15,7 +15,7 @@ class PELICANClassifier(nn.Module):
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s', average_nobj=49, factorize=False, masked=True, softmasked=True,
                  activate_agg2=True, activate_lin2=False, mlp_out=True,
                  scale=1, ir_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
-                 device=torch.device('cpu'), dtype=None, cg_dict=None):
+                 device=torch.device('cpu'), dtype=None):
         super().__init__()
 
         logging.info('Initializing network!')

@@ -158,7 +158,7 @@ class Trainer:
 
         logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.epoch}:\n{self.best_metrics}')
 
-    def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True):
+    def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True, no_log=False):
         """
         Evaluate model on training/validation/testing splits.
 
@@ -181,7 +181,8 @@ class Trainer:
             # Loop over splits, predict, and output/log predictions
             for split in splits:
                 predict, targets = self.predict(set=split)
-                best_metrics, logstring = self.log_predict(predict, targets, split, description='Final')
+                if not no_log:
+                    best_metrics, logstring = self.log_predict(predict, targets, split, description='Final', no_log=no_log)
 
         # Evaluate best model as determined by validation error
         if best:
@@ -194,14 +195,13 @@ class Trainer:
                 # Loop over splits, predict, and output/log predictions
                 for split in splits:
                     predict, targets = self.predict(split)
-                    best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
+                    best_metrics, logstring = self.log_predict(predict, targets, split, description='Best', no_log=no_log)
             elif best_epoch == final_epoch:
                 logger.info('BEST MODEL IS SAME AS FINAL')
-                self.log_predict(predict, targets, split, description='Best', repeat=[best_metrics, logstring])
-
+                self.log_predict(predict, targets, split, description='Best', repeat=[best_metrics, logstring], no_log=no_log)
+        if no_log:
+            logger.info('Logging of final evaluation metrics skipped. Look for those prediction files!\n')
         logger.info('Inference phase complete!\n')
-
-        return best_metrics
 
     def _warm_restart(self, epoch):
         restart_epochs = self.restart_epochs
@@ -383,7 +383,7 @@ class Trainer:
 
         return all_predict, all_targets
 
-    def log_predict(self, predict, targets, dataset, epoch=-1, epoch_t=None, description='', repeat=None):
+    def log_predict(self, predict, targets, dataset, epoch=-1, epoch_t=None, description='', repeat=None, no_log=False):
         predict = predict.cpu().double()
         targets = targets.cpu().double()
 
@@ -395,11 +395,13 @@ class Trainer:
             suffix = 'best'
 
         prefix = self.args.predictfile + '.' + suffix + '.' + dataset
+        metrics, logstring = None, 'metrics skipped!'
 
-        if repeat is None:
-            metrics, logstring = self.metrics_fn(predict, targets, self.loss_fn, prefix, logger)
-        else:
-            metrics, logstring = repeat[0], repeat[1]
+        if not no_log:
+            if repeat is None:
+                metrics, logstring = self.metrics_fn(predict, targets, self.loss_fn, prefix, logger)
+            else:
+                metrics, logstring = repeat[0], repeat[1]
 
         if epoch >= 0:
             logger.info(f'Epoch {epoch} {description} {datastrings[dataset]}'+logstring)
@@ -412,20 +414,21 @@ class Trainer:
         metricsfile = self.args.predictfile + '.metrics.' + dataset + '.csv'   
         testmetricsfile = os.path.join(self.args.workdir, self.args.logdir, self.args.prefix.split("-")[0]+'.'+description+'.metrics.csv')
 
-        if epoch >= 0 and self.summarize_csv=='all':
-            with open(metricsfile, mode='a' if (self.args.load or epoch>1) else 'w') as file_:
-                if epoch == 1:
-                    file_.write(",".join(metrics.keys()))
-                file_.write(",".join(map(str, metrics.values())))
-                file_.write("\n")  # Next line.
-        if epoch < 0 and self.summarize_csv in ['test','all']:
-            if not os.path.exists(testmetricsfile):
-                with open(testmetricsfile, mode='a') as file_:
-                    file_.write("prefix,timestamp,"+",".join(metrics.keys()))
+        if not no_log:
+            if epoch >= 0 and self.summarize_csv=='all':
+                with open(metricsfile, mode='a' if (self.args.load or epoch>1) else 'w') as file_:
+                    if epoch == 1:
+                        file_.write(",".join(metrics.keys()))
+                    file_.write(",".join(map(str, metrics.values())))
                     file_.write("\n")  # Next line.
-            with open(testmetricsfile, mode='a') as file_:
-                file_.write(self.args.prefix+','+str(datetime.now())+','+",".join(map(str, metrics.values())))
-                file_.write("\n")  # Next line.
+            if epoch < 0 and self.summarize_csv in ['test','all']:
+                if not os.path.exists(testmetricsfile):
+                    with open(testmetricsfile, mode='a') as file_:
+                        file_.write("prefix,timestamp,"+",".join(metrics.keys()))
+                        file_.write("\n")  # Next line.
+                with open(testmetricsfile, mode='a') as file_:
+                    file_.write(self.args.prefix+','+str(datetime.now())+','+",".join(map(str, metrics.values())))
+                    file_.write("\n")  # Next line.
 
 
         if self.args.predict and (repeat is None):
@@ -436,7 +439,7 @@ class Trainer:
         if repeat is not None:
             logger.info('Predictions already saved above')
 
-        if self.summarize:
+        if not no_log and self.summarize:
             if description == 'Best': dataset = 'Best_' + dataset
             if description == 'Final': dataset = 'Final_' + dataset
             for name, metric in metrics.items():

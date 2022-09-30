@@ -15,7 +15,8 @@ class PELICANRegression(nn.Module):
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s', average_nobj=20, factorize=False, masked=True, softmasked=True,
                  activate_agg2=True, activate_lin2=False, mlp_out=True,
                  scale=1, ir_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
-                 device=torch.device('cpu'), dtype=None, cg_dict=None):
+                 task = 'train',
+                 device=torch.device('cpu'), dtype=None):
         super().__init__()
 
         logging.info('Initializing network!')
@@ -39,6 +40,7 @@ class PELICANRegression(nn.Module):
         self.factorize = factorize
         self.masked = masked
         self.softmasked = softmasked
+        self.task = task
 
         if dropout:
             self.dropout_layer = nn.Dropout(drop_rate)
@@ -119,8 +121,10 @@ class PELICANRegression(nn.Module):
 
         # mass_correction_factor = self.mlp_out_0(act3_0).unsqueeze(-1)
         invariant_particle_coefficients =  self.mlp_out_1(act3_1, mask=particle_mask.unsqueeze(-1))
-        # invariant_particle_coefficients =  mass_correction_factor * invariant_particle_coefficients
 
+        if self.task.startswith('cluster'):
+            return invariant_particle_coefficients
+            
         prediction = (event_momenta * invariant_particle_coefficients).sum(1) / self.scale  # / nobj.squeeze(-1)
         # pred_mass = normsq4(prediction).abs().sqrt().unsqueeze(-1) / 80.
 

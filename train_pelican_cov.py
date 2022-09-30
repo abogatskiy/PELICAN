@@ -63,8 +63,8 @@ def main():
     # Fix possible inconsistencies in arguments
     args = fix_args(args)
 
-    if args.task.startswith('eval'):
-        args.load = True
+    if args.task.startswith('eval') or args.task.startswith('cluster'):
+        args.load = True        
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass)
@@ -83,6 +83,7 @@ def main():
                       factorize=args.factorize, masked=args.masked, softmasked=args.softmasked,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
                       scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
+                      task = args.task,
                       device=device, dtype=dtype)
     
     model.to(device)
@@ -113,19 +114,21 @@ def main():
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype)
     
-    # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
-    trainer.load_checkpoint()
+    if not (args.task.startswith('eval') or args.task.startswith('cluster')):
+        # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
+        trainer.load_checkpoint()
+        # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
+        if args.reproducible:
+            os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+        # Train model.
+            trainer.train()
 
-    # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
-    if args.reproducible:
-        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+    # Test predictions on best model and/or also last checkpointed model.
+    if not args.task.startswith('cluster'):
+        trainer.evaluate(splits=['test'])
+    else:
+        trainer.evaluate(splits=['test'], final=False, no_log=True)
 
-    # Train model.
-    if not args.task.startswith('eval'):
-        trainer.train()
-
-    # Test predictions on best model and also last checkpointed model.
-    trainer.evaluate(splits=['test'])
 
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
