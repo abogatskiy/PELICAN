@@ -5,7 +5,7 @@
 
 ## Description
 
-An in-depth paragraph about your project and overview of use.
+PELICAN is a network that takes 4-momentum inputs (e.g. jet constituents) and uses Lorentz-invariant features and permutation-equivariant layers to solve tasks such as classification and momentum regression in an exactly Lorentz-covariant way. Embedding the symmetries into the architecture drastically reduces the model size while still delivering state-of-the-art performance. Moreover, by using only physically/geometrically meaningful mathematical operations, PELICAN can provide viable physics models as opposed to black-box ML approaches that do not respect fundamental symmetries. Finally, equivariance massively improves sample efficiency (and generalizability from low amounts of training data). This repository contains two main top-level scripts, one for classification, and one for 4-momentum regression (currently outputting just one 4-vector prediction). These can be executed directly with no installation. The data folder contains a small sample dataset consisting of 50% top quark jets and 50% background jets (with the key `is_signal` identifying which is which).
 
 ## Getting Started
 
@@ -22,7 +22,7 @@ An in-depth paragraph about your project and overview of use.
 
 ### Installing
 
-* No installatio required -- just use one of the top level scripts.
+* No installation required -- just use one of the top level scripts.
 
 ### General Usage Tips
 
@@ -54,9 +54,9 @@ An in-depth paragraph about your project and overview of use.
 ```
 python3 train_pelican_classifier.py --datadir=./data/sample_data/run12 --target=is_signal --nobj=85 --nobj-avg=40 --num-epoch=64 --num-train=60000 --num-valid=60000 --batch-size=64 --prefix=classifier --optim=adamw --activation=leakyrelu --factorize --lr-decay-type=warm --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.05 --drop-rate-out=0.05 --weight-decay=0.025
 ```
-* Similarly for regression:
+* Similarly for regression (this prompt will try to predict the top quark momentum stored in the sample dataset, however since 50% of the dataset are background events without a top quark, and truth_Pmu=0, this is not a real regression test):
 ```
-python3 train_pelican_cov.py --datadir=./data/datadir --target=truth_Pmu_2 --nobj=85 --nobj-avg=20 --num-epoch=64 --num-train=60000 --num-valid=60000 --batch-size=64 --prefix=classifier --optim=adamw --activation=leakyrelu --factorize --lr-decay-type=warm --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.05 --drop-rate-out=0.05 --weight-decay=0.025
+python3 train_pelican_cov.py --datadir=./data/sample_data/run12 --target=truth_Pmu --nobj=85 --nobj-avg=20 --num-epoch=64 --num-train=60000 --num-valid=60000 --batch-size=64 --prefix=classifier --optim=adamw --activation=leakyrelu --factorize --lr-decay-type=warm --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.05 --drop-rate-out=0.05 --weight-decay=0.025
 ```
 
 
