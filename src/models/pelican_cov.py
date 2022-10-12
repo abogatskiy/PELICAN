@@ -11,7 +11,7 @@ class PELICANRegression(nn.Module):
     """
     Permutation Invariant, Lorentz Invariant/Covariant Awesome Network
     """
-    def __init__(self, num_channels_m, num_channels1, num_channels2, num_channels_m_out,
+    def __init__(self, num_channels_m, num_channels1, num_channels2, num_channels_m_out, num_targets,
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s', average_nobj=20, factorize=False, masked=True, softmasked=True,
                  activate_agg2=True, activate_lin2=False, mlp_out=True,
                  scale=1, ir_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
@@ -30,6 +30,7 @@ class PELICANRegression(nn.Module):
         self.num_channels_m = num_channels_m
         self.num_channels1 = num_channels1
         self.num_channels2 = num_channels2
+        self.num_targets = num_targets
         self.batchnorm = batchnorm
         self.dropout = dropout
         self.scale = scale
@@ -59,11 +60,11 @@ class PELICANRegression(nn.Module):
 
         self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet(num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
-        self.eq2to1 = Eq2to1(num_channels_m_out[-1], num_channels2[0] if mlp_out else 1,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, average_nobj=average_nobj, config=config2, device = device, dtype = dtype)
+        self.eq2to1 = Eq2to1(num_channels_m_out[-1], num_channels2[0] if mlp_out else num_targets,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, average_nobj=average_nobj, config=config2, device = device, dtype = dtype)
         # self.eq2to0 = Eq2to0(num_channels_m_out[-1], num_channels2[0] if mlp_out else 1,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
         
         if mlp_out:
-            self.mlp_out_1 = BasicMLP(self.num_channels2 + [1], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
+            self.mlp_out_1 = BasicMLP(self.num_channels2 + [num_targets], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
             # self.mlp_out_0 = BasicMLP(self.num_channels2 + [1], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
         self.apply(init_weights)
@@ -125,7 +126,7 @@ class PELICANRegression(nn.Module):
         if self.task.startswith('cluster'):
             return invariant_particle_coefficients
             
-        prediction = (event_momenta * invariant_particle_coefficients).sum(1) / self.scale  # / nobj.squeeze(-1)
+        prediction = (event_momenta.unsqueeze(-2) * invariant_particle_coefficients.unsqueeze(-1)).sum(1) / self.scale  # / nobj.squeeze(-1)
         # pred_mass = normsq4(prediction).abs().sqrt().unsqueeze(-1) / 80.
 
         if covariance_test:

@@ -443,6 +443,13 @@ class Trainer:
             if description == 'Best': dataset = 'Best_' + dataset
             if description == 'Final': dataset = 'Final_' + dataset
             for name, metric in metrics.items():
-                self.writer.add_scalar(dataset+'/'+name, metric, epoch)
+                if not isinstance(metric, np.ndarray):
+                    self.writer.add_scalar(dataset+'/'+name, metric, epoch)
+                else:
+                    if metric.size==1:
+                        self.writer.add_scalar(dataset+'/'+name, metric, epoch)
+                    else:
+                        for i, m in enumerate(metric):
+                            self.writer.add_scalar(dataset+'/'+name+'_'+str(i), m, epoch)
 
         return metrics, logstring

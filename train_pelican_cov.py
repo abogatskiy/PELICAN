@@ -77,7 +77,7 @@ def main():
                    for split, dataset in datasets.items()}
 
     # Initialize model
-    model = PELICANRegression(args.num_channels_m, args.num_channels1, args.num_channels2, args.num_channels_m_out,
+    model = PELICANRegression(args.num_channels_m, args.num_channels1, args.num_channels2, args.num_channels_m_out, num_targets=args.num_targets,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, sig=args.sig, config1=args.config1, config2=args.config2, average_nobj=args.nobj_avg,
                       factorize=args.factorize, masked=args.masked, softmasked=args.softmasked,
@@ -103,7 +103,7 @@ def main():
     loss_fn_inv = lambda predict, targets:  (normsq4(predict - targets).abs() + 1e-12).sqrt().mean()
     loss_fn_m2 = lambda predict, targets:   (normsq4(predict) - normsq4(targets)).abs().mean()
     loss_fn_m = lambda predict, targets:    (mass(predict) - mass(targets)).abs().mean()
-    loss_fn_3d = lambda predict, targets:   (predict[:,[1,2,3]] - targets[:,[1,2,3]]).norm(dim=-1).mean()
+    loss_fn_3d = lambda predict, targets:   (predict[...,1:] - targets[...,1:]).norm(dim=-1).mean()
     loss_fn_4d = lambda predict, targets:   (predict-targets).norm(dim=-1).mean()
     loss_fn = lambda predict, targets:      0.05 * loss_fn_m(predict,targets) + 0.01 * loss_fn_3d(predict, targets) #0.03 * loss_fn_inv(predict,targets) + 0.01 * loss_fn_4d(predict, targets)
     

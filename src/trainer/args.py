@@ -133,7 +133,9 @@ def setup_argparse():
                         help='Data set. Options: (jet, 2v3bodycomplex). Default: jet.')
     parser.add_argument('--target', type=str, default='is_signal',
                         help='Learning target for a dataset (such as qm9) with multiple options.')
-    
+    parser.add_argument('--num-targets', type=int, default=1, metavar='N',
+                        help='Number of 4-vector targets for the regression task. (default: 1)')
+
     parser.add_argument('--nobj', type=int, default=None, metavar='N',
                         help='Max number of particles in each event (selects the first nobj). Set to None to use entire dataset. (default: None)')
     parser.add_argument('--nobj-avg', type=int, default=49, metavar='N',
