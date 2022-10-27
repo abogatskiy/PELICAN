@@ -87,7 +87,7 @@ def batch_stack(props, edge_mat=False, nobj=None):
     -----
     TODO : Review whether the behavior when elements are not tensors is safe.
     """
-    if nobj < 0:
+    if nobj is not None and nobj < 0:
         nobj = None
     if not torch.is_tensor(props[0]):
         return torch.tensor(props)
