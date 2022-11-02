@@ -1,118 +1,178 @@
 import torch
-import numpy as np
-from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
+import torch.nn as nn
+
+import logging
+
 from .lorentz_metric import normsq4, dot4
+from ..layers import BasicMLP, get_activation_fn, Net1to1, Net2to2, Eq2to1, Eq2to0, MessageNet, InputEncoder
+from ..trainer import init_weights
 
-def metrics(predict, targets, loss_fn, prefix, logger=None):
+class PELICANRegression(nn.Module):
     """
-    This generates metrics reported at the end of each epoch and during validation/testing, as well as the logstring printed to the logger.
-    """    
-    if len(targets.shape)==2:
-        targets = targets.unsqueeze(1)
-    loss = loss_fn(predict,targets).numpy()
-    angle = AngleDeviation(predict, targets)
-    phisigma = PhiSigma(predict, targets)
-    pTsigma = pTSigma(predict, targets)
-    massdelta = MassSigma(predict, targets)
-    loss_inv = loss_fn_inv(predict, targets)
-    loss_m = loss_fn_m(predict, targets)
-    loss_m2 = loss_fn_m2(predict, targets)
-    loss_3d = loss_fn_3d(predict, targets)
-    loss_4d = loss_fn_4d(predict, targets)
-
-    w = 1 + 8 * targets.shape[1]
-
-    metrics = {'loss': loss, '∆Ψ': angle, '∆φ': phisigma, '∆pT': pTsigma, '∆m': massdelta, 'loss_inv': loss_inv, 'loss_m': loss_m, 'loss_m2': loss_m2, 'loss_3d': loss_3d, 'loss_4d': loss_4d}
-    with np.printoptions(precision=4):
-        string = f' L: {loss:10.4f}, ∆Ψ: {str(angle):>{w}}, ∆φ: {str(phisigma):>{w}}, ∆pT: {str(pTsigma):>{w}}, ∆m: {str(massdelta):>{w}}, loss_inv: {loss_inv:10.4f}, loss_m: {loss_m:10.4f}, loss_m2: {loss_m2:10.4f}, loss_3d: {loss_3d:10.4f}, loss_4d: {loss_4d:10.4f}'
-    return metrics, string
-
-def minibatch_metrics(predict, targets, loss):
+    Permutation Invariant, Lorentz Invariant/Covariant Awesome Network
     """
-    This computes metrics for each minibatch (if verbose mode is used). The logstring is defined separately in minibatch_metrics_string.
-    """    
-    if len(targets.shape)==2:
-        targets = targets.unsqueeze(1)
-    angle = AngleDeviation(predict, targets)
-    phisigma = PhiSigma(predict, targets)
-    pTsigma = pTSigma(predict, targets)
-    massdelta = MassSigma(predict, targets)
+    def __init__(self, num_channels_m, num_channels1, num_channels2, num_channels_m_out, num_targets,
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s', average_nobj=20, factorize=False, masked=True, softmasked=True,
+                 activate_agg2=True, activate_lin2=False, mlp_out=True,
+                 scale=1, ir_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
+                 task = 'train',
+                 device=torch.device('cpu'), dtype=None):
+        super().__init__()
 
-    return [loss, angle, phisigma, pTsigma, massdelta]
+        logging.info('Initializing network!')
 
-def minibatch_metrics_string(metrics):
-    L, psi, phi, pT, m = metrics
-    with np.printoptions(precision=4):
-        string = f'   L: {L:<12.4f}, ∆Ψ: {str(psi):>25}, ∆φ: {str(phi):>25}, ∆pT: {str(pT):>25}, ∆m: {str(m):>25}'
-    return string
+        # num_channels0 = expand_var_list(num_channels0)
+        num_channels_m = expand_var_list(num_channels_m)
+        num_channels1 = expand_var_list(num_channels1)
+        num_channels2 = expand_var_list(num_channels2)
 
-def AngleDeviation(predict, targets):
-    """
-    Measures the (always positive) angle between any two 3D vectors and returns the 68% quantile over the batch
-    """
-    angles = Angle3D(predict[...,1:4], targets[...,1:4])
-    return  torch.quantile(angles, 0.68, dim=0).numpy()
+        self.device, self.dtype = device, dtype
+        self.num_channels_m = num_channels_m
+        self.num_channels1 = num_channels1
+        self.num_channels2 = num_channels2
+        self.num_targets = num_targets
+        self.batchnorm = batchnorm
+        self.dropout = dropout
+        self.scale = scale
+        self.add_beams = add_beams
+        self.ir_safe = ir_safe
+        self.mlp_out = mlp_out
+        self.average_nobj = average_nobj
+        self.factorize = factorize
+        self.masked = masked
+        self.softmasked = softmasked
+        self.task = task
 
-def PhiSigma(predict, targets):
-    """
-    Measures the oriented angle between any two 2D vectors and returns  half of the 68% interquantile range over the batch
-    """
-    angles = Angle2D(predict[...,1:3], targets[...,1:3])
-    return  iqr(angles, dim=0)
+        if dropout:
+            self.dropout_layer = nn.Dropout(drop_rate)
+            self.dropout_layer_out = nn.Dropout(drop_rate_out)
 
-def Angle2D(u, v):
-    """
-    Measures the oriented angle between any two 2D vectors (allows batches)
-    """
-    dots = (u * v).sum(dim=-1)
-    j = torch.tensor([[0,1],[-1,0]], device=u.device, dtype=u.dtype)
-    dets = (u * torch.einsum("ab,...b->...a", j, v)).sum(dim=-1)
-    angles = torch.atan2(dets, dots)
-    return angles
+        if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
+            embedding_dim = self.num_channels_m[0][0]
+        else:
+            embedding_dim = self.num_channels1[0]
+        if add_beams: 
+            assert embedding_dim > 2, f"num_channels_m[0][0] or num-channels1[0] has to be at least 3 when using --add_beams but got {embedding_dim}"
+            embedding_dim -= 2
 
-def Angle3D(u, v):
-    """
-    Measures the (always positive) angle between any two 3D vectors (allows batches)
-    """
-    aux1 = u.norm(dim=-1).unsqueeze(-1) * v
-    aux2 = v.norm(dim=-1).unsqueeze(-1) * u
-    angles = 2*torch.atan2((aux1 - aux2).norm(dim=-1), (aux1 + aux2).norm(dim=-1))
-    return angles
+        self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
+        self.input_mix_and_norm = MessageNet([embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)
 
-def MassSigma(predict, targets):
-    """
-    half of the 68% interquantile range over of relative deviation in mass
-    """
-    rel = ((normsq4(predict).abs().sqrt()-normsq4(targets).abs().sqrt())/normsq4(targets).abs().sqrt())
-    return iqr(rel, dim=0)  # mass relative error
+        self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
+        self.message_layer = MessageNet(num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
+        self.eq2to1 = Eq2to1(num_channels_m_out[-1], num_channels2[0] if mlp_out else num_targets,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, average_nobj=average_nobj, config=config2, factorize=False, device = device, dtype = dtype)
+        # self.eq2to0 = Eq2to0(num_channels_m_out[-1], num_channels2[0] if mlp_out else 1,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, config=config2, device = device, dtype = dtype)
+        
+        if mlp_out:
+            self.mlp_out_1 = BasicMLP(self.num_channels2 + [num_targets], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
+            # self.mlp_out_0 = BasicMLP(self.num_channels2 + [1], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
-def pTSigma(predict, targets):
-    """
-     half of the 68% interquantile range of relative deviation in pT
-    """
-    rel = ((predict[...,[1,2]].norm(dim=-1)-targets[...,[1,2]].norm(dim=-1))/targets[...,[1,2]].norm(dim=-1))
-    return iqr(rel, dim=0)  # pT relative error
+        self.apply(init_weights)
 
-def loss_fn_inv(predict, targets):
-    return (normsq4(predict - targets).abs()+1e-6).sqrt().mean().numpy()
+        logging.info('_________________________\n')
+        for n, p in self.named_parameters(): logging.info(f'{"Parameter: " + n:<80} {p.shape}')
+        logging.info('Model initialized. Number of parameters: {}'.format(sum(p.nelement() for p in self.parameters())))
+        logging.info('_________________________\n')
 
-def loss_fn_m(predict, targets):
-    return (mass(predict) - mass(targets)).abs().mean().numpy()
+    def forward(self, data, covariance_test=False):
+        """
+        Runs a forward pass of the network.
 
-def loss_fn_m2(predict, targets):
-    return (normsq4(predict) - normsq4(targets)).abs().mean().numpy()
+        Parameters
+        ----------
+        data : :obj:`dict`
+            Dictionary of data to pass to the network.
+        covariance_test : :obj:`bool`, optional
+            If true, returns all of the Particle-level representations twice.
 
-def loss_fn_3d(predict, targets):
-    return ((predict[...,1:4] - targets[...,1:4]).norm(dim=-1)).mean().numpy()
+        Returns
+        -------
+        prediction : :obj:`torch.Tensor`
+            The output of the layer
+        """
+        # Get and prepare the data
+        Particle_scalars, particle_mask, edge_mask, event_momenta, label = self.prepare_input(data)
 
-def loss_fn_4d(predict, targets):
-    return (predict-targets).norm(dim=-1).mean().numpy()
+        # Calculate spherical harmonics and radial functions
+        num_particle = particle_mask.shape[1]
+        nobj = particle_mask.sum(-1, keepdim=True)
+        dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
+        inputs = self.input_encoder(dot_products, mask=edge_mask.unsqueeze(-1))
+        inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
+        
+        if self.add_beams:
+            inputs = torch.cat([inputs, Particle_scalars], dim=-1)
 
-def mass(x):
-    norm=normsq4(x)
-    return norm.sign() * norm.abs().sqrt()
+        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask=softmask.unsqueeze(1).unsqueeze(2) if self.softmasked else None)
+
+        act2 = self.message_layer(act1, mask=edge_mask.unsqueeze(-1))
+
+        if self.dropout:
+            act2 = self.dropout_layer(act2)
+
+        if self.softmasked:
+            act2 = act2 * softmask.unsqueeze(-1)
+
+        act3_1 = self.eq2to1(act2, nobj=nobj, mask=particle_mask.unsqueeze(-1))
+        # act3_0 = self.eq2to0(act2, nobj=nobj)
+
+        if self.dropout:
+            act3_1 = self.dropout_layer_out(act3_1)
+            # act3_0 = self.dropout_layer_out(act3_0)
+
+        # mass_correction_factor = self.mlp_out_0(act3_0).unsqueeze(-1)
+        invariant_particle_coefficients =  self.mlp_out_1(act3_1, mask=particle_mask.unsqueeze(-1))
+
+        if self.task.startswith('cluster'):
+            return invariant_particle_coefficients
+            
+        prediction = (event_momenta.unsqueeze(-2) * invariant_particle_coefficients.unsqueeze(-1)).sum(1) / self.scale  # / nobj.squeeze(-1)
+        # pred_mass = normsq4(prediction).abs().sqrt().unsqueeze(-1) / 80.
+
+        if covariance_test:
+            return prediction, [inputs, act1, act2]
+        else:
+            return prediction
+
+    def prepare_input(self, data):
+        """
+        Extracts input from data class
+
+        Parameters
+        ----------
+        data : ?????
+            Information on the state of the system.
+
+        Returns
+        -------
+        particle_scalars : :obj:`torch.Tensor`
+            Tensor of scalars for each Particle.
+        particle_mask : :obj:`torch.Tensor`
+            Mask used for batching data.
+        particle_ps: :obj:`torch.Tensor`
+            Positions of the Particles
+        edge_mask: :obj:`torch.Tensor`
+            Mask used for batching data.
+        """
+        device, dtype = self.device, self.dtype
+
+        Particle_ps = data['Pmu'].to(device, dtype)
+
+        data['Pmu'].requires_grad_(True)
+        particle_mask = data['particle_mask'].to(device, torch.bool)
+        edge_mask = data['edge_mask'].to(device, torch.bool)
+
+        if 'scalars' in data.keys():
+            scalars = data['scalars'].to(device, dtype)
+        else:
+            # scalars = torch.ones_like(Particle_ps[:, :, 0]).unsqueeze(-1)
+            scalars = normsq4(Particle_ps).abs().sqrt().unsqueeze(-1)
+        return scalars, particle_mask, edge_mask, Particle_ps, data['is_signal']
 
 
-def iqr(x, rng=(0.16, 0.84), dim=0):
-    rng = sorted(rng)
-    return ((torch.quantile(x,rng[1], dim=dim) - torch.quantile(x,rng[0],dim=dim)) * 0.5).numpy()
+def expand_var_list(var):
+    if type(var) is list:
+        var_list = var
+    else:
+        raise ValueError('Incorrect type {}'.format(type(var)))
+    return var_list

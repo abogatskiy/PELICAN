@@ -29,7 +29,7 @@ class Eq1to1(nn.Module):
         return output
 
 class Eq2to0(nn.Module):
-    def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe=False, config='s', average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe=False, config='s', factorize=True, average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to0, self).__init__()
         self.device = device
         self.dtype = dtype
@@ -38,6 +38,7 @@ class Eq2to0(nn.Module):
         self.activation_fn = get_activation_fn(activation)
         self.ir_safe = ir_safe
         self.config = config
+        self.factorize = factorize
 
         self.average_nobj = average_nobj                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
         self.basis_dim = 2 * len(config)
@@ -51,7 +52,14 @@ class Eq2to0(nn.Module):
         self.out_dim = out_dim
         self.in_dim = in_dim
         self.ops_func = eops_2_to_0
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(4./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        if factorize:
+            self.coefs00 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (in_dim, self.basis_dim), device=device, dtype=dtype))
+            self.coefs01 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (out_dim, self.basis_dim), device=device, dtype=dtype))            
+            self.coefs10 = nn.Parameter(torch.normal(0, np.sqrt(2. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))
+            self.coefs11 = nn.Parameter(torch.normal(0, np.sqrt(2. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))
+        else:
+            self.coefs = nn.Parameter(torch.normal(0, np.sqrt(4./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        
         if not ir_safe:
             self.bias = nn.Parameter(torch.zeros(1, out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
@@ -80,7 +88,12 @@ class Eq2to0(nn.Module):
         if self.activate_agg:
             ops = self.activation_fn(ops)
 
-        output = torch.einsum('dsb,ndb->ns', self.coefs, ops)
+        if self.factorize:
+            coefs = self.coefs00.unsqueeze(1) * self.coefs10.unsqueeze(-1) + self.coefs01.unsqueeze(0) * self.coefs11.unsqueeze(-1)
+        else:
+            coefs = self.coefs
+
+        output = torch.einsum('dsb,ndb->ns', coefs, ops)
 
         if not self.ir_safe:
             output = output + self.bias
@@ -93,7 +106,7 @@ class Eq2to0(nn.Module):
         return output
 
 class Eq2to1(nn.Module):
-    def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe=False, config='s', average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe=False, config='s', factorize=True, average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to1, self).__init__()
         self.basis_dim = 5
         self.out_dim = out_dim
@@ -103,6 +116,7 @@ class Eq2to1(nn.Module):
         self.activation_fn = get_activation_fn(activation)
         self.ir_safe = ir_safe
         self.config = config
+        self.factorize = factorize
 
         self.average_nobj = average_nobj                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
         self.alphas = nn.ParameterList([None] * len(config))
@@ -113,7 +127,15 @@ class Eq2to1(nn.Module):
                 self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 5, 1, device=device, dtype=dtype))
 
         self.ops_func = eops_2_to_1
-        self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+
+        if factorize:
+            self.coefs00 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (in_dim, self.basis_dim), device=device, dtype=dtype))
+            self.coefs01 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (out_dim, self.basis_dim), device=device, dtype=dtype))            
+            self.coefs10 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))   # Replace 1. with 2. when using ELU/GELU, leave 1. for LeakyReLU
+            self.coefs11 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))   # Replace 1. with 2. when using ELU/GELU, leave 1. for LeakyReLU
+        else:
+            self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        
         self.bias = nn.Parameter(torch.zeros(1, 1, out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
 
@@ -141,7 +163,12 @@ class Eq2to1(nn.Module):
         if self.activate_agg:
             ops = self.activation_fn(ops)
 
-        output = torch.einsum('dsb,ndbi->nis', self.coefs, ops)
+        if self.factorize:
+            coefs = self.coefs00.unsqueeze(1) * self.coefs10.unsqueeze(-1) + self.coefs01.unsqueeze(0) * self.coefs11.unsqueeze(-1)
+        else:
+            coefs = self.coefs
+
+        output = torch.einsum('dsb,ndbi->nis', coefs, ops)
 
         if not self.ir_safe:
             output = output + self.bias
@@ -154,7 +181,7 @@ class Eq2to1(nn.Module):
         return output
 
 class Eq2to2(nn.Module):
-    def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe = False, config='s', factorize=False, average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe = False, config='s', factorize=True, average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to2, self).__init__()
         self.device = device
         self.dtype = dtype
