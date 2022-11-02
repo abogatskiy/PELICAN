@@ -20,4 +20,5 @@ __pycache__/
 *.pt
 *.db
 *.ipynb
+.ipynb_checkpoints
 *.sbatch~
