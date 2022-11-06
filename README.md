@@ -75,7 +75,9 @@ Alexander Bogatskiy, Flatiron Institute
 Jan T. Offermann, University of Chicago 
 
 Alexander Bogatskiy, Flatiron Institute
+
 Jan T. Offermann, University of Chicago 
+
 Timothy Hoffman, University of Chicago
 
 Xiaoyang Liu, University of Chicago
