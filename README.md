@@ -64,10 +64,10 @@ python3 train_pelican_cov.py --datadir=./data/sample_data/run12 --target=truth_P
 
 ## Authors
 
-Contributors names and contact info
-
 Alexander Bogatskiy, Flatiron Institute
+
 Jan T. Offermann, University of Chicago 
+
 Timothy Hoffman, University of Chicago
 
 
