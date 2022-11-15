@@ -48,9 +48,6 @@ def main():
     # Fix possible inconsistencies in arguments
     args = fix_args(args)
 
-    if args.task.startswith('eval'):
-        args.load = True
-
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass)
     dataloaders = {split: DataLoader(dataset,
@@ -76,8 +73,13 @@ def main():
         model = torch.nn.DataParallel(model)
 
     # Initialize the scheduler and optimizer
-    optimizer = init_optimizer(args, model, len(dataloaders['train']))
-    scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
+    if args.task.startswith('eval'):
+        optimizer = scheduler = None
+        restart_epochs = []
+        summarize_csv = summarize= False
+    else:
+        optimizer = init_optimizer(args, model, len(dataloaders['train']))
+        scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
 
     # Define a loss function. This is the loss function whose gradients are actually computed. 
 

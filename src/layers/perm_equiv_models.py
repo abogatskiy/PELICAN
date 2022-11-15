@@ -106,7 +106,7 @@ class Eq2to0(nn.Module):
         return output
 
 class Eq2to1(nn.Module):
-    def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe=False, config='s', factorize=True, average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', ir_safe=False, config='s', factorize=False, average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to1, self).__init__()
         self.basis_dim = 5
         self.out_dim = out_dim

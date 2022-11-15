@@ -63,9 +63,6 @@ def main():
     # Fix possible inconsistencies in arguments
     args = fix_args(args)
 
-    if args.task.startswith('eval') or args.task.startswith('cluster'):
-        args.load = True        
-
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass)
     dataloaders = {split: DataLoader(dataset,
@@ -92,8 +89,14 @@ def main():
         model = torch.nn.DataParallel(model)
 
     # Initialize the scheduler and optimizer
-    optimizer = init_optimizer(args, model, len(dataloaders['train']))
-    scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
+    if args.task.startswith('eval'):
+        optimizer = scheduler = None
+        restart_epochs = []
+        summarize_csv = summarize= False
+    else:
+        optimizer = init_optimizer(args, model, len(dataloaders['train']))
+        scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
+
 
     # Define a loss function. This is the loss function whose gradients are actually computed. 
     def mass(x):
@@ -114,7 +117,7 @@ def main():
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype)
 
-    if not (args.task.startswith('eval') or args.task.startswith('cluster')):
+    if not args.task.startswith('eval'):
         # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
         trainer.load_checkpoint()
         # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
@@ -124,11 +127,7 @@ def main():
         trainer.train()
 
     # Test predictions on best model and/or also last checkpointed model.
-    if not args.task.startswith('cluster'):
-        trainer.evaluate(splits=['test'])
-    else:
-        trainer.evaluate(splits=['test'], final=False, no_log=True)
-
+    trainer.evaluate(splits=['test'])
 
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32

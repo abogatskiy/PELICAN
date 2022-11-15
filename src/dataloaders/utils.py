@@ -27,7 +27,7 @@ def initialize_datasets(args, datadir='../../../data/samples_h5', num_pts=None):
     for split in splits:
         logger.info(f'Looking for {split} files in datadir:')
         for file in files:
-            if split in file: 
+            if (split in file) or (split=='test' and ('events' in file)): 
                 datafiles[split].append(file)
                 logger.info(file)
     nfiles = {split:len(datafiles[split]) for split in splits}
@@ -36,7 +36,7 @@ def initialize_datasets(args, datadir='../../../data/samples_h5', num_pts=None):
     # There will be a JetDataset for each file, so we divide number of data points by number of files,
     # to get data points per file. (Integer division -> must be careful!) #TODO: nfiles > npoints might cause issues down the line, but it's an absurd use case
     if num_pts is None:
-        num_pts={'train':args.num_train,'test':args.num_test,'valid':args.num_valid}
+        num_pts={'train': args.num_train, 'test': args.num_test, 'valid': args.num_valid}
         
     num_pts_per_file = {}
     for split in splits:
@@ -57,20 +57,23 @@ def initialize_datasets(args, datadir='../../../data/samples_h5', num_pts=None):
                 datasets[split].append({key: torch.from_numpy(val[:]) for key, val in f.items()})
  
     ### ------ 4: Error checking ------ ###
-    # Basic error checking: Check the training/test/validation splits have the same set of keys.
-    keys = []
+    # Basic error checking: Check the files belonging to the same split have the same set of keys.
     for split in splits:
+        keys = []
         for dataset in datasets[split]:
             keys.append(dataset.keys())
-    assert all([key == keys[0] for key in keys]), 'Datasets must have same set of keys!'
+        assert all([key == keys[0] for key in keys]), 'Datasets must have same set of keys!'
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data
-    torch_datasets = {split: ConcatDataset([JetDataset(data, num_pts=num_pts_per_file[split][idx], shuffle=shuffle[split]) for idx, data in enumerate(datasets[split])]) for split in splits}
+    torch_datasets = {split: ConcatDataset([JetDataset(data, num_pts=num_pts_per_file[split][idx], shuffle=shuffle[split]) for idx, data in enumerate(datasets[split])]) for split in splits if len(datasets[split])>0}
 
     # Now, update the number of training/test/validation sets in args
-    args.num_train = torch_datasets['train'].cumulative_sizes[-1]
-    args.num_test = torch_datasets['test'].cumulative_sizes[-1]
-    args.num_valid = torch_datasets['valid'].cumulative_sizes[-1]
+    if 'train' in torch_datasets.keys():
+        args.num_train = torch_datasets['train'].cumulative_sizes[-1]
+    if 'test' in torch_datasets.keys():
+        args.num_test = torch_datasets['test'].cumulative_sizes[-1]
+    if 'valid' in torch_datasets.keys():
+        args.num_valid = torch_datasets['valid'].cumulative_sizes[-1]
 
     return args, torch_datasets
