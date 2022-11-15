@@ -347,7 +347,7 @@ class Trainer:
             predict = {key: val.detach().cpu() for key, val in predict.items()}
 
             all_targets.append(targets)
-            for key, val in predict: all_predict.setdefault(key,[]).append(val)
+            for key, val in predict.items(): all_predict.setdefault(key,[]).append(val)
 
             self._log_minibatch(batch_idx, loss, targets, predict['predict'], batch_t, fwd_t, bwd_t, epoch_t)
 
