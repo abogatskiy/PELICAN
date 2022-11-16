@@ -7,8 +7,8 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     """
     This generates metrics reported at the end of each epoch and during validation/testing, as well as the logstring printed to the logger.
     """    
-    if len(targets.shape)==2:
-        targets = targets.unsqueeze(1)
+    # if len(targets.shape)==2:
+    #     targets = targets.unsqueeze(1)
     loss = loss_fn(predict,targets).numpy()
     angle = AngleDeviation(predict, targets)
     phisigma = PhiSigma(predict, targets)
@@ -24,15 +24,16 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
 
     metrics = {'loss': loss, '∆Ψ': angle, '∆φ': phisigma, '∆pT': pTsigma, '∆m': massdelta, 'loss_inv': loss_inv, 'loss_m': loss_m, 'loss_m2': loss_m2, 'loss_3d': loss_3d, 'loss_4d': loss_4d}
     with np.printoptions(precision=4):
-        string = f' L: {loss:10.4f}, ∆Ψ: {str(angle):>{w}}, ∆φ: {str(phisigma):>{w}}, ∆pT: {str(pTsigma):>{w}}, ∆m: {str(massdelta):>{w}}, loss_inv: {loss_inv:10.4f}, loss_m: {loss_m:10.4f}, loss_m2: {loss_m2:10.4f}, loss_3d: {loss_3d:10.4f}, loss_4d: {loss_4d:10.4f}'
+        f = lambda s: f'{s.item():10.4f}' if s.size==1 else f'{str(s):>{w}}'
+        string = f' L: {loss:10.4f}, ∆Ψ: {f(angle)}, ∆φ: {f(phisigma)}, ∆pT: {f(pTsigma)}, ∆m: {f(massdelta)}, loss_inv: {loss_inv:10.4f}, loss_m: {loss_m:10.4f}, loss_m2: {loss_m2:10.4f}, loss_3d: {loss_3d:10.4f}, loss_4d: {loss_4d:10.4f}'
     return metrics, string
 
 def minibatch_metrics(predict, targets, loss):
     """
     This computes metrics for each minibatch (if verbose mode is used). The logstring is defined separately in minibatch_metrics_string.
     """    
-    if len(targets.shape)==2:
-        targets = targets.unsqueeze(1)
+    # if len(targets.shape)==2:
+    #     targets = targets.unsqueeze(1)
     angle = AngleDeviation(predict, targets)
     phisigma = PhiSigma(predict, targets)
     pTsigma = pTSigma(predict, targets)
@@ -43,7 +44,8 @@ def minibatch_metrics(predict, targets, loss):
 def minibatch_metrics_string(metrics):
     L, psi, phi, pT, m = metrics
     with np.printoptions(precision=4):
-        string = f'   L: {L:<12.4f}, ∆Ψ: {str(psi):>25}, ∆φ: {str(phi):>25}, ∆pT: {str(pT):>25}, ∆m: {str(m):>25}'
+        f = lambda s: f'{s.item():10.4f}' if s.size==1 else f'{str(s):>25}'
+        string = f'   L: {L:<12.4f}, ∆Ψ: {f(psi)}, ∆φ: {f(phi)}, ∆pT: {f(pT)}, ∆m: {f(m)}'
     return string
 
 def AngleDeviation(predict, targets):

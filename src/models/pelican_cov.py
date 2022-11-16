@@ -115,9 +115,10 @@ class PELICANRegression(nn.Module):
         if self.dropout:
             act3 = self.dropout_layer_out(act3)
 
-        invariant_particle_coefficients =  self.mlp_out_1(act3, mask=particle_mask.unsqueeze(-1))
+        invariant_particle_coefficients =  self.mlp_out_1(act3, mask=particle_mask.unsqueeze(-1)) + 1.
             
         prediction = (event_momenta.unsqueeze(-2) * invariant_particle_coefficients.unsqueeze(-1)).sum(1) / self.scale  # / nobj.squeeze(-1)
+        prediction = prediction.squeeze(-2)
 
         if covariance_test:
             return {'predict': prediction, 'weights': invariant_particle_coefficients}, [inputs, act1, act2, act3]
