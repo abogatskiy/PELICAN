@@ -198,7 +198,7 @@ def setup_argparse():
                         help="""Numbers of channels in the output MLP.
                         Number of layers (linear + activation) equals len(num-channels2).
                         The first number specifies the output dimension of Eq2to0 (or Eq2to1).
-                        The last layer automatically outputs the necessary number of channels (2 for classification, 1 for regression).
+                        The last layer automatically outputs the necessary number of channels (2 for classification, num-targets for regression).
                         (default: )""")
 
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,

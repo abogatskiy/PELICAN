@@ -40,6 +40,9 @@ def main():
     # Initialize file paths
     args = init_file_paths(args)
 
+    # Fix possible inconsistencies in arguments
+    args = fix_args(args)
+
     # Initialize logger
     init_logger(args)
 
@@ -48,9 +51,6 @@ def main():
 
     # Write input paramaters and paths to log
     logging_printout(args)
-
-    # Fix possible inconsistencies in arguments
-    args = fix_args(args)
 
     # Initialize device and data type
     device, dtype = init_cuda(args)
@@ -91,7 +91,7 @@ def main():
     if args.task.startswith('eval'):
         optimizer = scheduler = None
         restart_epochs = []
-        summarize_csv = summarize= False
+        summarize = False
     else:
         optimizer = init_optimizer(args, model, len(dataloaders['train']))
         scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)

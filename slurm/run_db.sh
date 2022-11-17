@@ -10,7 +10,7 @@
 set -e
 set -u
 
-module load modules/1.59-20220201
+module load modules/2.0-20220630
 module load postgresql/12.2
 
 export LC_ALL=en_US.UTF-8

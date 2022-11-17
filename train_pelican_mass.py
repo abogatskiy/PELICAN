@@ -28,6 +28,9 @@ def main():
     # Initialize file paths
     args = init_file_paths(args)
 
+    # Fix possible inconsistencies in arguments
+    args = fix_args(args)
+
     # Initialize logger
     init_logger(args)
 
@@ -44,9 +47,6 @@ def main():
     if args.fix_data:
         torch.manual_seed(165937750084982)
     args, datasets = initialize_datasets(args, args.datadir, num_pts=None)
-
-    # Fix possible inconsistencies in arguments
-    args = fix_args(args)
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass)
@@ -76,7 +76,7 @@ def main():
     if args.task.startswith('eval'):
         optimizer = scheduler = None
         restart_epochs = []
-        summarize_csv = summarize= False
+        summarize = False
     else:
         optimizer = init_optimizer(args, model, len(dataloaders['train']))
         scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)

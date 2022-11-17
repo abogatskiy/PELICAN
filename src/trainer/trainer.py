@@ -158,7 +158,7 @@ class Trainer:
 
         logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.epoch}:\n{self.best_metrics}')
 
-    def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True, no_log=False):
+    def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True):
         """
         Evaluate model on training/validation/testing splits.
 
