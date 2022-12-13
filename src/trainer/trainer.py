@@ -190,7 +190,7 @@ class Trainer:
             best_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['model_state'])
             if (not final) or (final and not best_epoch == final_epoch):
-                logger.info(f'Getting predictions for best model {self.args.bestfile} (epoch {best_epoch}).')
+                logger.info(f'Getting predictions for best model {self.args.bestfile} (epoch {best_epoch}, best validation metrics were {checkpoint["best_metrics"]}).')
                 # Loop over splits, predict, and output/log predictions
                 for split in splits:
                     predict, targets = self.predict(split)

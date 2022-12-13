@@ -115,9 +115,9 @@ class PELICANMass(nn.Module):
         prediction = self.mlp_out(act3)[:,0] / self.scale
 
         if covariance_test:
-            return prediction, [inputs, act1, act2]
+            return {'predict': prediction}, [inputs, act1, act2]
         else:
-            return prediction
+            return {'predict': prediction}
 
     def prepare_input(self, data):
         """

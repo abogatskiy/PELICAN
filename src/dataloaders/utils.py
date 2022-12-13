@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import ConcatDataset
 from . import JetDataset
 
-def initialize_datasets(args, datadir='../../../data/samples_h5', num_pts=None):
+def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, testfile=''):
     """
     Initialize datasets.
     """
@@ -21,17 +21,25 @@ def initialize_datasets(args, datadir='../../../data/samples_h5', num_pts=None):
     # set each file belongs to.
     splits = ['train', 'test', 'valid'] # We will consider all HDF5 files in datadir with one of these keywords in the filename
     shuffle = {'train': True, 'valid': False, 'test': False} # Shuffle only the training set
-
-    files = glob.glob(datadir + '/*.h5')
     datafiles = {split:[] for split in splits}
+
+    # now search datadir for h5 files and assign them to splits based on their filenames
+    files = glob.glob(datadir + '/*.h5')
     for split in splits:
         logger.info(f'Looking for {split} files in datadir:')
         for file in files:
-            if (split in file) or (split=='test' and ('events' in file)): 
+            if (split in file): 
                 datafiles[split].append(file)
                 logger.info(file)
+                
+    # if a testfile is explicitly provided, that will override any test sets found in datadir
+    if testfile != '': 
+        datafiles['test']=[testfile]
+        logger.info(f'Using the explicitly specified test dataset:')
+        logger.info(testfile)
+                
     nfiles = {split:len(datafiles[split]) for split in splits}
-    
+
     ### ------ 2: Set the number of data points ------ ###
     # There will be a JetDataset for each file, so we divide number of data points by number of files,
     # to get data points per file. (Integer division -> must be careful!) #TODO: nfiles > npoints might cause issues down the line, but it's an absurd use case

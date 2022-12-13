@@ -225,7 +225,7 @@ def init_scheduler(args, optimizer):
     else:
         raise ValueError('Incorrect choice for lr_decay_type!')
 
-    return scheduler, restart_epochs, args.summarize_csv, args.summarize
+    return scheduler, restart_epochs
 
 #### Other initialization ####
 

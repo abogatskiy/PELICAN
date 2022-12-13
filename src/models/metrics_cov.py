@@ -10,22 +10,28 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     # if len(targets.shape)==2:
     #     targets = targets.unsqueeze(1)
     loss = loss_fn(predict,targets).numpy()
-    angle = AngleDeviation(predict, targets)
-    phisigma = PhiSigma(predict, targets)
-    pTsigma = pTSigma(predict, targets)
-    massdelta = MassSigma(predict, targets)
-    loss_inv = loss_fn_inv(predict, targets)
-    loss_m = loss_fn_m(predict, targets)
-    loss_m2 = loss_fn_m2(predict, targets)
-    loss_3d = loss_fn_3d(predict, targets)
-    loss_4d = loss_fn_4d(predict, targets)
-
+    angle = AngleDeviation(predict, targets).numpy()
+    drsigma = dRSigma(predict, targets).numpy()
+    pTsigma = pTSigma(predict, targets).numpy()
+    massdelta = MassSigma(predict, targets).numpy()
+    loss_inv = loss_fn_inv(predict, targets).numpy()
+    loss_m = loss_fn_m(predict, targets).numpy()
+    loss_m2 = loss_fn_m2(predict, targets).numpy()
+    loss_3d = loss_fn_3d(predict, targets).numpy()
+    loss_4d = loss_fn_4d(predict, targets).numpy()
+    loss_E = loss_fn_E(predict,targets).numpy()
+    loss_psi = loss_fn_psi(predict,targets).numpy()
+    loss_pT = loss_fn_pT(predict,targets).numpy()
+    loss_dR = loss_fn_dR(predict, targets).numpy()
+    loss_col = loss_fn_col(predict,targets).numpy()
+    loss_col3 = loss_fn_col3(predict,targets).numpy()
+    
     w = 1 + 8 * targets.shape[1]
 
-    metrics = {'loss': loss, '∆Ψ': angle, '∆φ': phisigma, '∆pT': pTsigma, '∆m': massdelta, 'loss_inv': loss_inv, 'loss_m': loss_m, 'loss_m2': loss_m2, 'loss_3d': loss_3d, 'loss_4d': loss_4d}
+    metrics = {'loss': loss, '∆Ψ': angle, '∆R': drsigma, '∆pT': pTsigma, '∆m': massdelta, 'loss_inv': loss_inv, 'loss_m': loss_m, 'loss_m2': loss_m2, 'loss_3d': loss_3d, 'loss_4d': loss_4d, "loss_E": loss_E, "loss_psi": loss_psi, "loss_pT": loss_pT, "loss_R": loss_dR, "loss_col": loss_col, "loss_col3": loss_col3}
     with np.printoptions(precision=4):
         f = lambda s: f'{s.item():10.4f}' if s.size==1 else f'{str(s):>{w}}'
-        string = f' L: {loss:10.4f}, ∆Ψ: {f(angle)}, ∆φ: {f(phisigma)}, ∆pT: {f(pTsigma)}, ∆m: {f(massdelta)}, loss_inv: {loss_inv:10.4f}, loss_m: {loss_m:10.4f}, loss_m2: {loss_m2:10.4f}, loss_3d: {loss_3d:10.4f}, loss_4d: {loss_4d:10.4f}'
+        string = f' L: {loss:10.4f}, ∆Ψ: {f(angle)}, ∆R: {f(drsigma)}, ∆pT: {f(pTsigma)}, ∆m: {f(massdelta)}, loss_inv: {loss_inv:10.4f}, loss_m: {loss_m:10.4f}, loss_m2: {loss_m2:10.4f}, loss_3d: {loss_3d:10.4f}, loss_4d: {loss_4d:10.4f}, loss_E: {loss_E:10.4f}, loss_psi: {loss_psi:10.4f}, loss_pT: {loss_pT:10.4f}, loss_R: {loss_dR:10.4f}, loss_col: {loss_col:10.4f}, loss_col3: {loss_col3:10.4f}'
     return metrics, string
 
 def minibatch_metrics(predict, targets, loss):
@@ -34,26 +40,43 @@ def minibatch_metrics(predict, targets, loss):
     """    
     # if len(targets.shape)==2:
     #     targets = targets.unsqueeze(1)
-    angle = AngleDeviation(predict, targets)
-    phisigma = PhiSigma(predict, targets)
-    pTsigma = pTSigma(predict, targets)
-    massdelta = MassSigma(predict, targets)
-
-    return [loss, angle, phisigma, pTsigma, massdelta]
+    angle = AngleDeviation(predict, targets).numpy()
+    drsigma = dRSigma(predict, targets).numpy()
+    pTsigma = pTSigma(predict, targets).numpy()
+    massdelta = MassSigma(predict, targets).numpy()
+    
+    return [loss, angle, drsigma, pTsigma, massdelta]
 
 def minibatch_metrics_string(metrics):
-    L, psi, phi, pT, m = metrics
+    L, psi, dr, pT, m = metrics
     with np.printoptions(precision=4):
         f = lambda s: f'{s.item():10.4f}' if s.size==1 else f'{str(s):>25}'
-        string = f'   L: {L:<12.4f}, ∆Ψ: {f(psi)}, ∆φ: {f(phi)}, ∆pT: {f(pT)}, ∆m: {f(m)}'
+        string = f'   L: {L:<12.4f}, ∆Ψ: {f(psi)}, ∆R: {f(dr)}, ∆pT: {f(pT)}, ∆m: {f(m)}'
     return string
+
+
+
+
+def cart2cyl(cart, include_r=False):
+    """ 
+    Cartesian coordinates to detector coordinates conversion.
+	"""
+    r = torch.sqrt(torch.sum(torch.pow(cart, 2), dim=-1))
+    theta = torch.acos(cart[..., 2] / r)
+    eta = - (theta/2).tan().log()
+    phi = torch.atan2(cart[..., 1], cart[..., 0])
+    if include_r:
+        sph = torch.stack((eta, phi, r), dim=-1)
+    else:
+        sph = torch.stack((eta, phi), dim=-1)
+    return sph
 
 def AngleDeviation(predict, targets):
     """
     Measures the (always positive) angle between any two 3D vectors and returns the 68% quantile over the batch
     """
     angles = Angle3D(predict[...,1:4], targets[...,1:4])
-    return  torch.quantile(angles, 0.68, dim=0).numpy()
+    return  torch.quantile(angles, 0.68, dim=0)
 
 def PhiSigma(predict, targets):
     """
@@ -81,6 +104,12 @@ def Angle3D(u, v):
     angles = 2*torch.atan2((aux1 - aux2).norm(dim=-1), (aux1 + aux2).norm(dim=-1))
     return angles
 
+def dR(u,v):
+    """
+    Measures the R between two vectors, defined as dR^2=d(phi)^2 + d(theta)^2/sin(theta)^2,
+    """
+    return (cart2cyl(u)-cart2cyl(v)).norm(dim=-1)
+
 def MassSigma(predict, targets):
     """
     half of the 68% interquantile range over of relative deviation in mass
@@ -95,26 +124,50 @@ def pTSigma(predict, targets):
     rel = ((predict[...,[1,2]].norm(dim=-1)-targets[...,[1,2]].norm(dim=-1))/targets[...,[1,2]].norm(dim=-1))
     return iqr(rel, dim=0)  # pT relative error
 
+def dRSigma(predict, targets):
+    return torch.quantile(dR(predict, targets), 0.68, dim=0)
+
+def loss_fn_col(predict, targets):
+    return (dot4(predict,targets)**2 - dot4(predict,predict)*dot4(targets,targets) + 1e-6).abs().pow(0.5).mean()
+
+def loss_fn_col3(predict, targets):
+    u = predict[...,1:4].norm(dim=-1)
+    v = targets[...,1:4].norm(dim=-1)
+    uv = (predict[...,1:4]*targets[...,1:4]).sum(dim=-1)
+    return (u*v - uv).abs().mean()
+
 def loss_fn_inv(predict, targets):
-    return (normsq4(predict - targets).abs()+1e-6).sqrt().mean().numpy()
+    return normsq4(predict - targets).abs().mean()
 
 def loss_fn_m(predict, targets):
-    return (mass(predict) - mass(targets)).abs().mean().numpy()
+    return (mass(predict) - mass(targets)).abs().mean()
 
 def loss_fn_m2(predict, targets):
-    return (normsq4(predict) - normsq4(targets)).abs().mean().numpy()
+    return (normsq4(predict) - normsq4(targets)).abs().mean()
 
 def loss_fn_3d(predict, targets):
-    return ((predict[...,1:4] - targets[...,1:4]).norm(dim=-1)).mean().numpy()
+    return ((predict[...,1:4] - targets[...,1:4]).norm(dim=-1)).mean()
 
 def loss_fn_4d(predict, targets):
-    return (predict-targets).norm(dim=-1).mean().numpy()
+    return (predict-targets).norm(dim=-1).mean()
+
+def loss_fn_E(predict,targets):
+    return (predict[...,0]-targets[...,0]).abs().mean()
+
+def loss_fn_psi(predict,targets):
+    return Angle3D(predict[...,1:4], targets[...,1:4]).mean()
+
+def loss_fn_dR(predict,targets):
+    return dR(predict,targets).mean()
+
+def loss_fn_pT(predict,targets):
+    return (predict[...,1:3].norm(dim=-1) - targets[...,1:3].norm(dim=-1)).abs().mean()
 
 def mass(x):
     norm=normsq4(x)
-    return norm.sign() * norm.abs().sqrt()
+    return norm.sign() * (norm.abs()+1e-8).sqrt()
 
 
 def iqr(x, rng=(0.16, 0.84), dim=0):
     rng = sorted(rng)
-    return ((torch.quantile(x,rng[1], dim=dim) - torch.quantile(x,rng[0],dim=dim)) * 0.5).numpy()
+    return ((torch.quantile(x,rng[1], dim=dim) - torch.quantile(x,rng[0],dim=dim)) * 0.5)

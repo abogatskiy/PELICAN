@@ -162,7 +162,7 @@ class InputEncoder(nn.Module):
         super().__init__()
 
         self.to(device=device, dtype=dtype)
-        self.alphas = nn.Parameter(torch.linspace(0.1, 0.5, out_dim, device=device, dtype=dtype).view(1, 1, 1, out_dim))
+        self.alphas = nn.Parameter(torch.linspace(0.05, 0.5, out_dim, device=device, dtype=dtype).view(1, 1, 1, out_dim))
         # self.alphas = nn.Parameter(0.5 * torch.rand(1, 1, 1, out_dim, device=device, dtype=dtype))
         # self.betas = nn.Parameter(torch.randn(1, 1, 1, out_dim, device=device, dtype=dtype))
         self.zero = torch.tensor(0, device=device, dtype=dtype)

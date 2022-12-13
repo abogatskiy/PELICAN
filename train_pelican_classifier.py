@@ -94,7 +94,7 @@ def main():
         summarize = False
     else:
         optimizer = init_optimizer(args, model, len(dataloaders['train']))
-        scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
+        scheduler, restart_epochs = init_scheduler(args, optimizer)
 
     # Define a loss function.
     # loss_fn = torch.nn.functional.cross_entropy
@@ -105,7 +105,7 @@ def main():
         tests(model, dataloaders['train'], args, tests=['gpu'])
 
     # Instantiate the training class
-    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype)
+    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device, dtype)
     
     # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
     trainer.load_checkpoint()

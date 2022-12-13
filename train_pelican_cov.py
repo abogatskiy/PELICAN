@@ -23,7 +23,8 @@ from src.models import tests
 from src.trainer import Trainer
 from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args
 from src.trainer import init_optimizer, init_scheduler
-from src.models.metrics_cov import metrics, minibatch_metrics, minibatch_metrics_string
+from src.models.metrics_cov import metrics, minibatch_metrics, minibatch_metrics_string, Angle3D
+from src.models.metrics_cov import loss_fn_dR, loss_fn_pT, loss_fn_m, loss_fn_psi, loss_fn_inv, loss_fn_col, loss_fn_m2, loss_fn_3d, loss_fn_4d, loss_fn_E, loss_fn_col3
 from src.models.lorentz_metric import normsq4, dot4
 
 from src.dataloaders import initialize_datasets, collate_fn
@@ -58,7 +59,7 @@ def main():
     # Initialize dataloder
     if args.fix_data:
         torch.manual_seed(165937750084982)
-    args, datasets = initialize_datasets(args, args.datadir, num_pts=None)
+    args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile)
 
     # Fix possible inconsistencies in arguments
     args = fix_args(args)
@@ -92,30 +93,22 @@ def main():
     if args.task.startswith('eval'):
         optimizer = scheduler = None
         restart_epochs = []
-        summarize = False
+        args.summarize = False
     else:
         optimizer = init_optimizer(args, model, len(dataloaders['train']))
-        scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
+        scheduler, restart_epochs = init_scheduler(args, optimizer)
 
 
     # Define a loss function. This is the loss function whose gradients are actually computed. 
-    def mass(x):
-        norm=normsq4(x)
-        return norm.sign() * (norm + 1e-12).abs().sqrt()
+    loss_fn = lambda predict, targets:      0.05 * loss_fn_m(predict,targets) + 5 * loss_fn_dR(predict,targets) + 0.01 * loss_fn_pT(predict,targets) # 0.01 * loss_fn_3d(predict, targets) #0.03 * loss_fn_inv(predict,targets) + 0.01 * loss_fn_4d(predict, targets)
+    # loss_fn = lambda predict, targets:      0.0005 * loss_fn_col(predict,targets) + 0.01*(-predict[...,0]).relu().mean() + 0.001 * loss_fn_inv(predict,targets) # 0.1 * loss_fn_m(predict,targets)
 
-    loss_fn_inv = lambda predict, targets:  (normsq4(predict - targets).abs() + 1e-12).sqrt().mean()
-    loss_fn_m2 = lambda predict, targets:   (normsq4(predict) - normsq4(targets)).abs().mean()
-    loss_fn_m = lambda predict, targets:    (mass(predict) - mass(targets)).abs().mean()
-    loss_fn_3d = lambda predict, targets:   (predict[...,1:] - targets[...,1:]).norm(dim=-1).mean()
-    loss_fn_4d = lambda predict, targets:   (predict-targets).norm(dim=-1).mean()
-    loss_fn = lambda predict, targets:      0.05 * loss_fn_m(predict,targets) + 0.01 * loss_fn_3d(predict, targets) #0.03 * loss_fn_inv(predict,targets) + 0.01 * loss_fn_4d(predict, targets)
-    
     # Apply the covariance and permutation invariance tests.
     if args.test:
         raise NotImplementedError()
 
     # Instantiate the training class
-    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype)
+    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device, dtype)
 
     if not args.task.startswith('eval'):
         # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.

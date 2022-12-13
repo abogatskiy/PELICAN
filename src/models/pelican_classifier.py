@@ -133,9 +133,9 @@ class PELICANClassifier(nn.Module):
         assert not torch.isnan(prediction).any(), "There are NaN entries in the output! Evaluation terminated."
 
         if covariance_test:
-            return prediction, [inputs, act1, act2, act3]
+            return {'predict': prediction}, [inputs, act1, act2, act3]
         else:
-            return prediction
+            return {'predict': prediction}
 
     def prepare_input(self, data):
         """
