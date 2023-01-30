@@ -102,7 +102,7 @@ def main():
     
     # Apply the covariance and permutation invariance tests.
     if args.test:
-        tests(model, dataloaders['train'], args, tests=['gpu'])
+        tests(model, dataloaders['train'], args, tests=['gpu','irc'])
 
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device, dtype)

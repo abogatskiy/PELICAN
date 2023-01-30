@@ -166,6 +166,7 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
         p = 1
         beams = torch.tensor([[[sqrt(p**2+beam_mass**2),0,0,p], [sqrt(p**2+beam_mass**2),0,0,-p]]], dtype=data['Pmu'].dtype).expand(data['Pmu'].shape[0], 2, 4)
         data['Pmu'] = torch.cat([beams, data['Pmu'] * scale], dim=1)
+        data['Nobj'] = data['Nobj'] + 2
     else:
         data['Pmu'] = data['Pmu'] * scale
     labels = torch.cat((torch.ones(s[0], 2), torch.zeros(s[0], s[1])), dim=1)
@@ -184,6 +185,5 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
 
     data['particle_mask'] = particle_mask.bool()
     data['edge_mask'] = edge_mask.bool()
-
 
     return data
