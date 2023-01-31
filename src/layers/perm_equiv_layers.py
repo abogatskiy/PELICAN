@@ -189,9 +189,9 @@ def eops_2_to_2(inputs, nobj=None, aggregation='mean', skip_order_zero=False):
     if not skip_order_zero:
         ops[1] = inputs
         ops[2] = torch.transpose(inputs, 2, 3)
-        ops[3] = diag_part.unsqueeze(2).expand(-1, -1, dim, -1)
-        ops[4] = diag_part.unsqueeze(3).expand(-1, -1, -1, dim)
-        ops[5] = torch.diag_embed(diag_part) # N x D x m x m
+        ops[3] = torch.diag_embed(diag_part) # N x D x m x m
+        ops[4] = diag_part.unsqueeze(2).expand(-1, -1, dim, -1)
+        ops[5] = diag_part.unsqueeze(3).expand(-1, -1, -1, dim)
 
     ops[6]   = sum_cols.unsqueeze(2).expand(-1, -1, dim, -1)
     ops[7]   = sum_rows.unsqueeze(2).expand(-1, -1, dim, -1)

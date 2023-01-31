@@ -286,11 +286,10 @@ class Net1to1(nn.Module):
 
 class Net2to2(nn.Module):
     def __init__(self, num_channels, num_channels_m, ops_func=None, activate_agg=False, activate_lin=True,
-                 activation='leakyrelu', dropout=True, drop_rate=0.25, batchnorm=None, sig=False, ir_safe=False,
+                 activation='leakyrelu', dropout=True, drop_rate=0.25, batchnorm=None, ir_safe=False,
                  config='s', average_nobj=49, factorize=False, masked=True, device=torch.device('cpu'), dtype=torch.float):
         super(Net2to2, self).__init__()
         
-        self.sig = sig
         self.masked = masked
         self.num_channels = num_channels
         self.num_channels_message = num_channels_m
@@ -304,9 +303,6 @@ class Net2to2(nn.Module):
             self.dropout_layer = nn.Dropout(drop_rate)
 
         self.message_layers = nn.ModuleList(([MessageNet(num_channels_m[i]+[num_channels[i],], activation=activation, batchnorm=batchnorm, ir_safe=ir_safe, masked=masked, device=device, dtype=dtype) for i in range(num_layers)]))        
-        if sig: 
-            self.attention = nn.ModuleList([nn.Linear(num_channels[i], 1, bias=False, device=device, dtype=dtype) for i in range(num_layers)])
-            self.normlayers = nn.ModuleList([nn.LayerNorm(num_channels[i], device=device, dtype=dtype) for i in range(num_layers)])
         self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, ir_safe=ir_safe, config=config, average_nobj=average_nobj, factorize=factorize, device=device, dtype=dtype) for i in range(num_layers)])
         self.to(device=device, dtype=dtype)
 
@@ -319,20 +315,9 @@ class Net2to2(nn.Module):
         assert (x.shape[-1] == self.in_dim), "Input dimension of Net2to2 doesn't match the dimension of the input tensor"
         B = x.shape[0]
 
-        if self.sig: 
-            for layer, message, sig, normlayer in zip(self.eq_layers, self.message_layers, self.attention, self.normlayers):
-                m = message(x, mask)        # form messages at each of the NxN nodes
-                y = sig(m)                  # compute the dot product with the attention vector over the channel dim
-                # ms = torch.exp(self.softmax(y.view(B,-1))).view_as(y) * mask
-                # ms = ms / ms.sum(dim=(1,2), keepdim=True)
-                # z = normlayer(ms * m)       # apply LayerNorm, i.e. normalize over the channel dimension
-                ms = y.sigmoid() * mask
-                z = ms * m
-                x = layer(z, mask, nobj)   # apply the permutation-equivariant layer
-        else:
-            for layer, message in zip(self.eq_layers, self.message_layers):
-                x = message(x, mask)
-                if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
-                x = layer(x, mask, nobj, softmask=softmask)
-                # if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
+        for layer, message in zip(self.eq_layers, self.message_layers):
+            x = message(x, mask)
+            if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
+            x = layer(x, mask, nobj, softmask=softmask)
+            # if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
         return x

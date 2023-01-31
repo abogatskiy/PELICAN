@@ -12,9 +12,9 @@ class PELICANRegression(nn.Module):
     Permutation Invariant, Lorentz Invariant/Covariant Awesome Network
     """
     def __init__(self, num_channels_m, num_channels1, num_channels2, num_channels_m_out, num_targets,
-                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, sig=False, config1='s', config2='s', average_nobj=20, factorize=False, masked=True, softmasked=True,
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, config1='s', config2='s', average_nobj=20, factorize=False, masked=True,
                  activate_agg2=True, activate_lin2=False, mlp_out=True,
-                 scale=1, ir_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
+                 scale=1, ir_safe=False, c_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
                  task = 'train',
                  device=torch.device('cpu'), dtype=None):
         super().__init__()
@@ -35,11 +35,11 @@ class PELICANRegression(nn.Module):
         self.scale = scale
         self.add_beams = add_beams
         self.ir_safe = ir_safe
+        self.c_safe = c_safe
         self.mlp_out = mlp_out
         self.average_nobj = average_nobj
         self.factorize = factorize
         self.masked = masked
-        self.softmasked = softmasked
         self.task = task
 
         if dropout:
@@ -57,7 +57,7 @@ class PELICANRegression(nn.Module):
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
         self.input_mix_and_norm = MessageNet([embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)
 
-        self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
+        self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet(num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
         self.eq2to1 = Eq2to1(num_channels_m_out[-1], num_channels2[0] if mlp_out else num_targets,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, average_nobj=average_nobj, config=config2, factorize=False, device = device, dtype = dtype)
         
@@ -97,17 +97,20 @@ class PELICANRegression(nn.Module):
         inputs = self.input_encoder(dot_products, mask=edge_mask.unsqueeze(-1))
         inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
         
+        if self.ir_safe or self.c_safe:
+            softmask = self.softmask_layer(dot_products, mask=edge_mask, mode='ir')
+        
         if self.add_beams:
             inputs = torch.cat([inputs, Particle_scalars], dim=-1)
 
-        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask=softmask.unsqueeze(1).unsqueeze(2) if self.softmasked else None)
+        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask=softmask.unsqueeze(1).unsqueeze(2) if self.ir_safe else None)
 
         act2 = self.message_layer(act1, mask=edge_mask.unsqueeze(-1))
 
         if self.dropout:
             act2 = self.dropout_layer(act2)
 
-        if self.softmasked:
+        if self.ir_safe or self.c_safe:
             act2 = act2 * softmask.unsqueeze(-1)
 
         act3 = self.eq2to1(act2, nobj=nobj, mask=particle_mask.unsqueeze(-1))

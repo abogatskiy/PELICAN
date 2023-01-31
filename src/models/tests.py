@@ -51,39 +51,30 @@ def batch_test(model, data):
 
 
 def ir_data(data_irc, num_particles, alpha):
-### 
-# Add num_particles random four-momenta to the data array with alpha specifying the scaling relative to O(1)
-###
-	batch_size = data_irc['Nobj'].shape[0]
-	device = data_irc['Pmu'].device
-	dtype = data_irc['Pmu'].dtype
-	zero = torch.tensor(0.)
+	"""
+	Here we replace the last num_particles empty inputs with random 4-momenta of scale alpha (zero if alpha=0)
+	Under IR-safety, injecting a zero-momentum particle should leave the output unchanged.
+	If alpha=0, the entire change amounts to simply switching the last num_particles entries of data['particle_mask'] to True.
+	If alpha!=0, we generate random 3-momenta and then define energies as |p| + alpha*torch.rand, so that the resulting particles are timelike.
+	"""
 
+	batch_size = data_irc['Nobj'].shape[0]
 	rand_pmus3 = alpha * (2 * torch.rand(batch_size, num_particles, 3, dtype = data_irc['Pmu'].dtype, device = data_irc['Pmu'].device) - 1)
 	rand_pmus = torch.cat([rand_pmus3.norm(dim=2, keepdim=True) + alpha * torch.rand(batch_size, num_particles, 1,  dtype = data_irc['Pmu'].dtype, device = data_irc['Pmu'].device), rand_pmus3], dim=2)
 	data_irc['Pmu'][:, -num_particles:] = rand_pmus
-	s = data_irc['Pmu'].shape
 	data_irc['particle_mask'][:, -num_particles:] = True
 	data_irc['edge_mask'] = data_irc['particle_mask'].unsqueeze(1) * data_irc['particle_mask'].unsqueeze(2)
-	labels = data_irc['scalars']
-	if data_irc['scalars'][0,0,0,0] == 1.:      #this assumes that the first two scalars are 1 only for beams
-		labels[:,-num_particles:,:,1]=1.
-		labels[:,:,-num_particles,0]=1.
-		labels = torch.where(data_irc['edge_mask'].unsqueeze(-1), labels, zero)
-	data_irc['scalars'] = labels.to(dtype=data_irc['Pmu'].dtype)
 	data_irc['Nobj'] = data_irc['Nobj'] + num_particles
 	return data_irc
 
 def c_data(data_irc):
-	### Take two massless collinear input particles, p1 and p2, replace them with two particles with momenta (p1+p2) and 0, compare outputs.
+	"""Take two massless collinear input particles, p1 and p2, replace them with two particles with momenta (p1+p2) and 0, compare outputs.
+	Which COLLINEAR MASSLESS input particles to split. We have deliberately inserted two copies of [1,0,0,1] in irc_test() so that [0,1] can be used."""
 
-	# Which COLLINEAR MASSLESS input particles to split. We have deliberately inserted two copies of [1,0,0,1] in irc_test() so that [0,1] can be used.
 	indices = [0,1]  
-
 	total_momentum = data_irc['Pmu'][:,indices,:].sum(dim=1)
 	data_irc['Pmu'][:,indices,:]=0 * data_irc['Pmu'][:,indices,:]
 	data_irc['Pmu'][:,indices[0],:] = total_momentum
-
 	return data_irc
 
 def expand_data(data, num_particles):
@@ -99,8 +90,8 @@ def expand_data(data, num_particles):
 	edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
 	labels = torch.zeros([s[0],s[1],s[1],2])
 	if data['scalars'][0,0,0,0] == 1.:
-		labels[:,[0,1],:,1]=1.
-		labels[:,:,[0,1],0]=1.
+		labels[:,0:4,:,1]=1.
+		labels[:,:,0:4,0]=1.
 		labels = torch.where(edge_mask.unsqueeze(-1), labels, zero)
 	data['scalars'] = labels.to(dtype=data['Pmu'].dtype)
 	data['Nobj'] = data['Nobj'] + 2
@@ -111,18 +102,18 @@ def expand_data(data, num_particles):
 
 def irc_test(model, data):
 	logging.info('IRC safety test!')
-
-	outputs = model(data)['predict']
-	outputs_ir=[]
  
 	# First check IR safety (injection of new small momenta). This one is easier to enforce in a model -- 
 	# -- simply make sure that the outputs of the network are small whenever the inputs are.
 
-	alpha_range = np.insert(10.**np.arange(-3,-1,step=2), 0, 0.)
+	alpha_range = np.insert(10.**np.arange(-3,0,step=2), 0, 0.)
 	max_particles=2
 
 	data_irc_copy = {key: val.clone() if type(val) is torch.Tensor else val for key, val in data.items()}
 	data_irc_copy = expand_data(data_irc_copy, max_particles)
+	
+	outputs = model(data_irc_copy)['predict']
+	outputs_ir=[]
 
 	for alpha in alpha_range:
 		temp = []

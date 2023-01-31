@@ -169,7 +169,7 @@ class InputEncoder(nn.Module):
 
     def forward(self, x, mask=None):
 
-        x = x.unsqueeze(-1)
+        # x = x.unsqueeze(-1)
         # x = (1. + x).abs().pow(1e-6 + self.alphas) - 1.
         # x = ((self.betas.abs() + x).abs().pow(1e-6 + self.alphas ** 2) - self.betas.abs().pow(1e-6 + self.alphas ** 2)) / (1e-6 + self.alphas ** 2) #288
         # x = x * (x < (100 * self.betas.exp())) 
@@ -196,17 +196,19 @@ class SoftMask(nn.Module):
     def __init__(self, device=torch.device('cpu'), dtype=torch.float):
         super(SoftMask, self).__init__()
 
-        self.beta = nn.Parameter(torch.tensor(1., device=device, dtype=dtype))
-        self.mu = 1.# nn.Parameter(torch.tensor(2., device=device, dtype=dtype))
-
         self.zero = torch.tensor(0, device=device, dtype=dtype)
 
         self.to(device=device, dtype=dtype)
 
-    def forward(self, x, mask=None):
-        # x = ((x-self.mu)*self.beta).sigmoid()
-
-        x = (self.beta * x).tanh() ** self.mu
+    def forward(self, x, mask=None, mode=''):
+        
+        if mode=='c':
+            masses = torch.diagonal(x, dim1=1, dim2=2)
+            x = torch.clamp(masses.unsqueeze(-1) * masses.unsqueeze(-2), min=-1., max=1.)
+        
+        if mode=='ir':
+            mag = x.sum(dim=1) * 0.001
+            x = torch.clamp(mag.unsqueeze(-1) * mag.unsqueeze(-2), min=-1., max=1.)
 
         # If mask is included, mask the output
         if mask is not None:
