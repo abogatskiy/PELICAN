@@ -68,10 +68,11 @@ def ir_data(data_irc, num_particles, alpha):
 	return data_irc
 
 def c_data(data_irc):
-	"""Take two massless collinear input particles, p1 and p2, replace them with two particles with momenta (p1+p2) and 0, compare outputs.
-	Which COLLINEAR MASSLESS input particles to split. We have deliberately inserted two copies of [1,0,0,1] in irc_test() so that [0,1] can be used."""
-
+	"""Take two (or more) massless collinear input particles, p1 and p2, replace them with two particles with momenta (p1+p2) and 0, compare outputs."""
+	
+	# Which COLLINEAR MASSLESS input particles to use. We have deliberately inserted two particles with p=[1,0,0,1] in irc_test() so that indices=[0,1] can be used
 	indices = [0,1]  
+
 	total_momentum = data_irc['Pmu'][:,indices,:].sum(dim=1)
 	data_irc['Pmu'][:,indices,:]=0 * data_irc['Pmu'][:,indices,:]
 	data_irc['Pmu'][:,indices[0],:] = total_momentum

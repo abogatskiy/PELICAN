@@ -193,23 +193,17 @@ def eops_2_to_2(inputs, nobj=None, aggregation='mean', skip_order_zero=False):
         ops[4] = diag_part.unsqueeze(2).expand(-1, -1, dim, -1)
         ops[5] = diag_part.unsqueeze(3).expand(-1, -1, -1, dim)
 
-    ops[6]   = sum_cols.unsqueeze(2).expand(-1, -1, dim, -1)
-    ops[7]   = sum_rows.unsqueeze(2).expand(-1, -1, dim, -1)
-    ops[8]   = sum_diag_part.unsqueeze(3).expand(-1, -1, dim, dim)
-    ops[9]   = sum_cols.unsqueeze(3).expand(-1, -1, -1, dim)
-    ops[10]  = sum_rows.unsqueeze(3).expand(-1, -1, -1, dim)
-    ops[11]  = torch.diag_embed(sum_diag_part.expand(-1, -1, dim))
-    ops[12]  = torch.diag_embed(sum_rows)
-    ops[13]  = torch.diag_embed(sum_cols)
+    ops[6]  = torch.diag_embed(sum_cols)
+    ops[7]   = sum_cols.unsqueeze(2).expand(-1, -1, dim, -1)
+    ops[8]   = sum_cols.unsqueeze(3).expand(-1, -1, -1, dim)
+    ops[9]  = torch.diag_embed(sum_rows)
+    ops[10]   = sum_rows.unsqueeze(2).expand(-1, -1, dim, -1)
+    ops[11]  = sum_rows.unsqueeze(3).expand(-1, -1, -1, dim)
+    ops[12]   = sum_diag_part.unsqueeze(3).expand(-1, -1, dim, dim)
+    ops[13]  = torch.diag_embed(sum_diag_part.expand(-1, -1, dim))
 
     ops[14]  = sum_all.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, dim, dim)
     ops[15]  = torch.diag_embed(sum_all.unsqueeze(-1).expand(-1, -1, dim))
-
-    # Now define a mask for the particle indices that can be used to properly normalize the aggregators that use diag_embed. 
-    # This does NOT include information about nobj, so it should be multiplied by the particle mask
-    # d = torch.eye(m, device=inputs.device).bool()
-    # o = torch.ones((m,m), device=inputs.device).bool()
-    # mask = torch.stack([o,o,o,o,d,o,o,o,o,o,d,d,d,o,d], dim=0).unsqueeze(0).unsqueeze(0)
 
     if skip_order_zero:
         ops = torch.stack(ops[6:], dim=2)

@@ -226,7 +226,7 @@ class Eq2to2(nn.Module):
 
         self.to(device=device, dtype=dtype)
 
-    def forward(self, inputs, mask=None, nobj=None, softmask=None):
+    def forward(self, inputs, mask=None, nobj=None, softmask_ir=None, softmask_c=None, softmask_irc=None):
 
         d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
 
@@ -244,8 +244,12 @@ class Eq2to2(nn.Module):
                     op = op * mult
             else:
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
-            if softmask is not None:
-                op = torch.cat([op[:,:,:3], op[:,:,3:] * softmask], dim=2) if i==0 else op * softmask
+            if softmask_ir is not None:
+                op = torch.cat([op[:,:,:3], op[:,:,3:] * softmask_ir], dim=2)
+            if softmask_c is not None:
+                op = torch.cat([op[:,:,:2] * softmask_c, op[:,:,2:5], op[:,:,5:12] * softmask_c, op[:,:,12:]], dim=2)
+            if softmask_irc is not None:
+                op = torch.cat([op[:,:,:2] * softmask_irc, op[:,:,[2]], op[:,:,3:] * softmask_irc], dim=2)
             ops.append(op)
 
         ops = torch.cat(ops, dim=2)
@@ -306,7 +310,7 @@ class Net2to2(nn.Module):
         self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, ir_safe=ir_safe, config=config, average_nobj=average_nobj, factorize=factorize, device=device, dtype=dtype) for i in range(num_layers)])
         self.to(device=device, dtype=dtype)
 
-    def forward(self, x, mask=None, nobj=None, softmask=None):
+    def forward(self, x, mask=None, nobj=None, softmask_ir=None, softmask_c=None):
         '''
         x: N x m x m x in_dim
         Returns: N x m x m x out_dim
@@ -318,6 +322,6 @@ class Net2to2(nn.Module):
         for layer, message in zip(self.eq_layers, self.message_layers):
             x = message(x, mask)
             if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
-            x = layer(x, mask, nobj, softmask=softmask)
+            x = layer(x, mask, nobj, softmask_ir=softmask_ir, softmask_c=softmask_c)
             # if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
         return x
