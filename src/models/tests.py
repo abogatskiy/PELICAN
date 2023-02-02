@@ -52,10 +52,12 @@ def batch_test(model, data):
 
 def ir_data(data_irc, num_particles, alpha):
 	"""
-	Here we replace the last num_particles empty inputs with random 4-momenta of scale alpha (zero if alpha=0)
+	Here we replace the last num_particles empty inputs with random 4-momenta of scale alpha (zero if alpha=0).
 	Under IR-safety, injecting a zero-momentum particle should leave the output unchanged.
 	If alpha=0, the entire change amounts to simply switching the last num_particles entries of data['particle_mask'] to True.
 	If alpha!=0, we generate random 3-momenta and then define energies as |p| + alpha*torch.rand, so that the resulting particles are timelike.
+	An IR-safe network's output should remain unchanged when alpha=0 and only slightly perturbed for small nonzero alpha.
+	This can be verified by running PELICAN with the --ir-safe flag.
 	"""
 
 	batch_size = data_irc['Nobj'].shape[0]
@@ -68,7 +70,14 @@ def ir_data(data_irc, num_particles, alpha):
 	return data_irc
 
 def c_data(data_irc):
-	"""Take two (or more) massless collinear input particles, p1 and p2, replace them with two particles with momenta (p1+p2) and 0, compare outputs."""
+	"""
+	Take two (or more) massless collinear input particles, p1 and p2, replace them with two particles with momenta (p1+p2) and 0, compare outputs.
+	Assuming the batch was prepared using expand_data, this means the two copies of [1,0,0,1] get replaced by [[2,0,0,2],[0,0,0,0]]. 
+	A C-safe network must produce the same output in both cases. This can be enforced by the --c-safe flag.
+	Note however that PELICAN --c-safe is not the most general Lorentz-equivariant C-safe network. That is true only in combination with --ir-safe.
+	Namely, C-safety for an IR-safe Lorentz-invariant observable amounts to requiring that it depends on any massless inputs only through their total momentum.
+	Without IR-safety, C-safety can be enforced in other ways, e.g. d_12*d_23*d_13 is a C-safe observable for 3 inputs but is not a function of sums of massless momenta.
+	"""
 	
 	# Which COLLINEAR MASSLESS input particles to use. We have deliberately inserted two particles with p=[1,0,0,1] in irc_test() so that indices=[0,1] can be used
 	indices = [0,1]  
@@ -79,6 +88,12 @@ def c_data(data_irc):
 	return data_irc
 
 def expand_data(data, num_particles):
+	"""
+	Prepares a batch for the IR/C tests.
+	Inserts two copies of the 4-vector [1,0,0,1] to the beginning of each event with particle_mask=True.
+	Further inserts num_particles copies of [0,0,0,0] with particle_mask=False.
+	"""
+
 	batch_size = data['Nobj'].shape[0]
 	zero = torch.tensor(0.)
 
@@ -102,6 +117,10 @@ def expand_data(data, num_particles):
 
 
 def irc_test(model, data):
+	"""
+	Tests PELICAN for IR-safety and C-safety separately.
+	First we create a clone of the data batch, apply expand_data() and then call the two tests, comparing the new outputs to the originals.
+	"""
 	logging.info('IRC safety test!')
  
 	# First check IR safety (injection of new small momenta). This one is easier to enforce in a model -- 
