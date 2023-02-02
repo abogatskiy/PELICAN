@@ -100,7 +100,6 @@ class PELICANClassifier(nn.Module):
         dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
         inputs = dot_products.unsqueeze(-1)
 
-
         if self.c_safe:
             # Define a softmask that zeroes out rows and columns that correspond to massless inputs
             softmask_c = self.softmask_layer(dot_products, mask=edge_mask, mode='c')

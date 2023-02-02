@@ -99,7 +99,8 @@ def expand_data(data, num_particles):
 
 	zero_pmus = torch.zeros(batch_size, num_particles, 4, dtype = data['Pmu'].dtype, device = data['Pmu'].device)
 	beam = torch.tensor([[[1,0,0,1],[1,0,0,1]]], dtype=data['Pmu'].dtype).expand(data['Pmu'].shape[0], 2, 4)
-	data['Pmu'] = torch.cat([beam, data['Pmu']], 1)
+	data['Pmu'] = torch.cat([beam, data['Pmu'], device = data['Pmu'].device)], 1)
+	# data['Pmu'] = torch.cat([beam, data['Pmu']+torch.tensor([1,0,0,0],dtype = data['Pmu'].dtype, device = data['Pmu'].device)], 1) # Use this to perturb masses if the dataset is all massless
 	data['Pmu'] = torch.cat((data['Pmu'], zero_pmus), 1)
 	s = data['Pmu'].shape
 	particle_mask = data['Pmu'][...,0] != 0.
@@ -218,13 +219,14 @@ def tests(model, dataloader, args, tests=['permutation','batch','irc']):
 	t0 = datetime.now()
 	data = next(iter(dataloader))
 
-	if 'gpu' in tests:
-		gpu_test(model, data, t0)
-	if 'permutation' in tests:
-		permutation_test(model, data)
-	if 'batch' in tests:
-		batch_test(model, data)
-	if 'irc' in tests:
-		irc_test(model, data)
+	for str in tests:
+		if str=='gpu':
+			gpu_test(model, data, t0)
+		elif str=='permutation':
+			permutation_test(model, data)
+		elif str=='batch':
+			batch_test(model, data)
+		elif str=='irc':
+			irc_test(model, data)
 
 	logging.info('Test complete!')
