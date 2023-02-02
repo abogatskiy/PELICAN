@@ -30,8 +30,8 @@ def permutation_test(model, data):
 	data_perm = {key: apply_perm(0, val) if key in ['Pmu', 'scalars'] else val for key, val in data.items()}
 	data_perm['scalars'] = apply_perm(1, data_perm['scalars'])
 
-	outputs_noperm = model(data_noperm)
-	outputs_perm = model(data_perm)
+	outputs_noperm = model(data_noperm)['predict']
+	outputs_perm = model(data_perm)['predict']
 
 	invariance_test = (outputs_perm - outputs_noperm).abs().max()/outputs_noperm.abs().max()
 
