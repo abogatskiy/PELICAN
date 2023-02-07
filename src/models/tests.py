@@ -99,7 +99,7 @@ def expand_data(data, num_particles):
 
 	zero_pmus = torch.zeros(batch_size, num_particles, 4, dtype = data['Pmu'].dtype, device = data['Pmu'].device)
 	beam = torch.tensor([[[1,0,0,1],[1,0,0,1]]], dtype=data['Pmu'].dtype).expand(data['Pmu'].shape[0], 2, 4)
-	data['Pmu'] = torch.cat([beam, data['Pmu'], device = data['Pmu'].device)], 1)
+	data['Pmu'] = torch.cat([beam, data['Pmu']], 1)
 	# data['Pmu'] = torch.cat([beam, data['Pmu']+torch.tensor([1,0,0,0],dtype = data['Pmu'].dtype, device = data['Pmu'].device)], 1) # Use this to perturb masses if the dataset is all massless
 	data['Pmu'] = torch.cat((data['Pmu'], zero_pmus), 1)
 	s = data['Pmu'].shape
