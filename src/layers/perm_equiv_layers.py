@@ -107,9 +107,9 @@ def eops_2_to_1(inputs, nobj=None, aggregation='mean'):
     sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # N x D
 
     op1 = diag_part
-    op2 = sum_diag_part.expand(-1, -1, dim)
-    op3 = sum_rows
-    op4 = sum_cols
+    op2 = sum_rows
+    op3 = sum_cols
+    op4 = sum_diag_part.expand(-1, -1, dim)
     op5 = sum_all.unsqueeze(2).expand(-1, -1, dim)
     ops = [op1, op2, op3, op4, op5]
     return torch.stack(ops, dim=2)

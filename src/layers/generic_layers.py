@@ -206,9 +206,17 @@ class SoftMask(nn.Module):
             masses = torch.diagonal(x, dim1=1, dim2=2)
             x = torch.clamp(masses.unsqueeze(-1) * masses.unsqueeze(-2), min=-1., max=1.)
         
+        if mode=='c1d':
+            masses = torch.diagonal(x, dim1=1, dim2=2)
+            x = torch.clamp(masses, min=-1., max=1.)
+        
         if mode=='ir':
             mag = x.sum(dim=1) * 0.001
             x = torch.clamp(mag.unsqueeze(-1) * mag.unsqueeze(-2), min=-1., max=1.)
+
+        if mode=='ir1d':
+            mag = x.sum(dim=1) * 0.001
+            x = torch.clamp(mag, min=-1., max=1.)
 
         # If mask is included, mask the output
         if mask is not None:

@@ -139,7 +139,7 @@ class Eq2to1(nn.Module):
         self.bias = nn.Parameter(torch.zeros(1, 1, out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
 
-    def forward(self, inputs, mask=None, nobj=None):
+    def forward(self, inputs, mask=None, nobj=None, softmask_ir=None, softmask_c=None, softmask_irc=None):
         '''
         inputs: N x D x m x m
         Returns: N x D x m
@@ -149,15 +149,21 @@ class Eq2to1(nn.Module):
         ops = []
         for i, char in enumerate(self.config):
             if char in ['s', 'm', 'x', 'n']:
-                ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char]))
+                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char])
             elif char in ['S', 'M', 'X', 'N']:
-                ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()]))
+                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()])
                 mult = (nobj).view([-1,1,1,1])**self.alphas[i]
                 mult = mult / (self.average_nobj** self.alphas[i])
-                ops[i] = ops[i] * mult
+                op = op * mult
             else:
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
-
+            if softmask_ir is not None:
+                op = torch.cat([op[:,:,:3], op[:,:,3:] * softmask_ir], dim=2)
+            if softmask_c is not None:
+                op = torch.cat([op[:,:,:2] * softmask_c, op[:,:,2:4], op[:,:,[4]] * softmask_c], dim=2)
+            if softmask_irc is not None:
+                op = torch.cat([op[:,:,[0]], op[:,:,1:] * softmask_irc], dim=2)
+            ops.append(op)
         ops = torch.cat(ops, dim=2)
 
         if self.activate_agg:

@@ -16,6 +16,7 @@ if which('nvidia-smi') is not None:
 logger = logging.getLogger('')
 
 import torch
+import numpy, random
 from torch.utils.data import DataLoader
 
 from src.models import PELICANRegression
@@ -105,7 +106,7 @@ def main():
 
     # Apply the covariance and permutation invariance tests.
     if args.test:
-        raise NotImplementedError()
+        tests(model, dataloaders['train'], args, tests=['gpu','irc', 'permutation'], cov=True)
 
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device, dtype)
