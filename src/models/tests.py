@@ -194,7 +194,7 @@ def gpu_test(model, data, t0):
 			logging.info(f'{"Inference time:":<80} {(t5-t4).total_seconds()}s')
 			logging.info(f'{"Inference memory usage (over initial):":<80} {mem_fwd-mem_init}')
 	else:
-		output = model(data)
+		output = model(data)['predict']
 		t2 = datetime.now()
 		logging.info(f'{"Forward pass time:":<80} {(t2-t1).total_seconds()}s')
 		output['predict'].sum().backward()

@@ -74,14 +74,16 @@ class Eq2to0(nn.Module):
         ops = []
         for i, char in enumerate(self.config):
             if char in ['s', 'm', 'x', 'n']:
-                ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char]))
+                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char])
             elif char in ['S', 'M', 'X', 'N']:
-                ops.append(self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()]))
+                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()])
                 mult = (nobj).view([-1,1,1])**self.alphas[i]
                 mult = mult / (self.average_nobj** self.alphas[i])
-                ops[i] = ops[i] * mult            
+                op = op * mult            
             else:
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
+            ops.append(op)
+
 
         ops = torch.cat(ops, dim=2)
 
@@ -303,6 +305,10 @@ class Net2to2(nn.Module):
         self.masked = masked
         self.num_channels = num_channels
         self.num_channels_message = num_channels_m
+        self.activate_agg = activate_agg
+        self.activate_lin = activate_lin
+        self.batchnorm = batchnorm
+        self.ir_safe = ir_safe
         num_layers = len(num_channels) - 1
         self.in_dim = num_channels_m[0][0] if len(num_channels_m[0]) > 0 else num_channels[0]
 
@@ -321,9 +327,7 @@ class Net2to2(nn.Module):
         x: N x m x m x in_dim
         Returns: N x m x m x out_dim
         '''
-
         assert (x.shape[-1] == self.in_dim), "Input dimension of Net2to2 doesn't match the dimension of the input tensor"
-        B = x.shape[0]
 
         for layer, message in zip(self.eq_layers, self.message_layers):
             x = message(x, mask)

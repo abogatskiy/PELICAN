@@ -12,7 +12,7 @@ class PELICANClassifier(nn.Module):
     Permutation Invariant, Lorentz Invariant/Covariant Aggregator Network
     """
     def __init__(self, num_channels_m, num_channels1, num_channels2, num_channels_m_out,
-                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, config1='s', config2='s', average_nobj=49, factorize=False, masked=True, softmasked=True,
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, config1='s', config2='s', average_nobj=49, factorize=False, masked=True,
                  activate_agg2=True, activate_lin2=False, mlp_out=True,
                  scale=1, ir_safe=False, c_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
                  device=torch.device('cpu'), dtype=None):
@@ -37,7 +37,6 @@ class PELICANClassifier(nn.Module):
         self.mlp_out = mlp_out
         self.factorize = factorize
         self.masked = masked
-        self.softmasked = softmasked
 
         if dropout:
             self.dropout_layer = nn.Dropout(drop_rate)
@@ -55,7 +54,7 @@ class PELICANClassifier(nn.Module):
             self.softmask_layer = SoftMask(device=device,dtype=dtype)
 
         if c_safe:
-            self.c_safe_eq_layer = Eq2to2(3 if add_beams else 1, embedding_dim, eops_2_to_2, activate_agg=False, activate_lin=False, activation=activation, ir_safe=True, config='s', average_nobj=average_nobj, factorize=factorize, device=device, dtype=dtype)
+            self.c_safe_eq_layer = Eq2to2(3 if add_beams else 1, embedding_dim, eops_2_to_2, activate_agg=False, activate_lin=False, activation=activation, ir_safe=True, config='s' if ir_safe else config1, average_nobj=average_nobj, factorize=factorize, device=device, dtype=dtype)
         
         # The input stack applies an encoding function
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
@@ -155,7 +154,7 @@ class PELICANClassifier(nn.Module):
         assert not torch.isnan(prediction).any(), "There are NaN entries in the output! Evaluation terminated."
 
         if covariance_test:
-            return {'predict': prediction}, [inputs, act1, act2, act3]
+            return {'predict': prediction, 'inputs': inputs, 'act1': act1, 'act2': act2, 'act3': act3}
         else:
             return {'predict': prediction}
 

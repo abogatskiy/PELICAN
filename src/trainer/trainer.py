@@ -149,8 +149,10 @@ class Trainer:
 
         checkpoint = torch.load(checkfile, map_location=torch.device(self.device))
         self.model.load_state_dict(checkpoint['model_state'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state'])
-        self.scheduler.load_state_dict(checkpoint['scheduler_state'])
+        if self.optimizer is not None:
+            self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+        if self.scheduler is not None:
+            self.scheduler.load_state_dict(checkpoint['scheduler_state'])
         self.epoch = checkpoint['epoch']
         self.best_metrics = checkpoint['best_metrics']
         self.minibatch = checkpoint['minibatch']
