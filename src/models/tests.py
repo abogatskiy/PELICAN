@@ -177,7 +177,7 @@ def gpu_test(model, data, t0):
 		logging.info(f'{"Forward pass time:":<80} {(t2-t1).total_seconds()}s')
 		logging.info(f'{"Memory after forward pass:":<80} {mem_fwd}')
 		logging.info(f'{"Memory consumed by forward pass:":<80} {mem_fwd-mem_init}')
-		output.sum().backward()
+		output['predict'].sum().backward()
 		t3 = datetime.now()
 		mem_bwd =  torch.cuda.memory_allocated(device)
 		logging.info(f'{"Backward pass time:":<80} {(t3-t2).total_seconds()}s')
@@ -194,7 +194,7 @@ def gpu_test(model, data, t0):
 			logging.info(f'{"Inference time:":<80} {(t5-t4).total_seconds()}s')
 			logging.info(f'{"Inference memory usage (over initial):":<80} {mem_fwd-mem_init}')
 	else:
-		output = model(data)['predict']
+		output = model(data)
 		t2 = datetime.now()
 		logging.info(f'{"Forward pass time:":<80} {(t2-t1).total_seconds()}s')
 		output['predict'].sum().backward()
