@@ -140,11 +140,11 @@ def irc_test(model, data, keys=['predict']):
 		temp = {key: [] for key in keys}
 		for num_particles in range(1, max_particles + 1):
 			data_ir = ir_data(data_irc_copy, num_particles, alpha)
-			for key, val in model(data_ir).items(): temp[key].append(val)
+			for key, val in model(data_ir).items(): temp[key].append(val.detach())
 		outputs_ir.append([alpha, {key: torch.stack(val,0) for key, val in temp.items()}]) # stack outputs for different alpha along a new dimension for easy printing later
 
 	for key in keys:
-		ir_test = [(alpha, (output_ir[key] - outputs[key].unsqueeze(0).repeat([max_particles]+[1]*len(outputs[key].shape))).abs().amax([*range(1,len(outputs[key].shape)+1)])/outputs[key].abs().mean()) for (alpha, output_ir) in outputs_ir]
+		ir_test = [(alpha, ((output_ir[key] - outputs[key].unsqueeze(0).repeat([max_particles]+[1]*len(outputs[key].shape)))/outputs[key]).abs().nan_to_num(0,0,0).mean()) for (alpha, output_ir) in outputs_ir]
 		logging.info(f'IR safety test deviations for key={key} (format is (order of magnitude of momenta: [1 particle, 2 particles, ...])):')
 		for alpha, output in ir_test:
 			logging.warning('{:0.5g}, {}'.format(alpha, output.data.cpu().detach().numpy()))
@@ -160,7 +160,7 @@ def irc_test(model, data, keys=['predict']):
 	data_c = c_data(data_irc_copy)
 	outputs_c = model(data_c)
 	for key in keys:
-		c_test = (outputs_c[key] - outputs[key]).abs().max()/outputs[key].abs().mean()
+		c_test = ((outputs_c[key] - outputs[key])/outputs[key]).abs().nan_to_num().mean()
 		logging.info(f'C safety test deviations for key={key}: {c_test.data.cpu().detach().numpy()}')
 
 def gpu_test(model, data, t0):
