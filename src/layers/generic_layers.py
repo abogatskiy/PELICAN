@@ -167,19 +167,19 @@ class InputEncoder(nn.Module):
         # self.betas = nn.Parameter(torch.randn(1, 1, 1, out_dim, device=device, dtype=dtype))
         self.zero = torch.tensor(0, device=device, dtype=dtype)
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, mode='log'):
 
         # x = x.unsqueeze(-1)
         # x = (1. + x).abs().pow(1e-6 + self.alphas) - 1.
         # x = ((self.betas.abs() + x).abs().pow(1e-6 + self.alphas ** 2) - self.betas.abs().pow(1e-6 + self.alphas ** 2)) / (1e-6 + self.alphas ** 2) #288
         # x = x * (x < (100 * self.betas.exp())) 
-
-        x = ((1 + x).abs().pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
-        # x = x.sign() * x.abs().pow(1e-6 + self.alphas ** 2)
-
         # x = (1e-2 + x).abs().log()/2  # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
         
-        # x = x.arcsinh()
+        if mode=='log':
+            x = ((1 + x).abs().pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
+
+        if mode=='arcsinh':
+            x = (x * 2 * self.alphas).arcsinh() / (1e-6 + self.alphas.abs())
 
         if mask is not None:
             x = torch.where(mask, x, self.zero)
@@ -203,11 +203,11 @@ class SoftMask(nn.Module):
     def forward(self, x, mask=None, mode=''):
         
         if mode=='c':
-            masses = torch.diagonal(x, dim1=1, dim2=2)
+            masses = 100 * torch.diagonal(x, dim1=1, dim2=2)
             x = torch.clamp(masses.unsqueeze(-1) * masses.unsqueeze(-2), min=-1., max=1.)
         
         if mode=='c1d':
-            masses = torch.diagonal(x, dim1=1, dim2=2)
+            masses = 100 * torch.diagonal(x, dim1=1, dim2=2)
             x = torch.clamp(masses, min=-1., max=1.)
         
         if mode=='ir':

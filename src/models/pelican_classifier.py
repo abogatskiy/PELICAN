@@ -121,7 +121,7 @@ class PELICANClassifier(nn.Module):
             softmask_ir = self.softmask_layer(dot_products, mask=edge_mask, mode='ir')
 
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.
-        inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1))
+        inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='arcsinh' if self.c_safe else 'log')
         # Now apply a BatchNorm2D (remember to set --batchnorm=False if you need IR or C-safety)
         inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
 

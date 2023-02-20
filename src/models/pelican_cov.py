@@ -126,7 +126,8 @@ class PELICANRegression(nn.Module):
             softmask_ir_1d = self.softmask_layer(dot_products, mask=particle_mask, mode='ir1d')
         
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.
-        inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1))
+        # In the C-safe case, this function doesn't work great since x can often become equal to -1. We use rescaled arcsinh instead.
+        inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='arcsinh' if self.c_safe else 'log')
         # Now apply a BatchNorm2D (remember to set --batchnorm=False if you need IR or C-safety)
         inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
 
@@ -149,6 +150,8 @@ class PELICANRegression(nn.Module):
         invariant_particle_coefficients =  self.mlp_out_1(act3, mask=particle_mask.unsqueeze(-1))
         prediction = (event_momenta.unsqueeze(-2) * invariant_particle_coefficients.unsqueeze(-1)).sum(1) / self.scale  # / nobj.squeeze(-1)
         prediction = prediction.squeeze(-2)
+
+        if prediction.isnan().any(): breakpoint()
 
         if covariance_test:
             return {'predict': prediction, 'weights': invariant_particle_coefficients}, [inputs, act1, act2, act3]
