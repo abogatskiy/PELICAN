@@ -253,11 +253,29 @@ class Eq2to2(nn.Module):
             else:
                 raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
             if softmask_ir is not None:
-                op = torch.cat([op[:,:,:3], op[:,:,3:] * softmask_ir], dim=2)
+                s = op.shape
+                softmask_ir = torch.cat([
+                                        torch.ones([s[0],1,3,s[-2],s[-1]], device=op.device), 
+                                        softmask_ir.expand([s[0],1,12,s[-2],s[-1]])
+                                        ], 2)
+                op = op*softmask_ir
             if softmask_c is not None:
-                op = torch.cat([op[:,:,:2] * softmask_c, op[:,:,2:5], op[:,:,5:12] * softmask_c, op[:,:,12:]], dim=2)
+                s = op.shape
+                softmask_c = torch.cat([
+                                        softmask_c.expand([s[0],1,2,s[-2],s[-1]]),
+                                        torch.ones([s[0],1,3,s[-2],s[-1]], device=op.device), 
+                                        softmask_c.expand([s[0],1,7,s[-2],s[-1]]),
+                                        torch.ones([s[0],1,3,s[-2],s[-1]], device=op.device)
+                                        ], 2)
+                op = op * softmask_c
             if softmask_irc is not None:
-                op = torch.cat([op[:,:,:2] * softmask_irc, op[:,:,[2]], op[:,:,3:] * softmask_irc], dim=2)
+                s = op.shape
+                softmask_irc = torch.cat([
+                                        softmask_irc.expand([s[0],1,2,s[-2],s[-1]]),
+                                        torch.ones([s[0],1,1,s[-2],s[-1]], device=op.device), 
+                                        softmask_irc.expand([s[0],1,12,s[-2],s[-1]]),
+                                        ], 2)
+                op = op * softmask_irc
             ops.append(op)
 
         ops = torch.cat(ops, dim=2)

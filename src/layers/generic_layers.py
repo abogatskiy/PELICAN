@@ -90,7 +90,7 @@ class MessageNet(nn.Module):
         activation_fn = get_activation_fn(activation)
         self.activations = nn.ModuleList([activation_fn for i in range(depth)])
         
-        if depth == 0: self.batchnorm = False
+        # if depth == 0: self.batchnorm = False
         if self.batchnorm == True:
             self.batchnorm = 'b'
         if self.batchnorm:
@@ -174,7 +174,7 @@ class InputEncoder(nn.Module):
         # x = ((self.betas.abs() + x).abs().pow(1e-6 + self.alphas ** 2) - self.betas.abs().pow(1e-6 + self.alphas ** 2)) / (1e-6 + self.alphas ** 2) #288
         # x = x * (x < (100 * self.betas.exp())) 
         # x = (1e-2 + x).abs().log()/2  # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
-        
+
         if mode=='log':
             x = ((1 + x).abs().pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
 
@@ -203,11 +203,11 @@ class SoftMask(nn.Module):
     def forward(self, x, mask=None, mode=''):
         
         if mode=='c':
-            masses = 100 * torch.diagonal(x, dim1=1, dim2=2)
+            masses = 100000 * torch.diagonal(x, dim1=1, dim2=2)
             x = torch.clamp(masses.unsqueeze(-1) * masses.unsqueeze(-2), min=-1., max=1.)
         
         if mode=='c1d':
-            masses = 100 * torch.diagonal(x, dim1=1, dim2=2)
+            masses = 100000 * torch.diagonal(x, dim1=1, dim2=2)
             x = torch.clamp(masses, min=-1., max=1.)
         
         if mode=='ir':
