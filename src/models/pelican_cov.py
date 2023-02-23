@@ -58,7 +58,7 @@ class PELICANRegression(nn.Module):
             self.softmask_layer = SoftMask(device=device,dtype=dtype)
 
         if c_safe:
-            self.c_safe_eq_layer = Eq2to2(3 if add_beams else 1, embedding_dim, eops_2_to_2, activate_agg=False, activate_lin=False, activation=activation, ir_safe=True, config='s', average_nobj=average_nobj, factorize=factorize, device=device, dtype=dtype)
+            self.c_safe_eq_layer = Eq2to2(3 if add_beams else 1, embedding_dim, eops_2_to_2, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, device=device, dtype=dtype)
 
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
         self.input_mix_and_norm = MessageNet([embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)

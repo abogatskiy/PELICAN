@@ -54,7 +54,7 @@ class PELICANClassifier(nn.Module):
             self.softmask_layer = SoftMask(device=device,dtype=dtype)
 
         if c_safe:
-            self.c_safe_eq_layer = Eq2to2(3 if add_beams else 1, embedding_dim, eops_2_to_2, activate_agg=False, activate_lin=False, activation=activation, ir_safe=True, config='s' if ir_safe else config1, average_nobj=average_nobj, factorize=factorize, device=device, dtype=dtype)
+            self.c_safe_eq_layer = Eq2to2(3 if add_beams else 1, embedding_dim, eops_2_to_2, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, device=device, dtype=dtype)
         
         # The input stack applies an encoding function
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
@@ -109,10 +109,10 @@ class PELICANClassifier(nn.Module):
                 # This ensures that massless inputs survive in later layers only as part of sums over all momenta. 
                 # The original entries for those inputs get killed by the C-safe softmask. This is done only once, so the C-mask is not needed again.
                 # To avoid multiplying any entries by the mask twice, we use the softmask_irc option.
-                inputs = self.c_safe_eq_layer(inputs, softmask_irc=softmask_c.unsqueeze(1).unsqueeze(2))
+                inputs = self.c_safe_eq_layer(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask_irc=softmask_c.unsqueeze(1).unsqueeze(2))
             else:       
                 # In case of only C-safety, apply the same equivariant layer with the C-safe mask.  
-                inputs = self.c_safe_eq_layer(inputs, softmask_c=softmask_c.unsqueeze(1).unsqueeze(2))
+                inputs = self.c_safe_eq_layer(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask_irc=softmask_c.unsqueeze(1).unsqueeze(2))
         elif self.ir_safe:
             # In case of only IR-safety, define a more lenient softmask that vanishes on a given
             #  row/column corresponding to an input particle p if p*J vanishes, where J is the total jet momentum.
