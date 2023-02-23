@@ -113,10 +113,10 @@ class PELICANRegression(nn.Module):
                 # This ensures that massless inputs survive in later layers only as part of sums over all momenta. 
                 # The original entries for those inputs get killed by the C-safe softmask. This is done only once, so the C-mask is not needed again.
                 # To avoid multiplying any entries by the mask twice, we use the softmask_irc option.
-                inputs = self.c_safe_eq_layer(inputs, mask=edge_mask.unsqueeze(-1), softmask_irc=softmask_c.unsqueeze(1).unsqueeze(2))
+                inputs = self.c_safe_eq_layer(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask_irc=softmask_c.unsqueeze(1).unsqueeze(2))
             else:       
                 # In case of only C-safety, apply the same equivariant layer with the C-safe mask.  
-                inputs = self.c_safe_eq_layer(inputs, mask=edge_mask.unsqueeze(-1), softmask_c=softmask_c.unsqueeze(1).unsqueeze(2))
+                inputs = self.c_safe_eq_layer(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask_c=softmask_c.unsqueeze(1).unsqueeze(2))
         elif self.ir_safe:
             # In case of only IR-safety, define a more lenient softmask that vanishes on a given
             #  row/column corresponding to an input particle p if p*J vanishes, where J is the total jet momentum.
