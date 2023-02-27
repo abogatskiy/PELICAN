@@ -61,7 +61,7 @@ class PELICANRegression(nn.Module):
             self.c_safe_eq_layer = Eq2to2(3 if add_beams else 1, embedding_dim, eops_2_to_2, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, device=device, dtype=dtype)
 
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
-        self.input_mix_and_norm = MessageNet([embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)
+        ## self.input_mix_and_norm = MessageNet([embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)
 
         self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet(num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
@@ -128,8 +128,8 @@ class PELICANRegression(nn.Module):
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.
         # In the C-safe case, this function doesn't work great since x can often become equal to -1. We use rescaled arcsinh instead.
         inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='arcsinh' if self.c_safe else 'log')
-        # Now apply a BatchNorm2D (remember to set --batchnorm=False if you need IR or C-safety)
-        inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
+        ## Now apply a BatchNorm2D (remember to set --batchnorm=False if you need IR or C-safety)
+        # inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
 
         # If beams are included, then at this point we also append the scalar channels that contain particle labels.
         if self.add_beams:

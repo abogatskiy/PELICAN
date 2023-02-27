@@ -225,9 +225,9 @@ def setup_argparse():
     parser.add_argument('--activate-lin2', action=argparse.BooleanOptionalAction, default=False,
                     help='Apply an activation function right after the linear mixing following Eq2to0 aggregation (default = False)')
     parser.add_argument('--factorize', action=argparse.BooleanOptionalAction, default=True,
-                    help='Use this option to significantly reduce the number of weights used in Eq2to2 layers (default = False)')
+                    help='Use this option to significantly reduce the number of weights used in Eq2to2 layers (default = True)')
     parser.add_argument('--masked', action=argparse.BooleanOptionalAction, default=True,
-                    help='Use a masked version of Batchnorm (has no effect if --batchnorm is False) (default = False)')
+                    help='Use a masked version of Batchnorm (has no effect if --batchnorm is False) (default = True)')
 
     parser.add_argument('--scale', type=float, default=1.0, metavar='N',
                     help='Global scaling factor for input four-momenta (default = 1.0)')
