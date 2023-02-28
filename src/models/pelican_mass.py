@@ -53,7 +53,7 @@ class PELICANMass(nn.Module):
             embedding_dim -= 2
 
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
-        self.input_mix_and_norm = MessageNet([embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)
+        # self.input_mix_and_norm = MessageNet([embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)
 
         self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, sig=sig, ir_safe=ir_safe, average_nobj=average_nobj, config=config1, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet(num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
@@ -92,7 +92,7 @@ class PELICANMass(nn.Module):
         nobj = particle_mask.sum(-1, keepdim=True)
         dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
         inputs = self.input_encoder(dot_products, mask=edge_mask.unsqueeze(-1))
-        inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
+        # inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
         
         if self.add_beams:
             inputs = torch.cat([inputs, particle_scalars], dim=-1)
