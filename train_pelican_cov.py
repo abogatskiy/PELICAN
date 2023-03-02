@@ -4,7 +4,7 @@ import sys
 
 from src.trainer import which
 if which('nvidia-smi') is not None:
-    min=8000
+    min=30000
     deviceid = 0
     name, mem = os.popen('"nvidia-smi" --query-gpu=gpu_name,memory.total --format=csv,nounits,noheader').read().split('\n')[deviceid].split(',')
     print(mem)
@@ -82,7 +82,6 @@ def main():
                       factorize=args.factorize, masked=args.masked,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
                       scale=args.scale, ir_safe=args.ir_safe, c_safe=args.c_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
-                      task = args.task,
                       device=device, dtype=dtype)
     
     model.to(device)

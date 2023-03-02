@@ -15,7 +15,6 @@ class PELICANRegression(nn.Module):
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, config1='s', config2='s', average_nobj=20, factorize=False, masked=True,
                  activate_agg2=True, activate_lin2=False, mlp_out=True,
                  scale=1, ir_safe=False, c_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
-                 task = 'train',
                  device=torch.device('cpu'), dtype=None):
         super().__init__()
 
@@ -40,7 +39,6 @@ class PELICANRegression(nn.Module):
         self.average_nobj = average_nobj
         self.factorize = factorize
         self.masked = masked
-        self.task = task
 
         if dropout:
             self.dropout_layer = nn.Dropout(drop_rate)
