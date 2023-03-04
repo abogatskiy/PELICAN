@@ -160,7 +160,7 @@ class Trainer:
 
         logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.epoch}:\n{self.best_metrics}')
 
-    def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True):
+    def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True, ir_data=None, c_data=None, expand_data=None):
         """
         Evaluate model on training/validation/testing splits.
 
@@ -182,7 +182,7 @@ class Trainer:
 
             # Loop over splits, predict, and output/log predictions
             for split in splits:
-                predict, targets = self.predict(set=split)
+                predict, targets = self.predict(set=split, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                 best_metrics, logstring = self.log_predict(predict, targets, split, description='Final')
 
         # Evaluate best model as determined by validation error
@@ -195,7 +195,7 @@ class Trainer:
                 logger.info(f'Getting predictions for best model {self.args.bestfile} (epoch {best_epoch}, best validation metrics were {checkpoint["best_metrics"]}).')
                 # Loop over splits, predict, and output/log predictions
                 for split in splits:
-                    predict, targets = self.predict(split)
+                    predict, targets = self.predict(split, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                     best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
             elif best_epoch == final_epoch:
                 logger.info('BEST MODEL IS SAME AS FINAL')
@@ -360,7 +360,7 @@ class Trainer:
 
         return all_predict, all_targets, epoch_t
 
-    def predict(self, set='valid'):
+    def predict(self, set='valid', ir_data=None, c_data=None, expand_data=None):
         dataloader = self.dataloaders[set]
 
         self.model.eval()
@@ -368,13 +368,19 @@ class Trainer:
         start_time = datetime.now()
         logger.info('Starting testing on {} set: '.format(set))
 
-        for batch_idx, data in enumerate(dataloader):
+        with torch.no_grad():
+            for batch_idx, data in enumerate(dataloader):
+                if expand_data:
+                    data = expand_data(data)
+                if ir_data is not None:
+                    data = ir_data(data)
+                if c_data is not None:
+                    data = c_data(data)
+                targets = self._get_target(data, self.stats)
+                predict = {key: val for key, val in self.model(data).items()}
 
-            targets = self._get_target(data, self.stats)
-            predict = {key: val.detach() for key, val in self.model(data).items()}
-
-            all_targets.append(targets)
-            for key, val in predict.items(): all_predict.setdefault(key, []).append(val)
+                all_targets.append(targets)
+                for key, val in predict.items(): all_predict.setdefault(key, []).append(val)
 
         all_targets = torch.cat(all_targets)
         all_predict = {key: torch.cat(val) for key, val in all_predict.items()}

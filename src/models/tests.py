@@ -50,7 +50,7 @@ def batch_test(model, data):
 	logging.info('Batch invariance test error: {}'.format(invariance_test))
 
 
-def ir_data(data_irc, num_particles, alpha):
+def ir_data(data_irc, num_particles=1, alpha=0):
 	"""
 	Here we replace the last num_particles empty inputs with random 4-momenta of scale alpha (zero if alpha=0).
 	Under IR-safety, injecting a zero-momentum particle should leave the output unchanged.
@@ -87,7 +87,27 @@ def c_data(data_irc):
 	data_irc['Pmu'][:,indices[0],:] = total_momentum
 	return data_irc
 
-def expand_data(data, num_particles):
+def irc_data(data_irc):
+	"""
+	Does an irc-split: creates one empty particle slot with particle_mask=True (which is an IR-split) and then 
+	moves half of the momentum stored in the first particle slot (usually the beam [1,0,0,1]) into that slot.
+	This should lead to the same outputs in an IRC-safe network.
+	This transformation is used for real data in place of c_data because c_data requires two pre-existing 
+	collinear massless particles, which can't be expected of real data.
+	"""
+	# Which MASSLESS input particles to use. Normally index=0, one of the beams.
+	index = 0
+
+	data_irc['particle_mask'][:, -1] = True
+	data_irc['edge_mask'] = data_irc['particle_mask'].unsqueeze(1) * data_irc['particle_mask'].unsqueeze(2)
+	data_irc['Nobj'] = data_irc['Nobj'] + 1
+
+	total_momentum = data_irc['Pmu'][:,index]
+	data_irc['Pmu'][:,-1] = total_momentum/2
+	data_irc['Pmu'][:,index]  = total_momentum/2
+	return data_irc
+
+def expand_data(data, num_particles=1, c=False):
 	"""
 	Prepares a batch for the IR/C tests.
 	Inserts two copies of the 4-vector [1,0,0,1] to the beginning of each event with particle_mask=True.
@@ -98,8 +118,9 @@ def expand_data(data, num_particles):
 	zero = torch.tensor(0.)
 
 	zero_pmus = torch.zeros(batch_size, num_particles, 4, dtype = data['Pmu'].dtype, device = data['Pmu'].device)
-	beam = torch.tensor([[[1,0,0,1],[1,0,0,1]]], dtype=data['Pmu'].dtype).expand(data['Pmu'].shape[0], 2, 4)
-	data['Pmu'] = torch.cat([beam, data['Pmu']], 1)
+	if c:
+		beam = torch.tensor([[[1,0,0,1],[1,0,0,1]]], dtype=data['Pmu'].dtype).expand(data['Pmu'].shape[0], 2, 4)
+		data['Pmu'] = torch.cat([beam, data['Pmu']], 1)
 	# data['Pmu'] = torch.cat([beam, data['Pmu']+torch.tensor([1,0,0,0],dtype = data['Pmu'].dtype, device = data['Pmu'].device)], 1) # Use this to perturb masses if the dataset is all massless
 	data['Pmu'] = torch.cat((data['Pmu'], zero_pmus), 1)
 	s = data['Pmu'].shape
@@ -107,8 +128,8 @@ def expand_data(data, num_particles):
 	edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
 	labels = torch.zeros([s[0],s[1],s[1],2])
 	if data['scalars'][0,0,0,0] == 1.:
-		labels[:,0:4,:,1]=1.
-		labels[:,:,0:4,0]=1.
+		labels[:,0:(4 if c else 2),:,1]=1.
+		labels[:,:,0:(4 if c else 2),0]=1.
 		labels = torch.where(edge_mask.unsqueeze(-1), labels, zero)
 	data['scalars'] = labels.to(dtype=data['Pmu'].dtype)
 	data['Nobj'] = data['Nobj'] + 2
@@ -131,7 +152,7 @@ def irc_test(model, data, keys=['predict']):
 	max_particles=2
 
 	data_irc_copy = {key: val.clone() if type(val) is torch.Tensor else val for key, val in data.items()}
-	data_irc_copy = expand_data(data_irc_copy, max_particles)
+	data_irc_copy = expand_data(data_irc_copy, max_particles, c=True)
 		
 	outputs = model(data_irc_copy)
 	outputs_ir=[]
@@ -155,7 +176,7 @@ def irc_test(model, data, keys=['predict']):
 	# This symmetry cannot be explicitly enforced in a nonlinear network because it requires some sort of linearity in energy.
 	# Instead, we simply test for it and hope that training a network improves C-safety.
 	data_irc_copy = {key: val.clone() if type(val) is torch.Tensor else val for key, val in data.items()}
-	data_irc_copy = expand_data(data_irc_copy, max_particles)
+	data_irc_copy = expand_data(data_irc_copy, max_particles, c=True)
 
 	data_c = c_data(data_irc_copy)
 	outputs_c = model(data_c)
@@ -220,15 +241,15 @@ def tests(model, dataloader, args, tests=['permutation','batch','irc'], cov=Fals
 	
 	t0 = datetime.now()
 	data = next(iter(dataloader))
-
+	
 	for str in tests:
 		if str=='gpu':
 			gpu_test(model, data, t0)
 		elif str=='permutation':
-			permutation_test(model, data)
+			with torch.no_grad(): permutation_test(model, data)
 		elif str=='batch':
-			batch_test(model, data)
+			with torch.no_grad(): batch_test(model, data)
 		elif str=='irc':
-			irc_test(model, data, keys=['predict', 'weights'] if cov else ['predict'])
+			with torch.no_grad(): irc_test(model, data, keys=['predict', 'weights'] if cov else ['predict'])
 
 	logging.info('Test complete!')

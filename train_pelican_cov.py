@@ -20,7 +20,7 @@ import numpy, random
 from torch.utils.data import DataLoader
 
 from src.models import PELICANRegression
-from src.models import tests
+from src.models import tests, expand_data, ir_data, irc_data
 from src.trainer import Trainer
 from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args
 from src.trainer import init_optimizer, init_scheduler
@@ -121,6 +121,12 @@ def main():
 
     # Test predictions on best model and/or also last checkpointed model.
     trainer.evaluate(splits=['test'], final=False)
+    if args.test:
+        trainer.summarize_csv = False
+        logger.info(f'EVALUATING BEST MODEL ON IR-SPLIT DATA (ADDED ONE 0-MOMENTUM PARTICLE)')
+        trainer.evaluate(splits=['test'], final=False, ir_data=ir_data, expand_data=expand_data)
+        logger.info(f'EVALUATING BEST MODEL ON IRC-SPLIT DATA (ADD A NEW PARTICLE SLOT AND SPLIT ONE BEAM INTO TWO EQUAL HALVES)')
+        trainer.evaluate(splits=['test'], final=False, c_data=irc_data, expand_data=expand_data)
 
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32

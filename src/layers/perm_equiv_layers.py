@@ -29,8 +29,7 @@ def masked_var(x, nobj, dim=None, keepdims=False):
     var = (masked_mean((x - masked_mean(x, nobj, dim, keepdims=True))**2, nobj, dim, keepdims))
     return var
 
-def masked_sum(x, nobj, dim=None, keepdims=False):
-    N = x.shape[-1]
+def masked_sum(x, N, dim=None, keepdims=False):
     if type(dim)!=int:
         N = N**(len(dim))
     return x.sum(dim=dim, keepdims=keepdims) / N
@@ -84,7 +83,7 @@ def eops_2_to_0(inputs, nobj=None, aggregation='mean'):
     ops = [op1, op2]
     return torch.stack(ops, dim=2)
 
-def eops_2_to_1(inputs, nobj=None, aggregation='mean'):
+def eops_2_to_1(inputs, nobj=None, nobj_avg=49, aggregation='mean'):
     inputs = inputs.permute(0, 3, 1, 2)
     N, D, m, m = inputs.shape
     dim = inputs.shape[-1]
@@ -100,6 +99,7 @@ def eops_2_to_1(inputs, nobj=None, aggregation='mean'):
         aggregation_fn = masked_var
     elif aggregation == 'sum':
         aggregation_fn = masked_sum
+        nobj = nobj_avg
 
     sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True)
     sum_rows = aggregation_fn(inputs, nobj, dim=3)
@@ -162,7 +162,7 @@ def eops_2_to_1(inputs, nobj=None, aggregation='mean'):
 #     return torch.stack(ops[1:], dim=2)
 
 
-def eops_2_to_2(inputs, nobj=None, aggregation='mean', skip_order_zero=False):
+def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', skip_order_zero=False):
     inputs = inputs.permute(0, 3, 1, 2)
     N, D, m, m = inputs.shape
     dim = inputs.shape[-1]
@@ -178,6 +178,7 @@ def eops_2_to_2(inputs, nobj=None, aggregation='mean', skip_order_zero=False):
         aggregation_fn = masked_var
     elif aggregation == 'sum':
         aggregation_fn = masked_sum
+        nobj = nobj_avg
 
     sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True) # N x D x 1
     sum_rows = aggregation_fn(inputs, nobj, dim=3) # N x D x m

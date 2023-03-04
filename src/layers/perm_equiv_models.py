@@ -151,9 +151,9 @@ class Eq2to1(nn.Module):
         ops = []
         for i, char in enumerate(self.config):
             if char in ['s', 'm', 'x', 'n']:
-                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char])
+                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char])
             elif char in ['S', 'M', 'X', 'N']:
-                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()])
+                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()])
                 mult = (nobj).view([-1,1,1,1])**self.alphas[i]
                 mult = mult / (self.average_nobj** self.alphas[i])
                 op = op * mult
@@ -241,7 +241,7 @@ class Eq2to2(nn.Module):
         ops=[]
         for i, char in enumerate(self.config):
             if char.lower() in ['s', 'm', 'x', 'n']:
-                op = self.ops_func(inputs, nobj, aggregation=d[char.lower()], skip_order_zero=False if i==0 else True)
+                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()], skip_order_zero=False if i==0 else True)
                 if char in ['S', 'M', 'X', 'N']:
                     if i==0:
                         alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
