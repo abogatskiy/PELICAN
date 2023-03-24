@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import numpy as np
 from math import sqrt
 
@@ -161,6 +162,12 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
     
     s = data['Pmu'].shape
     particle_mask = torch.cat((torch.ones(s[0],2).bool().to(device=device), data['Pmu'][...,0] != 0.),dim=-1)
+
+    # p3s = data['Pmu'][:,:,1:4]
+    # Es = data['Pmu'][:,:,[0]]
+    # p3s = F.normalize(p3s, dim=-1) * Es
+    # data['Pmu'] = torch.cat([Es,p3s],dim=-1)
+
     edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
     if add_beams:
         p = 1

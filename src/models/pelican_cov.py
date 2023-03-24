@@ -63,7 +63,7 @@ class PELICANRegression(nn.Module):
 
         self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet(num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
-        self.eq2to1 = Eq2to1(num_channels_m_out[-1], num_channels2[0] if mlp_out else num_targets,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, average_nobj=average_nobj, config=config2, factorize=False, device = device, dtype = dtype)
+        self.eq2to1 = Eq2to1(num_channels_m_out[-1], num_channels2[0] if mlp_out else num_targets,  activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, ir_safe=ir_safe, average_nobj=average_nobj, config=config2, factorize=factorize, device = device, dtype = dtype)
         
         if mlp_out:
             self.mlp_out_1 = BasicMLP(self.num_channels2 + [num_targets], activation=activation, ir_safe=ir_safe, dropout = False, batchnorm = False, device=device, dtype=dtype)
