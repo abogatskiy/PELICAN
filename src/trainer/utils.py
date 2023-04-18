@@ -4,6 +4,8 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch.optim.lr_scheduler as sched
 from .optimizers import DemonRanger
+import numpy as np
+import random
 
 import os, sys, pickle
 from datetime import datetime
@@ -70,6 +72,8 @@ def fix_args(args):
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
     if args.reproducible:
         torch.backends.cudnn.enabled = False
         torch.backends.cudnn.benchmark = False
