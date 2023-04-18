@@ -181,22 +181,22 @@ def setup_argparse():
     parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: )',
                         # default=[[20], [30], [25], [25]]
-                        default = [[132],]*5
+                        default = [[60],]*5
                         )
     parser.add_argument('--num-channels1', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: )',
                         # default=[30, 30, 30, 10, 20]
-                        default=[78,]*5
+                        default=[35,]*5
                         )
     parser.add_argument('--num-channels-m-out', nargs='*', type=int, metavar='N',
                         help="""Channels in the final message layer between Net2to2 and Eq2to0 (or Eq2to1)
                                 number of layers (linear + activation) is len(num-channels-m-out) - 1. 
                                 The first number also specifies the output dimension of the last Eq2to2,
                                 and the last number specifies the input dimension of Eq2to0 (or Eq2to1)
-                                (default: )""", default = [132, 78])
+                                (default: )""", default = [60, 35])
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Include an output MLP (default = True)')
-    parser.add_argument('--num-channels2', nargs='*', type=int, default=[132], metavar='N',
+    parser.add_argument('--num-channels2', nargs='*', type=int, default=[60], metavar='N',
                         help="""Numbers of channels in the output MLP.
                         Number of layers (linear + activation) equals len(num-channels2).
                         The first number specifies the output dimension of Eq2to0 (or Eq2to1).

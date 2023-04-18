@@ -1,8 +1,24 @@
-import torch
-from torch.utils.data import DataLoader
-
 import logging
 import os
+import sys
+import numpy
+import random
+
+from src.trainer import which
+if which('nvidia-smi') is not None:
+    min=8000
+    deviceid = 0
+    name, mem = os.popen('"nvidia-smi" --query-gpu=gpu_name,memory.total --format=csv,nounits,noheader').read().split('\n')[deviceid].split(',')
+    print(mem)
+    mem = int(mem)
+    if mem < min:
+        print('Less GPU memory than requested. Terminating.')
+        sys.exit()
+
+logger = logging.getLogger('')
+
+import torch
+from torch.utils.data import DataLoader
 
 from src.models import PELICANMass
 from src.models import tests
@@ -16,8 +32,6 @@ from src.dataloaders import initialize_datasets, collate_fn
 
 # This makes printing tensors more readable.
 torch.set_printoptions(linewidth=1000, threshold=100000, sci_mode=False)
-
-logger = logging.getLogger('')
 
 
 def main():
@@ -34,11 +48,11 @@ def main():
     # Initialize logger
     init_logger(args)
 
+    if which('nvidia-smi') is not None:
+        logger.info(f'Using {name} with {mem} MB of GPU memory')
+    
     # Write input paramaters and paths to log
     logging_printout(args)
-
-    # Fix possible inconsistencies in arguments
-    args = fix_args(args)
 
     # Initialize device and data type
     device, dtype = init_cuda(args)
@@ -46,7 +60,10 @@ def main():
     # Initialize dataloder
     if args.fix_data:
         torch.manual_seed(165937750084982)
-    args, datasets = initialize_datasets(args, args.datadir, num_pts=None)
+    args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile)
+
+    # Fix possible inconsistencies in arguments
+    args = fix_args(args)
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass)
@@ -62,9 +79,11 @@ def main():
     model = PELICANMass(args.num_channels_m, args.num_channels1, args.num_channels2, args.num_channels_m_out,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, config1=args.config1, config2=args.config2, average_nobj=args.nobj_avg,
-                      factorize=args.factorize, masked=args.masked, softmasked=args.softmasked,
+                      factorize=args.factorize, masked=args.masked,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
-                      scale=args.scale, ir_safe=args.ir_safe, c_safe=args.c_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
+                      scale=args.scale, ir_safe=args.ir_safe,
+                        # c_safe=args.c_safe,
+                      dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
     
     model.to(device)
@@ -76,36 +95,35 @@ def main():
     if args.task.startswith('eval'):
         optimizer = scheduler = None
         restart_epochs = []
-        summarize = False
+        args.summarize = False
     else:
         optimizer = init_optimizer(args, model, len(dataloaders['train']))
-        scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
+        scheduler, restart_epochs = init_scheduler(args, optimizer)
+
 
     # Define a loss function. This is the loss function whose gradients are actually computed. 
 
     loss_fn_m = lambda predict, targets: (predict - normsq4(targets).abs().sqrt()).abs().mean()
     loss_fn = lambda predict, targets: 0.1 * loss_fn_m(predict,targets)
-    
+
     # Apply the covariance and permutation invariance tests.
     if args.test:
         raise NotImplementedError()
 
     # Instantiate the training class
-    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype)
-    
-    # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
-    trainer.load_checkpoint()
+    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device, dtype)
 
-    # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
-    if args.reproducible:
-        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
-
-    # Train model.
     if not args.task.startswith('eval'):
+        # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
+        trainer.load_checkpoint()
+        # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
+        if args.reproducible:
+            os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+        # Train model.
         trainer.train()
 
-    # Test predictions on best model and also last checkpointed model.
-    trainer.evaluate(splits=['test'])
+    # Test predictions on best model and/or also last checkpointed model.
+    trainer.evaluate(splits=['test'], final=False)
 
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32

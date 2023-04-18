@@ -1,6 +1,8 @@
 import logging
 import os
 import sys
+import numpy 
+import random
 
 from src.trainer import which
 if which('nvidia-smi') is not None:

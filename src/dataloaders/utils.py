@@ -51,10 +51,11 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
         num_pts_per_file[split] = []
         
         if num_pts[split] == -1:
-            for n in range(nfiles[split]): num_pts_per_file[split].append(-1)
+            num_pts_per_file[split] = [-1 for _ in range(nfiles[split])]
         else:
-            for n in range(nfiles[split]): num_pts_per_file[split].append(int(np.ceil(num_pts[split]/nfiles[split])))
-            num_pts_per_file[split][-1] = int(np.maximum(num_pts[split] - np.sum(np.array(num_pts_per_file[split])[0:-1]),0))
+            num_pts_per_file[split] = [int(np.ceil(num_pts[split]/nfiles[split])) for _ in range(nfiles[split])]
+            if nfiles[split]>0:
+                num_pts_per_file[split][-1] = int(np.maximum(num_pts[split] - np.sum(np.array(num_pts_per_file[split])[0:-1]),0))
     
     ### ------ 3: Load the data ------ ###
     datasets = {}
