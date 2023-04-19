@@ -72,7 +72,7 @@ def fix_args(args):
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
-    np.random.seed(args.seed)
+    np.random.seed(args.seed % 2**32)
     random.seed(args.seed)
     if args.reproducible:
         torch.backends.cudnn.enabled = False
