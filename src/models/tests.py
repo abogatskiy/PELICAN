@@ -138,12 +138,13 @@ def expand_data(data, num_particles=1, c=False):
 	return data
 
 
-def irc_test(model, data, keys=['predict']):
+def irc_test(model, data, keys=['predict'], logg = False):
 	"""
 	Tests PELICAN for IR-safety and C-safety separately.
 	First we create a clone of the data batch, apply expand_data() and then call the two tests, comparing the new outputs to the originals.
 	"""
-	logging.info('IRC safety test!')
+	if logg:
+		logging.info('IRC safety test!')
  
 	# First check IR safety (injection of new small momenta). This one is easier to enforce in a model -- 
 	# -- simply make sure that the outputs of the network are small whenever the inputs are.
@@ -156,7 +157,8 @@ def irc_test(model, data, keys=['predict']):
 		
 	outputs = model(data_irc_copy)
 	outputs_ir=[]
-
+	
+	ir_results = []
 	for alpha in alpha_range:
 		temp = {key: [] for key in keys}
 		for num_particles in range(1, max_particles + 1):
@@ -166,9 +168,12 @@ def irc_test(model, data, keys=['predict']):
 
 	for key in keys:
 		ir_test = [(alpha, ((output_ir[key] - outputs[key].unsqueeze(0).repeat([max_particles]+[1]*len(outputs[key].shape)))/outputs[key]).abs().nan_to_num(0,0,0).mean()) for (alpha, output_ir) in outputs_ir]
-		logging.info(f'IR safety test deviations for key={key} (format is (order of magnitude of momenta: [1 particle, 2 particles, ...])):')
+		if logg:
+			logging.info(f'IR safety test deviations for key={key} (format is (order of magnitude of momenta: [1 particle, 2 particles, ...])):')
 		for alpha, output in ir_test:
-			logging.warning('{:0.5g}, {}'.format(alpha, output.data.cpu().detach().numpy()))
+			if logg:
+				logging.warning('{:0.5g}, {}'.format(alpha, output.data.cpu().detach().numpy()))
+			ir_results.append(output.data.cpu().detach().numpy())
 
 
 	# Now Colinear safety (splitting a present four-momentum into two identical or almost identical halves).
@@ -180,9 +185,18 @@ def irc_test(model, data, keys=['predict']):
 
 	data_c = c_data(data_irc_copy)
 	outputs_c = model(data_c)
+
+	c_results = []
 	for key in keys:
 		c_test = ((outputs_c[key] - outputs[key])/outputs[key]).abs().nan_to_num().mean()
-		logging.info(f'C safety test deviations for key={key}: {c_test.data.cpu().detach().numpy()}')
+		if logg:
+			logging.info(f'C safety test deviations for key={key}: {c_test.data.cpu().detach().numpy()}')
+		c_results.append(c_test.data.cpu().detach().numpy())
+
+	ir_results = np.array(ir_results)
+	c_results = np.array(c_results)
+	return ir_results, c_results
+
 
 def gpu_test(model, data, t0):
 	logging.info('Starting the computational cost test!')
@@ -241,6 +255,7 @@ def tests(model, dataloader, args, tests=['permutation','batch','irc'], cov=Fals
 	
 	t0 = datetime.now()
 	data = next(iter(dataloader))
+	it = iter(dataloader)
 	
 	for str in tests:
 		if str=='gpu':
@@ -250,6 +265,20 @@ def tests(model, dataloader, args, tests=['permutation','batch','irc'], cov=Fals
 		elif str=='batch':
 			with torch.no_grad(): batch_test(model, data)
 		elif str=='irc':
-			with torch.no_grad(): irc_test(model, data, keys=['predict', 'weights'] if cov else ['predict'])
-
-	logging.info('Test complete!')
+			num = 9
+			with torch.no_grad(): 
+				data1 = next(it)
+				ir, c = irc_test(model, data1, keys=['predict', 'weights'] if cov else ['predict'], logg=True)
+				for x in range(num):
+					data1 = next(it)
+					ir_results, c_results = irc_test(model, data1, keys=['predict', 'weights'] if cov else ['predict'], logg=False)
+					ir = ir + ir_results
+					c = c + c_results
+			ir = ir/num
+			c = c/num
+			logging.info(f"ir_test_average_over_{num}_batches:")
+			logging.info("ir:")
+			logging.info(ir)
+			logging.info("c:")
+			logging.info(c)
+		logging.info('Test complete!')
