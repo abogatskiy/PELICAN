@@ -265,7 +265,7 @@ def tests(model, dataloader, args, tests=['permutation','batch','irc'], cov=Fals
 		elif str=='batch':
 			with torch.no_grad(): batch_test(model, data)
 		elif str=='irc':
-			num = 9
+			num = 299
 			with torch.no_grad(): 
 				data1 = next(it)
 				ir, c = irc_test(model, data1, keys=['predict', 'weights'] if cov else ['predict'], logg=True)
