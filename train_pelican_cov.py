@@ -101,7 +101,7 @@ def main():
 
 
     # Define a loss function. This is the loss function whose gradients are actually computed. 
-    loss_fn = lambda predict, targets:      0.01 * loss_fn_E(predict, targets) #0.05 * loss_fn_m(predict,targets) + 0.01 * loss_fn_3d(predict, targets) #+ 10 * loss_fn_psi(predict,targets) #  #    #+ 0.02 * loss_fn_E(predict,targets) #  #+  + 0.01 * loss_fn_pT(predict,targets) #  #0.03 * loss_fn_inv(predict,targets) + 
+    loss_fn = lambda predict, targets:      0.05 * loss_fn_m(predict,targets) + 0.01 * loss_fn_3d(predict, targets) #0.01 * loss_fn_E(predict, targets) #+ 10 * loss_fn_psi(predict,targets) #  #    #+ 0.02 * loss_fn_E(predict,targets) #  #+  + 0.01 * loss_fn_pT(predict,targets) #  #0.03 * loss_fn_inv(predict,targets) + 
     # loss_fn = lambda predict, targets:      0.0005 * loss_fn_col(predict,targets) + 0.01*(-predict[...,0]).relu().mean() + 0.001 * loss_fn_inv(predict,targets) # 0.1 * loss_fn_m(predict,targets)
 
     # Apply the covariance and permutation invariance tests.
