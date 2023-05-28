@@ -90,7 +90,7 @@ class MessageNet(nn.Module):
         activation_fn = get_activation_fn(activation)
         self.activations = nn.ModuleList([activation_fn for i in range(depth)])
         
-        if depth == 0: self.batchnorm = False
+        # if depth == 0: self.batchnorm = False
         if self.batchnorm == True:
             self.batchnorm = 'b'
         if self.batchnorm:
@@ -162,24 +162,24 @@ class InputEncoder(nn.Module):
         super().__init__()
 
         self.to(device=device, dtype=dtype)
-        self.alphas = nn.Parameter(torch.linspace(0.1, 0.5, out_dim, device=device, dtype=dtype).view(1, 1, 1, out_dim))
+        self.alphas = nn.Parameter(torch.linspace(0.05, 0.5, out_dim, device=device, dtype=dtype).view(1, 1, 1, out_dim))
         # self.alphas = nn.Parameter(0.5 * torch.rand(1, 1, 1, out_dim, device=device, dtype=dtype))
         # self.betas = nn.Parameter(torch.randn(1, 1, 1, out_dim, device=device, dtype=dtype))
         self.zero = torch.tensor(0, device=device, dtype=dtype)
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, mode='log'):
 
-        x = x.unsqueeze(-1)
+        # x = x.unsqueeze(-1)
         # x = (1. + x).abs().pow(1e-6 + self.alphas) - 1.
         # x = ((self.betas.abs() + x).abs().pow(1e-6 + self.alphas ** 2) - self.betas.abs().pow(1e-6 + self.alphas ** 2)) / (1e-6 + self.alphas ** 2) #288
         # x = x * (x < (100 * self.betas.exp())) 
-
-        x = ((1 + x).abs().pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
-        # x = x.sign() * x.abs().pow(1e-6 + self.alphas ** 2)
-
         # x = (1e-2 + x).abs().log()/2  # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
-        
-        # x = x.arcsinh()
+
+        if mode=='log':
+            x = ((1 + x).abs().pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
+
+        if mode=='arcsinh':
+            x = (x * 2 * self.alphas).arcsinh() / (1e-6 + self.alphas.abs())
 
         if mask is not None:
             x = torch.where(mask, x, self.zero)
@@ -196,17 +196,27 @@ class SoftMask(nn.Module):
     def __init__(self, device=torch.device('cpu'), dtype=torch.float):
         super(SoftMask, self).__init__()
 
-        self.beta = nn.Parameter(torch.tensor(1., device=device, dtype=dtype))
-        self.mu = 1.# nn.Parameter(torch.tensor(2., device=device, dtype=dtype))
-
         self.zero = torch.tensor(0, device=device, dtype=dtype)
 
         self.to(device=device, dtype=dtype)
 
-    def forward(self, x, mask=None):
-        # x = ((x-self.mu)*self.beta).sigmoid()
+    def forward(self, x, mask=None, mode=''):
+        
+        if mode=='c':
+            masses = 1000 * torch.diagonal(x, dim1=1, dim2=2)
+            x = torch.clamp(masses.unsqueeze(-1) * masses.unsqueeze(-2), min=-1., max=1.)
+        
+        if mode=='c1d':
+            masses = 1000 * torch.diagonal(x, dim1=1, dim2=2)
+            x = torch.clamp(masses, min=-1., max=1.)
+        
+        if mode=='ir':
+            mag = x.sum(dim=1) * 0.001
+            x = torch.clamp(mag.unsqueeze(-1) * mag.unsqueeze(-2), min=-1., max=1.)
 
-        x = (self.beta * x).tanh() ** self.mu
+        if mode=='ir1d':
+            mag = x.sum(dim=1) * 0.001
+            x = torch.clamp(mag, min=-1., max=1.)
 
         # If mask is included, mask the output
         if mask is not None:

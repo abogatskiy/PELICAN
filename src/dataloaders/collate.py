@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import numpy as np
 from math import sqrt
 
@@ -161,11 +162,18 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
     
     s = data['Pmu'].shape
     particle_mask = torch.cat((torch.ones(s[0],2).bool().to(device=device), data['Pmu'][...,0] != 0.),dim=-1)
+
+    # p3s = data['Pmu'][:,:,1:4]
+    # Es = data['Pmu'][:,:,[0]]
+    # p3s = F.normalize(p3s, dim=-1) * Es
+    # data['Pmu'] = torch.cat([Es,p3s],dim=-1)
+
     edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
     if add_beams:
         p = 1
         beams = torch.tensor([[[sqrt(p**2+beam_mass**2),0,0,p], [sqrt(p**2+beam_mass**2),0,0,-p]]], dtype=data['Pmu'].dtype).expand(data['Pmu'].shape[0], 2, 4)
         data['Pmu'] = torch.cat([beams, data['Pmu'] * scale], dim=1)
+        data['Nobj'] = data['Nobj'] + 2
     else:
         data['Pmu'] = data['Pmu'] * scale
     labels = torch.cat((torch.ones(s[0], 2), torch.zeros(s[0], s[1])), dim=1)
@@ -184,6 +192,5 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
 
     data['particle_mask'] = particle_mask.bool()
     data['edge_mask'] = edge_mask.bool()
-
 
     return data

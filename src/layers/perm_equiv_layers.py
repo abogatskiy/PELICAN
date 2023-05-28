@@ -29,8 +29,7 @@ def masked_var(x, nobj, dim=None, keepdims=False):
     var = (masked_mean((x - masked_mean(x, nobj, dim, keepdims=True))**2, nobj, dim, keepdims))
     return var
 
-def masked_sum(x, nobj, dim=None, keepdims=False):
-    N = x.shape[-1]
+def masked_sum(x, N, dim=None, keepdims=False):
     if type(dim)!=int:
         N = N**(len(dim))
     return x.sum(dim=dim, keepdims=keepdims) / N
@@ -84,7 +83,7 @@ def eops_2_to_0(inputs, nobj=None, aggregation='mean'):
     ops = [op1, op2]
     return torch.stack(ops, dim=2)
 
-def eops_2_to_1(inputs, nobj=None, aggregation='mean'):
+def eops_2_to_1(inputs, nobj=None, nobj_avg=49, aggregation='mean'):
     inputs = inputs.permute(0, 3, 1, 2)
     N, D, m, m = inputs.shape
     dim = inputs.shape[-1]
@@ -100,6 +99,7 @@ def eops_2_to_1(inputs, nobj=None, aggregation='mean'):
         aggregation_fn = masked_var
     elif aggregation == 'sum':
         aggregation_fn = masked_sum
+        nobj = nobj_avg
 
     sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True)
     sum_rows = aggregation_fn(inputs, nobj, dim=3)
@@ -107,9 +107,9 @@ def eops_2_to_1(inputs, nobj=None, aggregation='mean'):
     sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # N x D
 
     op1 = diag_part
-    op2 = sum_diag_part.expand(-1, -1, dim)
-    op3 = sum_rows
-    op4 = sum_cols
+    op2 = sum_rows
+    op3 = sum_cols
+    op4 = sum_diag_part.expand(-1, -1, dim)
     op5 = sum_all.unsqueeze(2).expand(-1, -1, dim)
     ops = [op1, op2, op3, op4, op5]
     return torch.stack(ops, dim=2)
@@ -162,7 +162,7 @@ def eops_2_to_1(inputs, nobj=None, aggregation='mean'):
 #     return torch.stack(ops[1:], dim=2)
 
 
-def eops_2_to_2(inputs, nobj=None, aggregation='mean', skip_order_zero=False):
+def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', skip_order_zero=False):
     inputs = inputs.permute(0, 3, 1, 2)
     N, D, m, m = inputs.shape
     dim = inputs.shape[-1]
@@ -178,6 +178,7 @@ def eops_2_to_2(inputs, nobj=None, aggregation='mean', skip_order_zero=False):
         aggregation_fn = masked_var
     elif aggregation == 'sum':
         aggregation_fn = masked_sum
+        nobj = nobj_avg
 
     sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True) # N x D x 1
     sum_rows = aggregation_fn(inputs, nobj, dim=3) # N x D x m
@@ -189,27 +190,21 @@ def eops_2_to_2(inputs, nobj=None, aggregation='mean', skip_order_zero=False):
     if not skip_order_zero:
         ops[1] = inputs
         ops[2] = torch.transpose(inputs, 2, 3)
-        ops[3] = diag_part.unsqueeze(2).expand(-1, -1, dim, -1)
-        ops[4] = diag_part.unsqueeze(3).expand(-1, -1, -1, dim)
-        ops[5] = torch.diag_embed(diag_part) # N x D x m x m
+        ops[3] = torch.diag_embed(diag_part) # N x D x m x m
+        ops[4] = diag_part.unsqueeze(2).expand(-1, -1, dim, -1)
+        ops[5] = diag_part.unsqueeze(3).expand(-1, -1, -1, dim)
 
-    ops[6]   = sum_cols.unsqueeze(2).expand(-1, -1, dim, -1)
-    ops[7]   = sum_rows.unsqueeze(2).expand(-1, -1, dim, -1)
-    ops[8]   = sum_diag_part.unsqueeze(3).expand(-1, -1, dim, dim)
-    ops[9]   = sum_cols.unsqueeze(3).expand(-1, -1, -1, dim)
-    ops[10]  = sum_rows.unsqueeze(3).expand(-1, -1, -1, dim)
-    ops[11]  = torch.diag_embed(sum_diag_part.expand(-1, -1, dim))
-    ops[12]  = torch.diag_embed(sum_rows)
-    ops[13]  = torch.diag_embed(sum_cols)
+    ops[6]  = torch.diag_embed(sum_cols)
+    ops[7]   = sum_cols.unsqueeze(2).expand(-1, -1, dim, -1)
+    ops[8]   = sum_cols.unsqueeze(3).expand(-1, -1, -1, dim)
+    ops[9]  = torch.diag_embed(sum_rows)
+    ops[10]   = sum_rows.unsqueeze(2).expand(-1, -1, dim, -1)
+    ops[11]  = sum_rows.unsqueeze(3).expand(-1, -1, -1, dim)
+    ops[12]   = sum_diag_part.unsqueeze(3).expand(-1, -1, dim, dim)
+    ops[13]  = torch.diag_embed(sum_diag_part.expand(-1, -1, dim))
 
     ops[14]  = sum_all.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, dim, dim)
     ops[15]  = torch.diag_embed(sum_all.unsqueeze(-1).expand(-1, -1, dim))
-
-    # Now define a mask for the particle indices that can be used to properly normalize the aggregators that use diag_embed. 
-    # This does NOT include information about nobj, so it should be multiplied by the particle mask
-    # d = torch.eye(m, device=inputs.device).bool()
-    # o = torch.ones((m,m), device=inputs.device).bool()
-    # mask = torch.stack([o,o,o,o,d,o,o,o,o,o,d,d,d,o,d], dim=0).unsqueeze(0).unsqueeze(0)
 
     if skip_order_zero:
         ops = torch.stack(ops[6:], dim=2)

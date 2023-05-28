@@ -1,8 +1,20 @@
+import logging
+import os
+import sys
+
+from src.trainer import which
+if which('nvidia-smi') is not None:
+    min=40000
+    deviceid = 0
+    name, mem = os.popen('"nvidia-smi" --query-gpu=gpu_name,memory.total --format=csv,nounits,noheader').read().split('\n')[deviceid].split(',')
+    print(mem)
+    mem = int(mem)
+    if mem < min:
+        print('Less GPU memory than requested. Terminating.')
+        sys.exit()
+
 import torch
 from torch.utils.data import DataLoader
-
-import os
-import logging
 import optuna
 from optuna.trial import TrialState
 
@@ -29,12 +41,14 @@ def suggest_params(args, trial):
     # # args.lr_final = trial.suggest_loguniform("lr_final", 1e-8, 1e-5)
     # # args.scale = trial.suggest_loguniform("scale", 1e-2, 3)
     # # args.sig = trial.suggest_categorical("sig", [True, False])
-    # # args.drop_rate = trial.suggest_float("drop_rate", 0, 0.5, step=0.05)
+    args.drop_rate = trial.suggest_float("drop_rate", 0, 0.05, step=0.01)
+    args.drop_rate_out = trial.suggest_float("drop_rate_out", 0, 0.25, step=0.05)
+    args.weight_decay = trial.suggest_float("weight_decay", 0, 0.025, step=0.005)
     # # args.layernorm = trial.suggest_categorical("layernorm", [True, False])
     # # args.lr_decay_type = trial.suggest_categorical("lr_decay_type", ['exp', 'cos'])
 
     # # args.batch_size = trial.suggest_categorical("batch_size", [16, 32])
-    # args.double = trial.suggest_categorical("double", [False, True])
+    args.double = trial.suggest_categorical("double", [False, True])
     # args.factorize = trial.suggest_categorical("factorize", [False, True])
     # args.nobj = trial.suggest_int("nobj", 50, 90)
     # # args.ir_safe = trial.suggest_categorical("ir_safe", [False, True])
@@ -44,16 +58,18 @@ def suggest_params(args, trial):
     # args.config2 = trial.suggest_categorical("config2", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     
     # n_layers1 = trial.suggest_int("n_layers1", 2, 6)
+    n_layers1 = 5
 
     # # n_layersm = trial.suggest_int("n_layersm", 1, 2)
-    # # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(k)+']', 10, 30) for k in range(n_layersm)]] * n_layers1
+    n_layersm = 1
+    args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(k)+']', 20, 60) for k in range(n_layersm)]] * n_layers1
     # n_layersm = [trial.suggest_int("n_layersm", 1, 2) for i in range(n_layers1)]
     # args.num_channels_m = [[trial.suggest_int('n_channelsm['+str(i)+', '+str(k)+']', 10, 50) for k in range(n_layersm[i])] for i in range(n_layers1)]
 
     # n_layersm_out = trial.suggest_int("n_layersm2", 1, 2)
     # args.num_channels_m_out = [trial.suggest_int('n_channelsm_out['+str(k)+']', 10, 50) for k in range(n_layersm_out)]
 
-    # args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 40) for i in range(n_layers1 + 1)]
+    args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 40) for i in range(n_layers1)]
     # # args.num_channels1 = [trial.suggest_int("n_channels1", 3, 30)]
     # # args.num_channels1 = args.num_channels1 * (n_layers1) + [args.num_channels_m[0][0] if n_layersm > 0 else args.num_channels1[0]]
 
@@ -61,9 +77,12 @@ def suggest_params(args, trial):
     # # args.num_channels_m = [[trial.suggest_int("n_channels1", 1, 10), args.num_channels1[0]*15*len(args.config)]] * n_layers1
     # # args.num_channels1 = args.num_channels1 + [args.num_channels_m[0][0]]
 
+    args.num_channels_m_out = [trial.suggest_int("n_channels_m_out["+str(i)+"]", 20, 60) for i in range(2)]
+
     # n_layers2 = trial.suggest_int("n_layers2", 1, 2)
-    # # n_layers2 = 1
-    # args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 10, 40) for i in range(n_layers2)]
+    n_layers2 = 1
+    args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 20, 60) for i in range(n_layers2)]
+
 
     # # args.activation = trial.suggest_categorical("activation", ["elu", "leakyrelu"]) #, "relu", "silu", "selu", "tanh"])
     # # args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
@@ -73,8 +92,8 @@ def suggest_params(args, trial):
     # # args.dropout = trial.suggest_categorical("dropout", [True])
     # # args.batchnorm = trial.suggest_categorical("batchnorm", ['b'])
 
-    trial.suggest_float("c1", 0., 0.002)
-    trial.suggest_float("c2", 0., 0.002)
+    # trial.suggest_float("c1", 0., 0.002)
+    # trial.suggest_float("c2", 0., 0.002)
 
     return args
 
@@ -105,11 +124,13 @@ def define_model(trial):
     device, dtype = init_cuda(args)
 
     # Initialize model
-    model = PELICANRegression(args.num_channels_m, args.num_channels1, args.num_channels2, args.num_channels_m_out,
+    model = PELICANRegression(args.num_channels_m, args.num_channels1, args.num_channels2, args.num_channels_m_out, num_targets=args.num_targets,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
-                      activation=args.activation, add_beams=args.add_beams, sig=args.sig, config1=args.config1, config2=args.config2, factorize=args.factorize, masked=args.masked, softmasked=args.softmasked,
+                      activation=args.activation, add_beams=args.add_beams, sig=args.sig, config1=args.config1, config2=args.config2, average_nobj=args.nobj_avg,
+                      factorize=args.factorize, masked=args.masked, softmasked=args.softmasked,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
-                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, batchnorm=args.batchnorm,
+                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
+                      task = args.task,
                       device=device, dtype=dtype)
 
     model.to(device)
@@ -145,28 +166,39 @@ def objective(trial):
         model = torch.nn.DataParallel(model)
 
     # Initialize the scheduler and optimizer
-    optimizer = init_optimizer(args, model)
-    scheduler, restart_epochs, summarize = init_scheduler(args, optimizer)
+    if args.task.startswith('eval'):
+        optimizer = scheduler = None
+        restart_epochs = []
+        summarize = False
+    else:
+        optimizer = init_optimizer(args, model, len(dataloaders['train']))
+        scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
 
-    # Define a loss function.
-    loss_fn_inv = lambda predict, targets:  normsq4(predict - targets).abs().mean()
-    loss_fn_m2 = lambda predict, targets:  (normsq4(predict) - normsq4(targets)).abs().mean()
-    loss_fn_3d = lambda predict, targets:  (predict[:,[1,2,3]] - targets[:,[1,2,3]]).norm(dim=-1).mean()
-    loss_fn_4d = lambda predict, targets:  (predict-targets).pow(2).sum(-1).mean()
-    loss_fn = lambda predict, targets: trial.params['c1'] * loss_fn_inv(predict,targets) + trial.params['c2'] * loss_fn_m2(predict,targets) #+ 0.001 * loss_fn_4d(predict, targets)
+
+    # Define a loss function. This is the loss function whose gradients are actually computed. 
+    def mass(x):
+        norm=normsq4(x)
+        return norm.sign() * (norm + 1e-12).abs().sqrt()
+
+    loss_fn_inv = lambda predict, targets:  (normsq4(predict - targets).abs() + 1e-12).sqrt().mean()
+    loss_fn_m2 = lambda predict, targets:   (normsq4(predict) - normsq4(targets)).abs().mean()
+    loss_fn_m = lambda predict, targets:    (mass(predict) - mass(targets)).abs().mean()
+    loss_fn_3d = lambda predict, targets:   (predict[...,1:] - targets[...,1:]).norm(dim=-1).mean()
+    loss_fn_4d = lambda predict, targets:   (predict-targets).norm(dim=-1).mean()
+    loss_fn = lambda predict, targets:      0.05 * loss_fn_m(predict,targets) + 0.01 * loss_fn_3d(predict, targets) #0.03 * loss_fn_inv(predict,targets) + 0.01 * loss_fn_4d(predict, targets)
     
     # Apply the covariance and permutation invariance tests.
     if args.test:
-        tests(model, dataloaders['train'], args, tests=['permutation','batch','irc'])
+        raise NotImplementedError()
 
     # Instantiate the training class
-    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize, device, dtype)
+    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype)
 
     # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
     trainer.load_checkpoint()
 
     # Train model.  
-    best_epoch, best_metrics = trainer.train(trial=None, metric_to_report=None)
+    best_epoch, best_metrics = trainer.train(trial=trial, metric_to_report='loss')
 
     print(f"Best epoch was {best_epoch} with metrics {best_metrics}")
 
@@ -175,7 +207,7 @@ def objective(trial):
         best_metrics=trainer.evaluate(splits=['test'], best=True, final=False)
         trial.set_user_attr("best_test_metrics", best_metrics)
 
-    return best_metrics['∆Ψ'], best_metrics['∆m']
+    return best_metrics['loss']
 
 if __name__ == '__main__':
 
@@ -193,7 +225,7 @@ if __name__ == '__main__':
     if args.sampler.lower() == 'random':
         sampler = optuna.samplers.RandomSampler()
     elif args.sampler.lower().startswith('tpe'):
-        sampler = optuna.samplers.TPESampler(n_startup_trials=100, multivariate=True, group=True, constant_liar=True)
+        sampler = optuna.samplers.TPESampler(n_startup_trials=5, multivariate=True, group=True, constant_liar=True)
 
     if args.pruner == 'hyperband':
         pruner = optuna.pruners.HyperbandPruner()

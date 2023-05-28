@@ -149,8 +149,10 @@ class Trainer:
 
         checkpoint = torch.load(checkfile, map_location=torch.device(self.device))
         self.model.load_state_dict(checkpoint['model_state'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state'])
-        self.scheduler.load_state_dict(checkpoint['scheduler_state'])
+        if self.optimizer is not None:
+            self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+        if self.scheduler is not None:
+            self.scheduler.load_state_dict(checkpoint['scheduler_state'])
         self.epoch = checkpoint['epoch']
         self.best_metrics = checkpoint['best_metrics']
         self.minibatch = checkpoint['minibatch']
@@ -158,7 +160,7 @@ class Trainer:
 
         logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.epoch}:\n{self.best_metrics}')
 
-    def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True, no_log=False):
+    def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True, ir_data=None, c_data=None, expand_data=None):
         """
         Evaluate model on training/validation/testing splits.
 
@@ -176,13 +178,12 @@ class Trainer:
             checkpoint = torch.load(self.args.checkfile, map_location=torch.device(self.device))
             final_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['model_state'])
-            logger.info(f'Getting predictions for final model (epoch {final_epoch}).')
+            logger.info(f'Getting predictions for final model {self.args.checkfile} (epoch {final_epoch}).')
 
             # Loop over splits, predict, and output/log predictions
             for split in splits:
-                predict, targets = self.predict(set=split)
-                if not no_log:
-                    best_metrics, logstring = self.log_predict(predict, targets, split, description='Final', no_log=no_log)
+                predict, targets = self.predict(set=split, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
+                best_metrics, logstring = self.log_predict(predict, targets, split, description='Final')
 
         # Evaluate best model as determined by validation error
         if best:
@@ -191,16 +192,14 @@ class Trainer:
             best_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['model_state'])
             if (not final) or (final and not best_epoch == final_epoch):
-                logger.info(f'Getting predictions for best model (epoch {best_epoch}).')
+                logger.info(f'Getting predictions for best model {self.args.bestfile} (epoch {best_epoch}, best validation metrics were {checkpoint["best_metrics"]}).')
                 # Loop over splits, predict, and output/log predictions
                 for split in splits:
-                    predict, targets = self.predict(split)
-                    best_metrics, logstring = self.log_predict(predict, targets, split, description='Best', no_log=no_log)
+                    predict, targets = self.predict(split, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
+                    best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
             elif best_epoch == final_epoch:
                 logger.info('BEST MODEL IS SAME AS FINAL')
-                self.log_predict(predict, targets, split, description='Best', repeat=[best_metrics, logstring], no_log=no_log)
-        if no_log:
-            logger.info('Logging of final evaluation metrics skipped. Look for those prediction files!\n')
+                self.log_predict(predict, targets, split, description='Best', repeat=[best_metrics, logstring])
         logger.info('Inference phase complete!\n')
 
     def _warm_restart(self, epoch):
@@ -311,7 +310,7 @@ class Trainer:
 
         current_idx, num_data_pts = 0, len(dataloader.dataset)
         self.loss_val, self.alt_loss_val, self.batch_time = 0, 0, 0
-        all_predict, all_targets = [], []
+        all_predict, all_targets = {}, []
 
         self.model.train()
         epoch_t = datetime.now()
@@ -328,7 +327,7 @@ class Trainer:
             # predict_t = datetime.now()
 
             # Calculate loss and backprop
-            loss = self.loss_fn(predict, targets)
+            loss = self.loss_fn(predict['predict'], targets)
             total_loss += loss
                 
             # Standard zero-gradient and backward propagation
@@ -346,45 +345,53 @@ class Trainer:
             self._step_lr_batch()
 
 
-            targets, predict = targets.detach().cpu(), predict.detach().cpu()
-            all_predict.append(predict)
-            all_targets.append(targets)
+            targets = targets.detach().cpu()
+            predict = {key: val.detach().cpu() for key, val in predict.items()}
 
-            self._log_minibatch(batch_idx, loss, targets, predict, batch_t, fwd_t, bwd_t, epoch_t)
+            all_targets.append(targets)
+            for key, val in predict.items(): all_predict.setdefault(key,[]).append(val)
+
+            self._log_minibatch(batch_idx, loss, targets, predict['predict'], batch_t, fwd_t, bwd_t, epoch_t)
 
             self.minibatch += 1
 
-        all_predict = torch.cat(all_predict)
+        all_predict = {key: torch.cat(val) for key, val in all_predict.items()}
         all_targets = torch.cat(all_targets)
 
         return all_predict, all_targets, epoch_t
 
-    def predict(self, set='valid'):
+    def predict(self, set='valid', ir_data=None, c_data=None, expand_data=None):
         dataloader = self.dataloaders[set]
 
         self.model.eval()
-        all_predict, all_targets = [], []
+        all_predict, all_targets = {}, []
         start_time = datetime.now()
         logger.info('Starting testing on {} set: '.format(set))
 
-        for batch_idx, data in enumerate(dataloader):
+        with torch.no_grad():
+            for batch_idx, data in enumerate(dataloader):
+                if expand_data:
+                    data = expand_data(data)
+                if ir_data is not None:
+                    data = ir_data(data)
+                if c_data is not None:
+                    data = c_data(data)
+                targets = self._get_target(data, self.stats)
+                predict = {key: val for key, val in self.model(data).items()}
 
-            targets = self._get_target(data, self.stats)
-            predict = self.model(data).detach()
+                all_targets.append(targets)
+                for key, val in predict.items(): all_predict.setdefault(key, []).append(val)
 
-            all_targets.append(targets)
-            all_predict.append(predict)
-
-        all_predict = torch.cat(all_predict)
         all_targets = torch.cat(all_targets)
+        all_predict = {key: torch.cat(val) for key, val in all_predict.items()}
 
         dt = (datetime.now() - start_time).total_seconds()
         logger.info('Total evaluation time: {}s'.format(dt))
 
         return all_predict, all_targets
 
-    def log_predict(self, predict, targets, dataset, epoch=-1, epoch_t=None, description='', repeat=None, no_log=False):
-        predict = predict.cpu().double()
+    def log_predict(self, predict, targets, dataset, epoch=-1, epoch_t=None, description='', repeat=None):
+        predict = {key: val.cpu().double() for key, val in predict.items()}
         targets = targets.cpu().double()
 
         datastrings = {'train': 'Training  ', 'test': 'Testing   ', 'valid': 'Validation'}
@@ -397,11 +404,10 @@ class Trainer:
         prefix = self.args.predictfile + '.' + suffix + '.' + dataset
         metrics, logstring = None, 'metrics skipped!'
 
-        if not no_log:
-            if repeat is None:
-                metrics, logstring = self.metrics_fn(predict, targets, self.loss_fn, prefix, logger)
-            else:
-                metrics, logstring = repeat[0], repeat[1]
+        if repeat is None:
+            metrics, logstring = self.metrics_fn(predict['predict'], targets, self.loss_fn, prefix, logger)
+        else:
+            metrics, logstring = repeat[0], repeat[1]
 
         if epoch >= 0:
             logger.info(f'Epoch {epoch} {description} {datastrings[dataset]}'+logstring)
@@ -414,32 +420,32 @@ class Trainer:
         metricsfile = self.args.predictfile + '.metrics.' + dataset + '.csv'   
         testmetricsfile = os.path.join(self.args.workdir, self.args.logdir, self.args.prefix.split("-")[0]+'.'+description+'.metrics.csv')
 
-        if not no_log:
-            if epoch >= 0 and self.summarize_csv=='all':
-                with open(metricsfile, mode='a' if (self.args.load or epoch>1) else 'w') as file_:
-                    if epoch == 1:
-                        file_.write(",".join(metrics.keys()))
-                    file_.write(",".join(map(str, metrics.values())))
-                    file_.write("\n")  # Next line.
-            if epoch < 0 and self.summarize_csv in ['test','all']:
-                if not os.path.exists(testmetricsfile):
-                    with open(testmetricsfile, mode='a') as file_:
-                        file_.write("prefix,timestamp,"+",".join(metrics.keys()))
-                        file_.write("\n")  # Next line.
+        if epoch >= 0 and self.summarize_csv=='all':
+            with open(metricsfile, mode='a' if (self.args.load or epoch>1) else 'w') as file_:
+                if epoch == 1:
+                    file_.write(",".join(metrics.keys()))
+                file_.write(",".join(map(str, metrics.values())))
+                file_.write("\n")  # Next line.
+        if epoch < 0 and self.summarize_csv in ['test','all']:
+            if not os.path.exists(testmetricsfile):
                 with open(testmetricsfile, mode='a') as file_:
-                    file_.write(self.args.prefix+','+str(datetime.now())+','+",".join(map(str, metrics.values())))
+                    file_.write("prefix,timestamp,"+",".join(metrics.keys()))
                     file_.write("\n")  # Next line.
+            with open(testmetricsfile, mode='a') as file_:
+                file_.write(self.args.prefix+','+str(datetime.now())+','+",".join(map(str, metrics.values())))
+                file_.write("\n")  # Next line.
 
 
         if self.args.predict and (repeat is None):
             file = self.args.predictfile + '.' + suffix + '.' + dataset + '.pt'
             logger.info('Saving predictions to file: {}'.format(file))
-            torch.save({'predict': predict, 'targets': targets}, file)
+            predict.update({'targets': targets})
+            torch.save(predict, file)
         
         if repeat is not None:
             logger.info('Predictions already saved above')
 
-        if not no_log and self.summarize:
+        if self.summarize:
             if description == 'Best': dataset = 'Best_' + dataset
             if description == 'Final': dataset = 'Final_' + dataset
             for name, metric in metrics.items():

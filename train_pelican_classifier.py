@@ -1,6 +1,8 @@
 import logging
 import os
 import sys
+import numpy 
+import random
 
 from src.trainer import which
 if which('nvidia-smi') is not None:
@@ -40,6 +42,9 @@ def main():
     # Initialize file paths
     args = init_file_paths(args)
 
+    # Fix possible inconsistencies in arguments
+    args = fix_args(args)
+
     # Initialize logger
     init_logger(args)
 
@@ -48,9 +53,6 @@ def main():
 
     # Write input paramaters and paths to log
     logging_printout(args)
-
-    # Fix possible inconsistencies in arguments
-    args = fix_args(args)
 
     # Initialize device and data type
     device, dtype = init_cuda(args)
@@ -62,9 +64,6 @@ def main():
 
     # Fix possible inconsistencies in arguments
     args = fix_args(args)
-
-    if args.task.startswith('eval'):
-        args.load = True
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass)
@@ -79,10 +78,10 @@ def main():
     # Initialize model
     model = PELICANClassifier(args.num_channels_m, args.num_channels1, args.num_channels2, args.num_channels_m_out,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
-                      activation=args.activation, add_beams=args.add_beams, sig=args.sig, config1=args.config1, config2=args.config2, average_nobj=args.nobj_avg,
-                      factorize=args.factorize, masked=args.masked, softmasked=args.softmasked,
+                      activation=args.activation, add_beams=args.add_beams, config1=args.config1, config2=args.config2, average_nobj=args.nobj_avg,
+                      factorize=args.factorize, masked=args.masked,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
-                      scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
+                      scale=args.scale, ir_safe=args.ir_safe, c_safe=args.c_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
     
     model.to(device)
@@ -91,8 +90,13 @@ def main():
         model = torch.nn.DataParallel(model)
 
     # Initialize the scheduler and optimizer
-    optimizer = init_optimizer(args, model, len(dataloaders['train']))
-    scheduler, restart_epochs, summarize_csv, summarize = init_scheduler(args, optimizer)
+    if args.task.startswith('eval'):
+        optimizer = scheduler = None
+        restart_epochs = []
+        summarize = False
+    else:
+        optimizer = init_optimizer(args, model, len(dataloaders['train']))
+        scheduler, restart_epochs = init_scheduler(args, optimizer)
 
     # Define a loss function.
     # loss_fn = torch.nn.functional.cross_entropy
@@ -100,10 +104,10 @@ def main():
     
     # Apply the covariance and permutation invariance tests.
     if args.test:
-        tests(model, dataloaders['train'], args, tests=['gpu'])
+        tests(model, dataloaders['train'], args, tests=['gpu','irc', 'permutation'])
 
     # Instantiate the training class
-    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype)
+    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device, dtype)
     
     # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
     trainer.load_checkpoint()

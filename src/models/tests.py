@@ -30,8 +30,8 @@ def permutation_test(model, data):
 	data_perm = {key: apply_perm(0, val) if key in ['Pmu', 'scalars'] else val for key, val in data.items()}
 	data_perm['scalars'] = apply_perm(1, data_perm['scalars'])
 
-	outputs_noperm = model(data_noperm)
-	outputs_perm = model(data_perm)
+	outputs_noperm = model(data_noperm)['predict']
+	outputs_perm = model(data_perm)['predict']
 
 	invariance_test = (outputs_perm - outputs_noperm).abs().max()/outputs_noperm.abs().max()
 
@@ -50,93 +50,153 @@ def batch_test(model, data):
 	logging.info('Batch invariance test error: {}'.format(invariance_test))
 
 
-def ir_data(data_irc, num_particles, alpha):
-### 
-# Add num_particles random four-momenta to the data array with alpha specifying the scaling relative to O(1)
-###
-	batch_size = data_irc['Nobj'].shape[0]
-	device = data_irc['Pmu'].device
-	dtype = data_irc['Pmu'].dtype
-	zero = torch.tensor(0.)
+def ir_data(data_irc, num_particles=1, alpha=0):
+	"""
+	Here we replace the last num_particles empty inputs with random 4-momenta of scale alpha (zero if alpha=0).
+	Under IR-safety, injecting a zero-momentum particle should leave the output unchanged.
+	If alpha=0, the entire change amounts to simply switching the last num_particles entries of data['particle_mask'] to True.
+	If alpha!=0, we generate random 3-momenta and then define energies as |p| + alpha*torch.rand, so that the resulting particles are timelike.
+	An IR-safe network's output should remain unchanged when alpha=0 and only slightly perturbed for small nonzero alpha.
+	This can be verified by running PELICAN with the --ir-safe flag.
+	"""
 
-	rand_pmus = alpha * torch.add(2*torch.rand(batch_size, num_particles, 4, dtype = data_irc['Pmu'].dtype, device = data_irc['Pmu'].device), -1)
-	rand_pmus_sq = torch.pow(rand_pmus, 2)
-	data_irc['Pmu'] = torch.cat((data_irc['Pmu'], rand_pmus), 1)
-	s = data_irc['Pmu'].shape
-	particle_mask = data_irc['Pmu'][...,0] != 0.
-	edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
-	labels = torch.zeros([s[0],s[1],s[1],2])
-	if data_irc['scalars'][0,0,0,0] == 1.:      #this assumes that the first two scalars are 1 only for beams
-		# labels = torch.cat((torch.ones(s[0], 2), torch.zeros(s[0], s[1])), dim=1)
-		# labelsi = labels.unsqueeze(1).expand(s[0], s[1]+num_particles, s[1]+num_particles)
-		# labelsj = labels.unsqueeze(2).expand(s[0], s[1]+num_particles, s[1]+num_particles)
-		labels[:,[0,1],:,1]=1.
-		labels[:,:,[0,1],0]=1.
-		labels = torch.where(edge_mask.unsqueeze(-1), labels, zero)
-	data_irc['scalars'] = labels.to(dtype=data_irc['Pmu'].dtype)
-	data_irc['Nobj'] = data_irc['Nobj'] + torch.ones(batch_size, dtype=torch.int) * num_particles
-	data_irc['particle_mask'] = particle_mask
-	data_irc['edge_mask'] = edge_mask
-	# if data_irc['scalars'].shape[2]==7: breakpoint()
+	batch_size = data_irc['Nobj'].shape[0]
+	rand_pmus3 = alpha * (2 * torch.rand(batch_size, num_particles, 3, dtype = data_irc['Pmu'].dtype, device = data_irc['Pmu'].device) - 1)
+	rand_pmus = torch.cat([rand_pmus3.norm(dim=2, keepdim=True) + alpha * torch.rand(batch_size, num_particles, 1,  dtype = data_irc['Pmu'].dtype, device = data_irc['Pmu'].device), rand_pmus3], dim=2)
+	data_irc['Pmu'][:, -num_particles:] = rand_pmus
+	data_irc['particle_mask'][:, -num_particles:] = True
+	data_irc['edge_mask'] = data_irc['particle_mask'].unsqueeze(1) * data_irc['particle_mask'].unsqueeze(2)
+	data_irc['Nobj'] = data_irc['Nobj'] + num_particles
 	return data_irc
 
 def c_data(data_irc):
-	### Split num_particles leading four-momenta into two equal halves
-	indices = [2,3]  #which input particles to split. [2,3] means the two leading particles, skipping the two beams [0,1]
-	batch_size = data_irc['Nobj'].shape[0]
-	event_size = data_irc['Pmu'].shape[1]
-	num_particles = len(indices)
-	device = data_irc['Pmu'].device
-	dtype = data_irc['Pmu'].dtype
-	zero = torch.tensor(0.)
+	"""
+	Take two (or more) massless collinear input particles, p1 and p2, replace them with two particles with momenta (p1+p2) and 0, compare outputs.
+	Assuming the batch was prepared using expand_data, this means the two copies of [1,0,0,1] get replaced by [[2,0,0,2],[0,0,0,0]]. 
+	A C-safe network must produce the same output in both cases. This can be enforced by the --c-safe flag.
+	Note however that PELICAN --c-safe is not the most general Lorentz-equivariant C-safe network. That is true only in combination with --ir-safe.
+	Namely, C-safety for an IR-safe Lorentz-invariant observable amounts to requiring that it depends on any massless inputs only through their total momentum.
+	Without IR-safety, C-safety can be enforced in other ways, e.g. d_12*d_23*d_13 is a C-safe observable for 3 inputs but is not a function of sums of massless momenta.
+	"""
+	
+	# Which COLLINEAR MASSLESS input particles to use. We have deliberately inserted two particles with p=[1,0,0,1] in irc_test() so that indices=[0,1] can be used
+	indices = [0,1]  
 
-	original_momenta = data_irc['Pmu'][:,indices,:]
-	data_irc['Pmu'][:,indices,:]=original_momenta/2.
-	data_irc['Pmu']=torch.cat((data_irc['Pmu'], original_momenta/2), dim=1)
-	data_irc['scalars'] = torch.cat((data_irc['scalars'], torch.zeros([batch_size,num_particles,event_size,2]).to(dtype=data_irc['Pmu'].dtype)),-3)
-	data_irc['scalars'] = torch.cat((data_irc['scalars'], torch.zeros([batch_size,event_size+num_particles,num_particles,2]).to(dtype=data_irc['Pmu'].dtype)),-2)
-	data_irc['Nobj'] = data_irc['Nobj'] + torch.ones(batch_size, dtype=torch.int) * num_particles
-	data_irc['particle_mask'] = data_irc['Pmu'][...,0] != 0.
-	data_irc['edge_mask'] = data_irc['particle_mask'].unsqueeze(1) * data_irc['particle_mask'].unsqueeze(2)
-
+	total_momentum = data_irc['Pmu'][:,indices,:].sum(dim=1)
+	data_irc['Pmu'][:,indices,:]=0 * data_irc['Pmu'][:,indices,:]
+	data_irc['Pmu'][:,indices[0],:] = total_momentum
 	return data_irc
 
-def irc_test(model, data):
-	logging.info('IRC safety test!')
+def irc_data(data_irc):
+	"""
+	Does an irc-split: creates one empty particle slot with particle_mask=True (which is an IR-split) and then 
+	moves half of the momentum stored in the first particle slot (usually the beam [1,0,0,1]) into that slot.
+	This should lead to the same outputs in an IRC-safe network.
+	This transformation is used for real data in place of c_data because c_data requires two pre-existing 
+	collinear massless particles, which can't be expected of real data.
+	"""
+	# Which MASSLESS input particles to use. Normally index=0, one of the beams.
+	index = 0
 
-	data_irc = {key: val.clone() if type(val) is torch.Tensor else val for key, val in data.items()}
+	data_irc['particle_mask'][:, -1] = True
+	data_irc['edge_mask'] = data_irc['particle_mask'].unsqueeze(1) * data_irc['particle_mask'].unsqueeze(2)
+	data_irc['Nobj'] = data_irc['Nobj'] + 1
 
-	outputs = model(data)
-	outputs_ir=[]
+	total_momentum = data_irc['Pmu'][:,index]
+	data_irc['Pmu'][:,-1] = total_momentum/2
+	data_irc['Pmu'][:,index]  = total_momentum/2
+	return data_irc
+
+def expand_data(data, num_particles=1, c=False):
+	"""
+	Prepares a batch for the IR/C tests.
+	Inserts two copies of the 4-vector [1,0,0,1] to the beginning of each event with particle_mask=True.
+	Further inserts num_particles copies of [0,0,0,0] with particle_mask=False.
+	"""
+
+	batch_size = data['Nobj'].shape[0]
+	zero = torch.tensor(0.)
+
+	zero_pmus = torch.zeros(batch_size, num_particles, 4, dtype = data['Pmu'].dtype, device = data['Pmu'].device)
+	if c:
+		beam = torch.tensor([[[1,0,0,1],[1,0,0,1]]], dtype=data['Pmu'].dtype).expand(data['Pmu'].shape[0], 2, 4)
+		data['Pmu'] = torch.cat([beam, data['Pmu']], 1)
+	# data['Pmu'] = torch.cat([beam, data['Pmu']+torch.tensor([1,0,0,0],dtype = data['Pmu'].dtype, device = data['Pmu'].device)], 1) # Use this to perturb masses if the dataset is all massless
+	data['Pmu'] = torch.cat((data['Pmu'], zero_pmus), 1)
+	s = data['Pmu'].shape
+	particle_mask = data['Pmu'][...,0] != 0.
+	edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
+	labels = torch.zeros([s[0],s[1],s[1],2])
+	if data['scalars'][0,0,0,0] == 1.:
+		labels[:,0:(4 if c else 2),:,1]=1.
+		labels[:,:,0:(4 if c else 2),0]=1.
+		labels = torch.where(edge_mask.unsqueeze(-1), labels, zero)
+	data['scalars'] = labels.to(dtype=data['Pmu'].dtype)
+	data['Nobj'] = data['Nobj'] + 2
+	data['particle_mask'] = particle_mask
+	data['edge_mask'] = edge_mask
+	return data
+
+
+def irc_test(model, data, keys=['predict'], logg = False):
+	"""
+	Tests PELICAN for IR-safety and C-safety separately.
+	First we create a clone of the data batch, apply expand_data() and then call the two tests, comparing the new outputs to the originals.
+	"""
+	if logg:
+		logging.info('IRC safety test!')
  
 	# First check IR safety (injection of new small momenta). This one is easier to enforce in a model -- 
 	# -- simply make sure that the outputs of the network are small whenever the inputs are.
 
-	alpha_range = 10.**np.arange(-6,-2,step=1)
+	alpha_range = np.insert(10.**np.arange(-3,0,step=2), 0, 0.)
 	max_particles=2
+
+	data_irc_copy = {key: val.clone() if type(val) is torch.Tensor else val for key, val in data.items()}
+	data_irc_copy = expand_data(data_irc_copy, max_particles, c=True)
+		
+	outputs = model(data_irc_copy)
+	outputs_ir=[]
+	
+	ir_results = []
 	for alpha in alpha_range:
-		temp = []
+		temp = {key: [] for key in keys}
 		for num_particles in range(1, max_particles + 1):
-			data_ir = ir_data(data_irc, num_particles, alpha)
-			temp.append(model(data_ir))
-		outputs_ir.append([alpha, torch.stack(temp,0)])
+			data_ir = ir_data(data_irc_copy, num_particles, alpha)
+			for key, val in model(data_ir).items(): temp[key].append(val.detach())
+		outputs_ir.append([alpha, {key: torch.stack(val,0) for key, val in temp.items()}]) # stack outputs for different alpha along a new dimension for easy printing later
 
-	data_irc = {key: val.clone() if type(val) is torch.Tensor else val for key, val in data.items()}
-
-	ir_test = [(alpha, (output_ir - outputs.unsqueeze(0).repeat(max_particles, 1, 1)).abs().amax((1,2))/outputs.abs().mean()) for (alpha, output_ir) in outputs_ir]
-	logging.info('IR safety test deviations (format is (order of magnitude of momenta: [1 particle, 2 particles, ...])):')
-	for alpha, output in ir_test:
-		logging.warning('{:0.5g}, {}'.format(alpha, output.data.cpu().detach().numpy()))
+	for key in keys:
+		ir_test = [(alpha, ((output_ir[key] - outputs[key].unsqueeze(0).repeat([max_particles]+[1]*len(outputs[key].shape)))/outputs[key]).abs().nan_to_num(0,0,0).mean()) for (alpha, output_ir) in outputs_ir]
+		if logg:
+			logging.info(f'IR safety test deviations for key={key} (format is (order of magnitude of momenta: [1 particle, 2 particles, ...])):')
+		for alpha, output in ir_test:
+			if logg:
+				logging.warning('{:0.5g}, {}'.format(alpha, output.data.cpu().detach().numpy()))
+			ir_results.append(output.data.cpu().detach().numpy())
 
 
 	# Now Colinear safety (splitting a present four-momentum into two identical or almost identical halves).
 	# Can also be viewed as creating 2 particles with identical spatial momenta but half of the original energy.
 	# This symmetry cannot be explicitly enforced in a nonlinear network because it requires some sort of linearity in energy.
 	# Instead, we simply test for it and hope that training a network improves C-safety.
-	data_c = c_data(data_irc)
+	data_irc_copy = {key: val.clone() if type(val) is torch.Tensor else val for key, val in data.items()}
+	data_irc_copy = expand_data(data_irc_copy, max_particles, c=True)
+
+	data_c = c_data(data_irc_copy)
 	outputs_c = model(data_c)
-	c_test = (outputs_c - outputs).abs().max()/outputs.abs().mean()
-	logging.info('C safety test deviations: {}'.format(c_test.data.cpu().detach().numpy()))
+
+	c_results = []
+	for key in keys:
+		c_test = ((outputs_c[key] - outputs[key])/outputs[key]).abs().nan_to_num().mean()
+		if logg:
+			logging.info(f'C safety test deviations for key={key}: {c_test.data.cpu().detach().numpy()}')
+		c_results.append(c_test.data.cpu().detach().numpy())
+
+	ir_results = np.array(ir_results)
+	c_results = np.array(c_results)
+	return ir_results, c_results
+
 
 def gpu_test(model, data, t0):
 	logging.info('Starting the computational cost test!')
@@ -152,7 +212,7 @@ def gpu_test(model, data, t0):
 		logging.info(f'{"Forward pass time:":<80} {(t2-t1).total_seconds()}s')
 		logging.info(f'{"Memory after forward pass:":<80} {mem_fwd}')
 		logging.info(f'{"Memory consumed by forward pass:":<80} {mem_fwd-mem_init}')
-		ouput.sum().backward()
+		output['predict'].sum().backward()
 		t3 = datetime.now()
 		mem_bwd =  torch.cuda.memory_allocated(device)
 		logging.info(f'{"Backward pass time:":<80} {(t3-t2).total_seconds()}s')
@@ -172,7 +232,7 @@ def gpu_test(model, data, t0):
 		output = model(data)
 		t2 = datetime.now()
 		logging.info(f'{"Forward pass time:":<80} {(t2-t1).total_seconds()}s')
-		output.sum().backward()
+		output['predict'].sum().backward()
 		t3 = datetime.now()
 		logging.info(f'{"Backward pass time:":<80} {(t3-t2).total_seconds()}s')
 		logging.info(f'{"Total batch time:":<80} {(t3-t0).total_seconds()}s')
@@ -185,7 +245,7 @@ def gpu_test(model, data, t0):
 
 
 
-def tests(model, dataloader, args, tests=['permutation','batch','irc']):
+def tests(model, dataloader, args, tests=['permutation','batch','irc'], cov=False):
 	if not args.test:
 		logging.info("WARNING: network tests disabled!")
 		return
@@ -195,14 +255,30 @@ def tests(model, dataloader, args, tests=['permutation','batch','irc']):
 	
 	t0 = datetime.now()
 	data = next(iter(dataloader))
-
-	if 'gpu' in tests:
-		gpu_test(model, data, t0)
-	if 'permutation' in tests:
-		permutation_test(model, data)
-	if 'batch' in tests:
-		batch_test(model, data)
-	if 'irc' in tests:
-		irc_test(model, data)
-
-	logging.info('Test complete!')
+	it = iter(dataloader)
+	
+	for str in tests:
+		if str=='gpu':
+			gpu_test(model, data, t0)
+		elif str=='permutation':
+			with torch.no_grad(): permutation_test(model, data)
+		elif str=='batch':
+			with torch.no_grad(): batch_test(model, data)
+		elif str=='irc':
+			num = 299
+			with torch.no_grad(): 
+				data1 = next(it)
+				ir, c = irc_test(model, data1, keys=['predict', 'weights'] if cov else ['predict'], logg=True)
+				for x in range(num):
+					data1 = next(it)
+					ir_results, c_results = irc_test(model, data1, keys=['predict', 'weights'] if cov else ['predict'], logg=False)
+					ir = ir + ir_results
+					c = c + c_results
+			ir = ir/num
+			c = c/num
+			logging.info(f"ir_test_average_over_{num}_batches:")
+			logging.info("ir:")
+			logging.info(ir)
+			logging.info("c:")
+			logging.info(c)
+		logging.info('Test complete!')

@@ -56,9 +56,9 @@ PELICAN is a network that takes 4-momentum inputs (e.g. jet constituents) and us
 ```
 python3 train_pelican_classifier.py --datadir=./data/sample_data/run12 --target=is_signal --nobj=85 --nobj-avg=40 --num-epoch=64 --num-train=60000 --num-valid=60000 --batch-size=64 --prefix=classifier --optim=adamw --activation=leakyrelu --factorize --lr-decay-type=warm --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.05 --drop-rate-out=0.05 --weight-decay=0.025
 ```
-* Similarly for regression (this prompt will try to predict the top quark momentum stored in the sample dataset, however since 50% of the dataset are background events without a top quark, and truth_Pmu=0, this is not a real regression test):
+* Similarly for regression (this prompt will try to predict the top quark momentum stored in the sample dataset, however since 50% of the dataset are background events without a top quark, for which truth_Pmu=0, this is not a real regression test and will produce subpar predictions):
 ```
-python3 train_pelican_cov.py --datadir=./data/sample_data/run12 --target=truth_Pmu --nobj=85 --nobj-avg=20 --num-epoch=64 --num-train=60000 --num-valid=60000 --batch-size=64 --prefix=classifier --optim=adamw --activation=leakyrelu --factorize --lr-decay-type=warm --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.05 --drop-rate-out=0.05 --weight-decay=0.025
+python3 train_pelican_cov.py --datadir=./data/sample_data/run12 --target=truth_Pmu --nobj=85 --nobj-avg=20 --num-epoch=64 --num-train=60000 --num-valid=60000 --batch-size=64 --prefix=regressor --optim=adamw --activation=leakyrelu --factorize --lr-decay-type=warm --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.05 --drop-rate-out=0.05 --weight-decay=0.025
 ```
 
 
