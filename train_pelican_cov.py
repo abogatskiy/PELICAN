@@ -6,7 +6,7 @@ import random
 
 from src.trainer import which
 if which('nvidia-smi') is not None:
-    min=8000
+    min=40000
     deviceid = 0
     name, mem = os.popen('"nvidia-smi" --query-gpu=gpu_name,memory.total --format=csv,nounits,noheader').read().split('\n')[deviceid].split(',')
     print(mem)
@@ -101,7 +101,7 @@ def main():
 
 
     # Define a loss function. This is the loss function whose gradients are actually computed. 
-    loss_fn = lambda predict, targets:      0.05 * loss_fn_m(predict,targets) + 0.01 * loss_fn_3d(predict, targets) #0.01 * loss_fn_E(predict, targets) #+ 10 * loss_fn_psi(predict,targets) #  #    #+ 0.02 * loss_fn_E(predict,targets) #  #+  + 0.01 * loss_fn_pT(predict,targets) #  #0.03 * loss_fn_inv(predict,targets) + 
+    loss_fn = lambda predict, targets:      0.05 * loss_fn_m(predict,targets) + 0.01 * loss_fn_3d(predict, targets) #0.01 * loss_fn_E(predict, targets) + 10 * loss_fn_psi(predict,targets) #  #    #+ 0.02 * loss_fn_E(predict,targets) #  #+  + 0.01 * loss_fn_pT(predict,targets) #  #0.03 * loss_fn_inv(predict,targets) + 
     # loss_fn = lambda predict, targets:      0.0005 * loss_fn_col(predict,targets) + 0.01*(-predict[...,0]).relu().mean() + 0.001 * loss_fn_inv(predict,targets) # 0.1 * loss_fn_m(predict,targets)
 
     # Apply the covariance and permutation invariance tests.
@@ -123,6 +123,7 @@ def main():
     # Test predictions on best model and/or also last checkpointed model.
     trainer.evaluate(splits=['test'], final=False)
     if args.test:
+        args.predict = False
         trainer.summarize_csv = False
         logger.info(f'EVALUATING BEST MODEL ON IR-SPLIT DATA (ADDED ONE 0-MOMENTUM PARTICLE)')
         trainer.evaluate(splits=['test'], final=False, ir_data=ir_data, expand_data=expand_data)
