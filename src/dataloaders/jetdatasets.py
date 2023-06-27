@@ -17,11 +17,11 @@ class JetDataset(Dataset):
         self.data = data
 
         if num_pts < 0:
-            self.num_pts = len(data['Nobj'])
+            self.num_pts = len(data[next(iter(data))])
         else:
-            if num_pts > len(data['Nobj']):
+            if num_pts > len(data[next(iter(data))]):
                 logging.warn('Desired number of points ({}) is greater than the number of data points ({}) available in the dataset!'.format(num_pts, len(data['Nobj'])))
-                self.num_pts = len(data['Nobj'])
+                self.num_pts = len(data[next(iter(data))])
             else:
                 self.num_pts = num_pts
 

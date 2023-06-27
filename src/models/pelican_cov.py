@@ -92,7 +92,7 @@ class PELICANRegression(nn.Module):
             The output of the layer
         """
         # Get and prepare the data
-        Particle_scalars, particle_mask, edge_mask, event_momenta, label = self.prepare_input(data)
+        particle_scalars, particle_mask, edge_mask, event_momenta = self.prepare_input(data)
 
         # Calculate spherical harmonics and radial functions
         nobj = particle_mask.sum(-1, keepdim=True)
@@ -131,7 +131,7 @@ class PELICANRegression(nn.Module):
 
         # If beams are included, then at this point we also append the scalar channels that contain particle labels.
         if self.add_beams:
-            inputs = torch.cat([inputs, Particle_scalars], dim=-1)
+            inputs = torch.cat([inputs, particle_scalars], dim=-1)
 
         # Apply the sequence of PELICAN equivariant 2->2 blocks with the IR mask.
         act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask_ir=softmask_ir.unsqueeze(1).unsqueeze(2) if self.ir_safe else None)
@@ -176,7 +176,7 @@ class PELICANRegression(nn.Module):
         """
         device, dtype = self.device, self.dtype
 
-        Particle_ps = data['Pmu'].to(device, dtype)
+        particle_ps = data['Pmu'].to(device, dtype)
 
         data['Pmu'].requires_grad_(True)
         particle_mask = data['particle_mask'].to(device, torch.bool)
@@ -186,8 +186,8 @@ class PELICANRegression(nn.Module):
             scalars = data['scalars'].to(device, dtype)
         else:
             # scalars = torch.ones_like(Particle_ps[:, :, 0]).unsqueeze(-1)
-            scalars = normsq4(Particle_ps).abs().sqrt().unsqueeze(-1)
-        return scalars, particle_mask, edge_mask, Particle_ps, data['is_signal']
+            scalars = normsq4(particle_ps).abs().sqrt().unsqueeze(-1)
+        return scalars, particle_mask, edge_mask, particle_ps
 
 
 def expand_var_list(var):

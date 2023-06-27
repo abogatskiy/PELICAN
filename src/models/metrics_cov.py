@@ -62,7 +62,7 @@ def cart2cyl(cart, include_r=False):
     Cartesian coordinates to detector coordinates conversion.
 	"""
     r = torch.sqrt(torch.sum(torch.pow(cart, 2), dim=-1))
-    theta = torch.acos(cart[..., 2] / r)
+    theta = torch.nan_to_num(torch.acos(cart[..., 2] / r))
     eta = - (theta/2).tan().log()
     phi = torch.atan2(cart[..., 1], cart[..., 0])
     if include_r:
