@@ -39,6 +39,7 @@ class PELICANRegression(nn.Module):
         self.average_nobj = average_nobj
         self.factorize = factorize
         self.masked = masked
+        self.softcut = 10
 
         if dropout:
             self.dropout_layer = nn.Dropout(drop_rate)
@@ -78,27 +79,19 @@ class PELICANRegression(nn.Module):
     def forward(self, data, covariance_test=False):
         """
         Runs a forward pass of the network.
-
-        Parameters
-        ----------
-        data : :obj:`dict`
-            Dictionary of data to pass to the network.
-        covariance_test : :obj:`bool`, optional
-            If true, returns all of the Particle-level representations twice.
-
-        Returns
-        -------
-        prediction : :obj:`torch.Tensor`
-            The output of the layer
         """
         # Get and prepare the data
         particle_scalars, particle_mask, edge_mask, event_momenta = self.prepare_input(data)
-
-        # Calculate spherical harmonics and radial functions
-        nobj = particle_mask.sum(-1, keepdim=True)
         dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
         inputs = dot_products.unsqueeze(-1)
         
+        if self.ir_safe:
+            # define an IR-safe multiplicity by counting particles whose p*J exceeds an energy threshold 
+            nobj = (dot_products.sum(1) > self.softcut).sum(-1, keepdim=True)
+        else:
+            # regular multiplicity
+            nobj = particle_mask.sum(-1, keepdim=True)
+
         if self.c_safe:
             # Define a softmask that zeroes out rows and columns that correspond to massless inputs
             softmask_c = self.softmask_layer(dot_products, mask=edge_mask, mode='c')

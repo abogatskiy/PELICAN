@@ -245,7 +245,7 @@ def setup_argparse():
     parser.add_argument('--activation', type=str, default='leakyrelu',
                         help='Activation function used in MLP layers. Options: (relu, elu, leakyrelu, sigmoid, logsigmoid, atan, silu, celu, selu, soft, tanh). Default: elu.')                
     parser.add_argument('--ir-safe', action=argparse.BooleanOptionalAction, default=False,
-                    help='Use an IR safe version of the model (injecting extra particles with zero momenta won\'t change the outputs). IMPORTANT: make sure --config1=s and --config2=s. (default = False)')
+                    help='Use an IR safe version of the model (injecting extra particles with zero momenta won\'t change the outputs). (default = False)')
     parser.add_argument('--c-safe', action=argparse.BooleanOptionalAction, default=False,
                     help='Use an C safe version of the model (recombining collinear massless particles into one won\'t change the outputs) (default = False)')
 

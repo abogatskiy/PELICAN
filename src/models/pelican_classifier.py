@@ -77,27 +77,18 @@ class PELICANClassifier(nn.Module):
     def forward(self, data, covariance_test=False):
         """
         Runs a forward pass of the network.
-
-        Parameters
-        ----------
-        data : :obj:`dict`
-            Dictionary of data to pass to the network.
-        covariance_test : :obj:`bool`, optional
-            If true, returns several intermediate tensors as well.
-
-        Returns
-        -------
-        prediction : :obj:`torch.Tensor`
-            The output of the model with 2 classification weights per event (intended for CrossEntropyLoss). 
-            The class predicted by the classifier (0 or 1) is given by output.argmax(dim=1).
         """
         # Get and prepare the data
         particle_scalars, particle_mask, edge_mask, event_momenta = self.prepare_input(data)
-
-        # Calculate spherical harmonics and radial functions
-        nobj = particle_mask.sum(-1, keepdim=True)
         dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2))
         inputs = dot_products.unsqueeze(-1)
+
+        if self.ir_safe:
+            # define an IR-safe multiplicity by counting particles whose p*J exceeds an energy threshold 
+            nobj = (dot_products.sum(1) > self.softcut).sum(-1, keepdim=True)
+        else:
+            # regular multiplicity
+            nobj = particle_mask.sum(-1, keepdim=True)
 
         if self.c_safe:
             # Define a softmask that zeroes out rows and columns that correspond to massless inputs
