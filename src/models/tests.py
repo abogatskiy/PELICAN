@@ -167,7 +167,8 @@ def irc_test(model, data, keys=['predict'], logg = False):
 		outputs_ir.append([alpha, {key: torch.stack(val,0) for key, val in temp.items()}]) # stack outputs for different alpha along a new dimension for easy printing later
 
 	for key in keys:
-		ir_test = [(alpha, ((output_ir[key] - outputs[key].unsqueeze(0).repeat([max_particles]+[1]*len(outputs[key].shape)))/outputs[key]).abs().nan_to_num(0,0,0).mean()) for (alpha, output_ir) in outputs_ir]
+		ir_test = [(alpha, ((output_ir[key] - outputs[key].unsqueeze(0).repeat([max_particles]+[1]*len(outputs[key].shape)))/outputs[key]).abs().nan_to_num(0,0,0)) for (alpha, output_ir) in outputs_ir]
+		ir_test = [(alpha, val[val!=0.].median()) for (alpha, val) in ir_test]
 		if logg:
 			logging.info(f'IR safety test deviations for key={key} (format is (order of magnitude of momenta: [1 particle, 2 particles, ...])):')
 		for alpha, output in ir_test:
@@ -188,7 +189,8 @@ def irc_test(model, data, keys=['predict'], logg = False):
 
 	c_results = []
 	for key in keys:
-		c_test = ((outputs_c[key] - outputs[key])/outputs[key]).abs().nan_to_num().mean()
+		c_test = ((outputs_c[key] - outputs[key])/outputs[key]).abs().nan_to_num()
+		c_test = c_test[c_test!=0.].median()
 		if logg:
 			logging.info(f'C safety test deviations for key={key}: {c_test.data.cpu().detach().numpy()}')
 		c_results.append(c_test.data.cpu().detach().numpy())
