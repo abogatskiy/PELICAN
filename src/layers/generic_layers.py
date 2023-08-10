@@ -202,13 +202,8 @@ class SoftMask(nn.Module):
 
     def forward(self, x, mask=None, mode=''):
         
-        if mode=='c':
-            masses = 1000 * torch.diagonal(x, dim1=1, dim2=2)
-            x = torch.clamp(masses.unsqueeze(-1) * masses.unsqueeze(-2), min=-1., max=1.)
-        
-        if mode=='c1d':
-            masses = 1000 * torch.diagonal(x, dim1=1, dim2=2)
-            x = torch.clamp(masses, min=-1., max=1.)
+        if mode == 'c':
+            x = x.sum(dim=1) / x.sum(dim=(1,2)).unsqueeze(-1) # computes energy fractions Epsilon_i in jet frame
         
         if mode=='ir':
             mag = x.sum(dim=1) * 0.001

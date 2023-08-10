@@ -4,7 +4,7 @@ import torch.nn as nn
 import logging
 
 from .lorentz_metric import normsq4, dot4
-from ..layers import BasicMLP, get_activation_fn, Net1to1, Net2to2, Eq2to2, Eq2to1, Eq2to0, MessageNet, InputEncoder, SoftMask, eops_2_to_2
+from ..layers import BasicMLP, get_activation_fn, Net2to2, Eq2to2, Eq2to0, MessageNet, InputEncoder, SoftMask, eops_2_to_2
 from ..trainer import init_weights
 
 class PELICANClassifier(nn.Module):
@@ -37,6 +37,7 @@ class PELICANClassifier(nn.Module):
         self.mlp_out = mlp_out
         self.factorize = factorize
         self.masked = masked
+        self.softcut = 0.01 # the IR-safe multiplicity N will be defined as the number of constituents whose p*J exceeds softcut*J*J, where J is jet momentum
 
         if dropout:
             self.dropout_layer = nn.Dropout(drop_rate)
@@ -51,15 +52,10 @@ class PELICANClassifier(nn.Module):
             embedding_dim -= 2
 
         if ir_safe or c_safe:
-            self.softmask_layer = SoftMask(device=device,dtype=dtype)
-
-        if c_safe:
-            self.c_safe_eq_layer = Eq2to2(3 if add_beams else 1, embedding_dim, eops_2_to_2, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, device=device, dtype=dtype)
+            self.softmask = SoftMask(device=device,dtype=dtype)
         
         # The input stack applies an encoding function
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
-        ## then a BatchNorm layer (messily implemented by calling MessageNet with zero layers):
-        # self.input_mix_and_norm = MessageNet([embedding_dim], activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)
 
         self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, ir_safe=ir_safe, config=config1, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
         self.message_layer = MessageNet(num_channels_m_out, activation=activation, ir_safe=ir_safe, batchnorm=batchnorm, device=device, dtype=dtype)       
@@ -85,49 +81,41 @@ class PELICANClassifier(nn.Module):
 
         if self.ir_safe:
             # define an IR-safe multiplicity by counting particles whose p*J exceeds an energy threshold 
-            nobj = (dot_products.sum(1) > self.softcut).sum(-1, keepdim=True)
+            nobj = (dot_products.sum(1) > self.softcut * dot_products.sum(1).sum(1, keepdim=True)).sum(-1, keepdim=True)
         else:
             # regular multiplicity
             nobj = particle_mask.sum(-1, keepdim=True)
 
         if self.c_safe:
-            # Define a softmask that zeroes out rows and columns that correspond to massless inputs
-            softmask_c = self.softmask_layer(dot_products, mask=edge_mask, mode='c')
-            if self.ir_safe:
-                # In case of IRC-safety, the IR softmask will be the same as the C softmask.
-                softmask_ir = softmask_c
-                # Prior to any nonlinearities, apply one equivariant layer to the matrix of dot products with the C-mask.
-                # This ensures that massless inputs survive in later layers only as part of sums over all momenta. 
-                # The original entries for those inputs get killed by the C-safe softmask. This is done only once, so the C-mask is not needed again.
-                # To avoid multiplying any entries by the mask twice, we use the softmask_irc option.
-                inputs = self.c_safe_eq_layer(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask_irc=softmask_c.unsqueeze(1).unsqueeze(2))
-            else:       
-                # In case of only C-safety, apply the same equivariant layer with the C-safe mask.  
-                inputs = self.c_safe_eq_layer(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask_irc=softmask_c.unsqueeze(1).unsqueeze(2))
-        elif self.ir_safe:
+            # Define the C-safe weight proportional to constituent energy (but Lorentz-invariant)
+            softmask_c = self.softmask(dot_products, mode='c')
+            # Replace input dot products with a combination that depends only on angles between particles by dividing out the energies
+            eps = 1e-12
+            inputs = inputs / (eps + (softmask_c.abs().unsqueeze(1) * softmask_c.abs().unsqueeze(2)).unsqueeze(-1))
+        if self.ir_safe:
             # In case of only IR-safety, define a more lenient softmask that vanishes on a given
             #  row/column corresponding to an input particle p if p*J vanishes, where J is the total jet momentum.
             # This makes sure that rows and columns corresponding to soft inputs remain soft throughout the network
             # but without the extreme rigidity of the C-safe mask, which relies on accurate information about non-zero masses.
-            softmask_ir = self.softmask_layer(dot_products, mask=edge_mask, mode='ir')
+            softmask_ir = self.softmask(dot_products, mask=edge_mask, mode='ir')
 
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.
         inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='arcsinh' if self.c_safe else 'log')
-        ## Now apply a BatchNorm2D (remember to set --batchnorm=False if you need IR or C-safety)
-        # inputs = self.input_mix_and_norm(inputs, mask=edge_mask.unsqueeze(-1))
 
         # If beams are included, then at this point we also append the scalar channels that contain particle labels.
         if self.add_beams:
             inputs = torch.cat([inputs, particle_scalars], dim=-1)
 
         # Apply the sequence of PELICAN equivariant 2->2 blocks with the IR mask.
-        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, softmask_ir=softmask_ir.unsqueeze(1).unsqueeze(2) if self.ir_safe else None)
+        act1 = self.net2to2(inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj,
+                            softmask_ir=softmask_ir.unsqueeze(1).unsqueeze(2) if self.ir_safe else None,
+                            softmask_c = softmask_c if self.c_safe else None)
 
         # The last equivariant 2->0 block is constructed here by hand: message layer, dropout, and Eq2to0.
         act2 = self.message_layer(act1, mask=edge_mask.unsqueeze(-1))
         if self.dropout:
             act2 = self.dropout_layer(act2)
-        act3 = self.eq2to0(act2, nobj=nobj)
+        act3 = self.eq2to0(act2, nobj=nobj, softmask_c = softmask_c if self.c_safe else None)
 
         # The output layer applies dropout and an MLP.
         if self.dropout:

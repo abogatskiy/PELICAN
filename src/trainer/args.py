@@ -188,7 +188,7 @@ def setup_argparse():
                         help='Number of channels to allow after mixing (default: )',
                         # default=[15,]*5
                         # default=[35,]*5
-                        default=[78,]*5                        
+                        default=[78,]*5
                         )
     parser.add_argument('--num-channels-m-out', nargs='*', type=int, metavar='N',
                         help="""Channels in the final message layer between Net2to2 and Eq2to0 (or Eq2to1)

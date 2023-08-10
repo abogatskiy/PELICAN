@@ -58,9 +58,9 @@ def eops_1_to_1(inputs, normalize=False):
 #     op5 = sum_all.unsqueeze(3).expand(-1, -1, dim, dim)
 #     return torch.stack([op1, op2, op3, op4, op5], dim=2)
 
-def eops_2_to_0(inputs, nobj=None, aggregation='mean'):
+def eops_2_to_0(inputs, nobj=None, aggregation='mean', weight=None):
     inputs = inputs.permute(0, 3, 1, 2)
-    N, D, m, m = inputs.shape
+    B, C, N, N = inputs.shape
     dim = inputs.shape[-1]
 
     diag_part = torch.diagonal(inputs, dim1=-2, dim2=-1)
@@ -75,17 +75,24 @@ def eops_2_to_0(inputs, nobj=None, aggregation='mean'):
     elif aggregation == 'sum':
         aggregation_fn = masked_sum
 
-    sum_diag_part = aggregation_fn(diag_part, nobj, dim=2) # N x D
-    sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # N x D
+    sum_diag_part = aggregation_fn(diag_part, nobj, dim=2) # B x C
+    if weight is not None:
+        sum_diag_part = aggregation_fn(diag_part * weight.unsqueeze(1), nobj, dim=2) # B x C x 1
+        weight_rows = weight.unsqueeze(1).unsqueeze(2)
+        weight_cols = weight.unsqueeze(1).unsqueeze(3)
+        sum_all = aggregation_fn(inputs * weight_rows * weight_cols, nobj, dim=(2,3)) # B x C
+    else:
+        sum_diag_part = aggregation_fn(diag_part, nobj, dim=2)
+        sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # B x C
 
     op1 = sum_all
     op2 = sum_diag_part
     ops = [op1, op2]
     return torch.stack(ops, dim=2)
 
-def eops_2_to_1(inputs, nobj=None, nobj_avg=49, aggregation='mean'):
+def eops_2_to_1(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None):
     inputs = inputs.permute(0, 3, 1, 2)
-    N, D, m, m = inputs.shape
+    B, C, N, N = inputs.shape
     dim = inputs.shape[-1]
 
     diag_part = torch.diagonal(inputs, dim1=-2, dim2=-1)
@@ -101,10 +108,18 @@ def eops_2_to_1(inputs, nobj=None, nobj_avg=49, aggregation='mean'):
         aggregation_fn = masked_sum
         nobj = nobj_avg
 
-    sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True)
-    sum_rows = aggregation_fn(inputs, nobj, dim=3)
-    sum_cols = aggregation_fn(inputs, nobj, dim=2)
-    sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # N x D
+    if weight is not None:
+        weight_rows = weight.unsqueeze(1).unsqueeze(2)
+        weight_cols = weight.unsqueeze(1).unsqueeze(3)
+        sum_diag_part = aggregation_fn(diag_part * weight.unsqueeze(1), nobj, dim=2, keepdims=True)
+        sum_rows = aggregation_fn(inputs * weight_rows, nobj, dim=3)
+        sum_cols = aggregation_fn(inputs * weight_cols, nobj, dim=2)
+        sum_all = aggregation_fn(inputs * weight_rows * weight_cols, nobj, dim=(2,3)) # B x C
+    else:
+        sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True)
+        sum_rows = aggregation_fn(inputs, nobj, dim=3)
+        sum_cols = aggregation_fn(inputs, nobj, dim=2)
+        sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # B x C
 
     op1 = diag_part
     op2 = sum_rows
@@ -162,12 +177,12 @@ def eops_2_to_1(inputs, nobj=None, nobj_avg=49, aggregation='mean'):
 #     return torch.stack(ops[1:], dim=2)
 
 
-def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', skip_order_zero=False):
+def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None, skip_order_zero=False):
     inputs = inputs.permute(0, 3, 1, 2)
-    N, D, m, m = inputs.shape
+    B, C, N, N = inputs.shape
     dim = inputs.shape[-1]
 
-    diag_part = torch.diagonal(inputs, dim1=-2, dim2=-1) # N x D x m
+    diag_part = torch.diagonal(inputs, dim1=-2, dim2=-1) # B x C x N
     if aggregation == 'mean':
         aggregation_fn = masked_mean
     elif aggregation == 'max':
@@ -180,10 +195,19 @@ def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', skip_order_z
         aggregation_fn = masked_sum
         nobj = nobj_avg
 
-    sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True) # N x D x 1
-    sum_rows = aggregation_fn(inputs, nobj, dim=3) # N x D x m
-    sum_cols = aggregation_fn(inputs, nobj, dim=2) # N x D x m
-    sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # N x D
+    # sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True) # N x D x 1
+    if weight is not None:
+        weight_rows = weight.unsqueeze(1).unsqueeze(2)
+        weight_cols = weight.unsqueeze(1).unsqueeze(3)
+        sum_diag_part = aggregation_fn(diag_part * weight.unsqueeze(1), nobj, dim=2, keepdims=True) # N x D x 1
+        sum_rows = aggregation_fn(inputs * weight_rows, nobj, dim=3) # N x D x m
+        sum_cols = aggregation_fn(inputs * weight_cols, nobj, dim=2) # N x D x m
+        sum_all = aggregation_fn(inputs * weight_rows * weight_cols, nobj, dim=(2,3)) # N x D
+    else:
+        sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True) # N x D x 1
+        sum_rows = aggregation_fn(inputs, nobj, dim=3) # N x D x m
+        sum_cols = aggregation_fn(inputs, nobj, dim=2) # N x D x m
+        sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # N x D
 
     ops = [None] * (15 + 1)
 
