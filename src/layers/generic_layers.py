@@ -178,6 +178,9 @@ class InputEncoder(nn.Module):
         if mode=='log':
             x = ((1 + x).abs().pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
 
+        if mode=='angle':
+            x = ((1e-5 + x.abs()).pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
+
         if mode=='arcsinh':
             x = (x * 2 * self.alphas).arcsinh() / (1e-6 + self.alphas.abs())
 

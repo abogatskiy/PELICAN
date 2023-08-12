@@ -93,7 +93,7 @@ class PELICANRegression(nn.Module):
             softmask_c = self.softmask(dot_products, mode='c')
             # Replace input dot products with a combination that depends only on angles between particles by dividing out the energies
             eps = 1e-12
-            energies = (softmask_c.abs().unsqueeze(1) * softmask_c.abs().unsqueeze(2)).unsqueeze(-1)
+            energies = ((dot_products.sum(1).unsqueeze(1) * dot_products.sum(1).unsqueeze(2)) / dot_products.sum((1, 2), keepdim=True)).unsqueeze(-1)
             inputs = inputs / (eps + energies)
         if self.ir_safe:
             # In case of only IR-safety, define a more lenient softmask that vanishes on a given
@@ -105,7 +105,7 @@ class PELICANRegression(nn.Module):
         
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.
         # In the C-safe case, this is still fine because inputs depends only on relative angles
-        inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='arcsinh' if self.c_safe else 'log')
+        inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='angle' if self.c_safe else 'log')
 
         # If beams are included, then at this point we also append the scalar channels that contain particle labels.
         if self.add_beams:
