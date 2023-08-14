@@ -6,6 +6,8 @@ class BasicMLP(nn.Module):
     """
     Multilayer perceptron used in various locations.  Operates only on the last axis of the data.
     If num_channels has length 2, this becomes a linear layer.
+
+    NB: the ir_safe flag is a vestige of an old implementation of IR-safety, currently unused.
     """
 
     def __init__(self, num_channels, activation='leakyrelu', ir_safe=False, batchnorm=False, dropout=False, drop_rate=0.25, device=torch.device('cpu'), dtype=torch.float):
@@ -252,7 +254,7 @@ def get_activation_fn(activation):
     elif activation == 'tanh':
         activation_fn = nn.Tanhshrink()   
     elif activation == 'identity':
-        activation_fn = lambda x: x
+        activation_fn = nn.Identity()
     else:
         raise ValueError('Activation function {} not implemented!'.format(activation))
     return activation_fn

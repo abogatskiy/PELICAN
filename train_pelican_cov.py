@@ -82,7 +82,7 @@ def main():
                       activation=args.activation, add_beams=args.add_beams, config1=args.config1, config2=args.config2, average_nobj=args.nobj_avg,
                       factorize=args.factorize, masked=args.masked,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
-                      scale=args.scale, ir_safe=args.ir_safe, c_safe=args.c_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
+                      scale=args.scale, irc_safe=args.irc_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
     
     model.to(device)
@@ -106,7 +106,8 @@ def main():
 
     # Apply the covariance and permutation invariance tests.
     if args.test:
-        tests(model, dataloaders['train'], args, tests=['gpu','irc', 'permutation'], cov=True)
+        with torch.autograd.set_detect_anomaly(True):
+            tests(model, dataloaders['train'], args, tests=['gpu','irc', 'permutation'], cov=True)
 
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device, dtype)

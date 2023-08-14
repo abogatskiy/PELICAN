@@ -180,15 +180,15 @@ def setup_argparse():
     #                     help='Number of channels to allow after mixing (default: [3])')
     parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: )',
-                        # default = [[25],]*5
+                        default = [[25,],]*5
                         # default = [[60],]*5
-                        default = [[132],]*5
+                        # default = [[132],]*5
                         )
     parser.add_argument('--num-channels1', nargs='*', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: )',
-                        # default=[15,]*5
+                        default=[15,]*5
                         # default=[35,]*5
-                        default=[78,]*5
+                        # default=[78,]*5
                         )
     parser.add_argument('--num-channels-m-out', nargs='*', type=int, metavar='N',
                         help="""Channels in the final message layer between Net2to2 and Eq2to0 (or Eq2to1)
@@ -196,16 +196,16 @@ def setup_argparse():
                                 The first number also specifies the output dimension of the last Eq2to2,
                                 and the last number specifies the input dimension of Eq2to0 (or Eq2to1)
                                 (default: )""", 
-                                # default = [25, 15]
+                                default = [25, 15]
                                 # default = [60, 35]
-                                default = [132, 78]
+                                # default = [132, 78]
                         )
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Include an output MLP (default = True)')
     parser.add_argument('--num-channels2', nargs='*', type=int, 
-                        # default=[25], 
+                        default=[25], 
                         # default=[60], 
-                        default=[132], 
+                        # default=[132], 
                         metavar='N',
                         help="""Numbers of channels in the output MLP.
                         Number of layers (linear + activation) equals len(num-channels2).
@@ -244,10 +244,10 @@ def setup_argparse():
 
     parser.add_argument('--activation', type=str, default='leakyrelu',
                         help='Activation function used in MLP layers. Options: (relu, elu, leakyrelu, sigmoid, logsigmoid, atan, silu, celu, selu, soft, tanh). Default: elu.')                
-    parser.add_argument('--ir-safe', action=argparse.BooleanOptionalAction, default=False,
-                    help='Use an IR safe version of the model (injecting extra particles with zero momenta won\'t change the outputs). (default = False)')
-    parser.add_argument('--c-safe', action=argparse.BooleanOptionalAction, default=False,
-                    help='Use an C safe version of the model (recombining collinear massless particles into one won\'t change the outputs) (default = False)')
+    # parser.add_argument('--ir-safe', action=argparse.BooleanOptionalAction, default=False,
+    #                 help='Use an IR safe version of the model (injecting extra particles with zero momenta won\'t change the outputs). (default = False)')
+    parser.add_argument('--irc-safe', action=argparse.BooleanOptionalAction, default=False,
+                    help='Use an IRC safe version of the model (adding 0-momentum particles, or recombining collinear massless particles into one, won\'t change the outputs) (default = False)')
 
     # TODO: Update(?)
     parser.add_argument('--weight-init', type=str, default='randn', metavar='str',

@@ -72,19 +72,17 @@ def ir_data(data_irc, num_particles=1, alpha=0):
 def c_data(data_irc):
 	"""
 	Take two (or more) massless collinear input particles, p1 and p2, replace them with two particles with momenta (p1+p2) and 0, compare outputs.
-	Assuming the batch was prepared using expand_data, this means the two copies of [1,0,0,1] get replaced by [[2,0,0,2],[0,0,0,0]]. 
+	Assuming the batch was prepared using expand_data, this means the two copies of [1,0,0,1] get replaced by [[1.5,0,0,1.5],[0.5,0,0,0.5]]. 
 	A C-safe network must produce the same output in both cases. This can be enforced by the --c-safe flag.
-	Note however that PELICAN --c-safe is not the most general Lorentz-equivariant C-safe network. That is true only in combination with --ir-safe.
-	Namely, C-safety for an IR-safe Lorentz-invariant observable amounts to requiring that it depends on any massless inputs only through their total momentum.
-	Without IR-safety, C-safety can be enforced in other ways, e.g. d_12*d_23*d_13 is a C-safe observable for 3 inputs but is not a function of sums of massless momenta.
 	"""
 	
 	# Which COLLINEAR MASSLESS input particles to use. We have deliberately inserted two particles with p=[1,0,0,1] in irc_test() so that indices=[0,1] can be used
 	indices = [0,1]  
 
-	total_momentum = data_irc['Pmu'][:,indices,:].sum(dim=1)
-	data_irc['Pmu'][:,indices,:]=0 * data_irc['Pmu'][:,indices,:]
-	data_irc['Pmu'][:,indices[0],:] = total_momentum
+	# Half of the total momentum of all the particles except the first gets shifted onto the first
+	total_momentum = data_irc['Pmu'][:,indices[1:],:].sum(dim=1)
+	data_irc['Pmu'][:,indices[1:],:] = data_irc['Pmu'][:,indices[1:],:] / 2
+	data_irc['Pmu'][:,indices[0],:] = data_irc['Pmu'][:,indices[0],:] + total_momentum / 2
 	return data_irc
 
 def irc_data(data_irc):
@@ -170,7 +168,7 @@ def irc_test(model, data, keys=['predict'], logg = False):
 		ir_test = [(alpha, ((output_ir[key] - outputs[key].unsqueeze(0).repeat([max_particles]+[1]*len(outputs[key].shape)))/outputs[key]).abs().nan_to_num(0,0,0)) for (alpha, output_ir) in outputs_ir]
 		ir_test = [(alpha, val[val!=0.].median()) for (alpha, val) in ir_test]
 		if logg:
-			logging.info(f'IR safety test deviations for key={key} (format is (order of magnitude of momenta: [1 particle, 2 particles, ...])):')
+			logging.info(f'IR safety test MEDIAN RELATIVE deviations for key={key} (format is (order of magnitude of momenta: [1 particle, 2 particles, ...])):\nIf you see nan, that means exact zero (good!)')
 		for alpha, output in ir_test:
 			if logg:
 				logging.warning('{:0.5g}, {}'.format(alpha, output.data.cpu().detach().numpy()))
@@ -189,10 +187,17 @@ def irc_test(model, data, keys=['predict'], logg = False):
 
 	c_results = []
 	for key in keys:
-		c_test = ((outputs_c[key] - outputs[key])/outputs[key]).abs().nan_to_num()
-		c_test = c_test[c_test!=0.].median()
+		# if key=='weights':
+		# 	c_test = ((outputs_c[key][:,:2] - outputs[key][:,:2])/outputs[key][:,:2]).abs().nan_to_num()
+		# elif key=='inputs':
+		# 	c_test = ((outputs_c[key][...,:2,:2] - outputs[key][...,:2,:2] )/outputs[key][...,:2,:2] ).abs().nan_to_num()
+		# else:
+		# 	c_test = ((outputs_c[key] - outputs[key])/outputs[key]).abs().nan_to_num()
+		# if key=='inputs': breakpoint()
+		c_test = ((outputs_c[key] - outputs[key])).abs().nan_to_num()
+		c_test = c_test[c_test!=0.].mean()
 		if logg:
-			logging.info(f'C safety test deviations for key={key}: {c_test.data.cpu().detach().numpy()}')
+			logging.info(f'C safety test MEAN ABSOLUTE deviations for key={key}: {c_test.data.cpu().detach().numpy()}')
 		c_results.append(c_test.data.cpu().detach().numpy())
 
 	ir_results = np.array(ir_results)
@@ -267,20 +272,20 @@ def tests(model, dataloader, args, tests=['permutation','batch','irc'], cov=Fals
 		elif str=='batch':
 			with torch.no_grad(): batch_test(model, data)
 		elif str=='irc':
-			num = 299
+			num = 10    # number of batches to test over
 			with torch.no_grad(): 
 				data1 = next(it)
 				ir, c = irc_test(model, data1, keys=['predict', 'weights'] if cov else ['predict'], logg=True)
+				ir = np.expand_dims(ir,0)
+				c = np.expand_dims(c,0)
 				for x in range(num):
 					data1 = next(it)
 					ir_results, c_results = irc_test(model, data1, keys=['predict', 'weights'] if cov else ['predict'], logg=False)
-					ir = ir + ir_results
-					c = c + c_results
-			ir = ir/num
-			c = c/num
+					ir=np.concatenate([ir,np.expand_dims(ir_results,0)])
+					c=np.concatenate([c,np.expand_dims(c_results,0)])
+			ir = np.mean(ir, 0)
+			c = np.mean(c, 0)
 			logging.info(f"ir_test_average_over_{num}_batches:")
-			logging.info("ir:")
-			logging.info(ir)
-			logging.info("c:")
-			logging.info(c)
+			logging.info(f"ir: {ir}")
+			logging.info(f"c: {c}")
 		logging.info('Test complete!')
