@@ -59,12 +59,13 @@ def minibatch_metrics_string(metrics):
 
 def cart2cyl(cart, include_r=False):
     """ 
-    Cartesian coordinates to detector coordinates conversion.
+    4D Cartesian coordinates to 2D detector coordinates conversion.
 	"""
-    r = torch.sqrt(torch.sum(torch.pow(cart, 2), dim=-1))
-    theta = torch.nan_to_num(torch.acos(cart[..., 2] / r))
-    eta = - (theta/2).tan().log()
-    phi = torch.atan2(cart[..., 1], cart[..., 0])
+    cart = cart[...,1:4]
+    r = cart.norm(dim=-1)
+    theta = (cart[..., 2] / r).acos().nan_to_num() # theta=acos(z/r)
+    eta = - (theta / 2).tan().log()                # eta=-log(tan(theta/2))
+    phi = torch.atan2(cart[..., 1], cart[..., 0])  # phi=atan(y/x)
     if include_r:
         sph = torch.stack((eta, phi, r), dim=-1)
     else:
