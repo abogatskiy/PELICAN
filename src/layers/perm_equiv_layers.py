@@ -219,19 +219,19 @@ def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None,
         ops[5] = diag_part.unsqueeze(3).expand(-1, -1, -1, N)
 
     ops[6]  = torch.diag_embed(sum_cols)
-    ops[7]   = sum_cols.unsqueeze(2).expand(-1, -1, N, -1)
-    ops[8]   = sum_cols.unsqueeze(3).expand(-1, -1, -1, N)
+    ops[7]  = sum_cols.unsqueeze(2).expand(-1, -1, N, -1)
+    ops[8]  = sum_cols.unsqueeze(3).expand(-1, -1, -1, N)
     ops[9]  = torch.diag_embed(sum_rows)
-    ops[10]   = sum_rows.unsqueeze(2).expand(-1, -1, N, -1)
-    ops[11]  = sum_rows.unsqueeze(3).expand(-1, -1, -1, N)
-    ops[12]   = sum_diag_part.unsqueeze(3).expand(-1, -1, N, N)
-    ops[13]  = torch.diag_embed(sum_diag_part.expand(-1, -1, N))
+    ops[10] = sum_rows.unsqueeze(2).expand(-1, -1, N, -1)
+    ops[11] = sum_rows.unsqueeze(3).expand(-1, -1, -1, N)
+    ops[12] = sum_diag_part.unsqueeze(3).expand(-1, -1, N, N)
+    ops[13] = torch.diag_embed(sum_diag_part.expand(-1, -1, N))
 
-    ops[14]  = sum_all.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, N, N)
-    ops[15]  = torch.diag_embed(sum_all.unsqueeze(-1).expand(-1, -1, N))
+    ops[14] = sum_all.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, N, N)
+    ops[15] = torch.diag_embed(sum_all.unsqueeze(-1).expand(-1, -1, N))
 
     if folklore:
-        ops[16] = torch.matmul(inputs, inputs)
+        ops[16] = torch.nn.LeakyReLU()(aggregation_fn(inputs.unsqueeze(-2) + inputs.unsqueeze(-3).permute(0,1,2,4,3), nobj, dim=-1))
 
     if skip_order_zero:
         ops = torch.stack(ops[6:], dim=2)
