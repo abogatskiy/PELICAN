@@ -178,7 +178,7 @@ def eops_2_to_1(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None)
 #     return torch.stack(ops[1:], dim=2)
 
 
-def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None, skip_order_zero=False):
+def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None, skip_order_zero=False, folklore=False):
     inputs = inputs.permute(0, 3, 1, 2)
     B, C, N, N = inputs.shape
 
@@ -209,7 +209,7 @@ def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None,
         sum_cols = aggregation_fn(inputs, nobj, dim=2) # B x C x N
         sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # B x C
 
-    ops = [None] * (15 + 1)
+    ops = [None] * (17 if folklore else 16)
 
     if not skip_order_zero:
         ops[1] = inputs
@@ -229,6 +229,9 @@ def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None,
 
     ops[14]  = sum_all.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, N, N)
     ops[15]  = torch.diag_embed(sum_all.unsqueeze(-1).expand(-1, -1, N))
+
+    if folklore:
+        ops[16] = torch.matmul(inputs, inputs)
 
     if skip_order_zero:
         ops = torch.stack(ops[6:], dim=2)

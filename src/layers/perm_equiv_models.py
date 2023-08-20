@@ -180,7 +180,7 @@ class Eq2to1(nn.Module):
         return output
 
 class Eq2to2(nn.Module):
-    def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', config='s', factorize=True, average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, in_dim, out_dim, ops_func=None, activate_agg=False, activate_lin=True, activation = 'leakyrelu', config='s', factorize=True, folklore=False, average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to2, self).__init__()
         self.device = device
         self.dtype = dtype
@@ -189,18 +189,19 @@ class Eq2to2(nn.Module):
         self.activation_fn = get_activation_fn(activation)
         self.config = config
         self.factorize=factorize
+        self.folklore = folklore
 
         self.average_nobj = average_nobj                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
-        self.basis_dim = 15 + 10 * (len(config) - 1)
+        self.basis_dim = (16 if folklore else 15) + (11 if folklore else 10) * (len(config) - 1)
 
         self.alphas = nn.ParameterList([None] * len(config))
         self.dummy_alphas = torch.zeros(1, in_dim, 5, 1, 1, device=device, dtype=dtype)
         # countM = 0
         for i, char in enumerate(config):
             if char in ['M', 'X', 'N']:
-                self.alphas[i] = nn.Parameter(torch.rand(1, in_dim, 10,  1, 1, device=device, dtype=dtype))
+                self.alphas[i] = nn.Parameter(torch.rand(1, in_dim, 11 if folklore else 10,  1, 1, device=device, dtype=dtype))
             elif char=='S':
-                self.alphas[i] = nn.Parameter(torch.rand(1, in_dim, 10,  1, 1, device=device, dtype=dtype))
+                self.alphas[i] = nn.Parameter(torch.rand(1, in_dim, 11 if folklore else 10,  1, 1, device=device, dtype=dtype))
 
         self.out_dim = out_dim
         self.in_dim = in_dim
@@ -228,7 +229,7 @@ class Eq2to2(nn.Module):
         ops=[]
         for i, char in enumerate(self.config):
             if char.lower() in ['s', 'm', 'x', 'n']:
-                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()], weight=softmask_irc, skip_order_zero=False if i==0 else True)
+                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()], weight=softmask_irc, skip_order_zero=False if i==0 else True, folklore = self.folklore)
                 if char in ['S', 'M', 'X', 'N']:
                     if i==0:
                         alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
