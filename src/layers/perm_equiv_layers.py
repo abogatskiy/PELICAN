@@ -231,7 +231,7 @@ def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None,
     ops[15] = torch.diag_embed(sum_all.unsqueeze(-1).expand(-1, -1, N))
 
     if folklore:
-        ops[16] = torch.nn.LeakyReLU()(aggregation_fn(inputs.unsqueeze(-2) + inputs.unsqueeze(-3).permute(0,1,2,4,3), nobj, dim=-1))
+        ops[16] = aggregation_fn(torch.nn.LeakyReLU()(inputs.unsqueeze(-2) + inputs.unsqueeze(-3).permute(0,1,2,4,3)), nobj, dim=-1)
 
     if skip_order_zero:
         ops = torch.stack(ops[6:], dim=2)
