@@ -15,41 +15,6 @@ from math import sqrt, inf, ceil, exp
 import logging
 logger = logging.getLogger(__name__)
 
-
-# These loss functions are used ONLY for logging (the last two loss values in the log string) and choosing the best model
-# The actual loss used for optimization is passed as an argument to Trainer
-
-def Loss(predict, targets):
-    return torch.nn.CrossEntropyLoss()(predict, targets.long())      # Cross Entropy Loss (positive number). The closer to 0 the better.
-
-def AltLoss(predict, targets):
-    return (predict.argmax(dim=1) == targets.long()).float().mean()  # right now this is accuracy of classification
-
-# AUC score for logging
-def AUCScore(predict, targets):
-    if torch.equal(targets, torch.ones_like(targets)) or torch.equal(targets, torch.zeros_like(targets)):
-        return 0
-    else:
-        return roc_auc_score(targets, predict[:, 1])          # Area Under Curve score (between 0 and 1). The closer to 1 the better.
-
-def ROC(predict, targets):
-    if torch.equal(targets, torch.ones_like(targets)) or torch.equal(targets, torch.zeros_like(targets)):
-        return None, 0., 0.
-    else:
-        curve = roc_curve(targets, predict[:, 1])
-        idx = np.argmin(np.abs(curve[1]-0.3))
-        if curve[0][idx]>0.: 
-            eB, eS = curve[0][idx], curve[1][idx]
-        else:
-            idx = np.where(curve[0]>0)[0]
-            if len(idx)>0:
-                idx = idx[0]
-                eB, eS = curve[0][idx], curve[1][idx]
-            else:
-                eB, eS = 1., 1.
-        return curve, eB, eS
-
-
 class Trainer:
     """
     Class to train network. Includes checkpoints, optimizer, scheduler,

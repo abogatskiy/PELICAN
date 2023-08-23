@@ -99,7 +99,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
 
 class MaskedBatchNorm2d(nn.BatchNorm2d):
     """
-    Masked verstion of the 1D Batch normalization.
+    Masked version of the 2D Batch normalization.
     
     Based on: https://github.com/ptrblck/pytorch_misc/blob/20e8ea93bd458b88f921a87e2d4001a4eb753a02/batch_norm_manual.py
     
@@ -173,7 +173,7 @@ class MaskedBatchNorm2d(nn.BatchNorm2d):
         return inp
 class MaskedBatchNorm3d(nn.BatchNorm3d):
     """
-    Masked verstion of the 1D Batch normalization.
+    Masked verstion of the 3D Batch normalization.
     
     Based on: https://github.com/ptrblck/pytorch_misc/blob/20e8ea93bd458b88f921a87e2d4001a4eb753a02/batch_norm_manual.py
     

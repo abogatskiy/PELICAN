@@ -159,7 +159,6 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
     dtype = data['Pmu'].dtype
     zero = torch.tensor(0.)
     # to_keep = batch['Nobj'].to(torch.uint8)
-    
     s = data['Pmu'].shape
     particle_mask = torch.cat((torch.ones(s[0],2).bool().to(device=device), data['Pmu'][...,0] != 0.),dim=-1)
 

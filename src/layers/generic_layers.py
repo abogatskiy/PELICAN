@@ -6,6 +6,8 @@ class BasicMLP(nn.Module):
     """
     Multilayer perceptron used in various locations.  Operates only on the last axis of the data.
     If num_channels has length 2, this becomes a linear layer.
+
+    NB: the ir_safe flag is a vestige of an old implementation of IR-safety, currently unused.
     """
 
     def __init__(self, num_channels, activation='leakyrelu', ir_safe=False, batchnorm=False, dropout=False, drop_rate=0.25, device=torch.device('cpu'), dtype=torch.float):
@@ -178,6 +180,9 @@ class InputEncoder(nn.Module):
         if mode=='log':
             x = ((1 + x).abs().pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
 
+        if mode=='angle':
+            x = ((1e-5 + x.abs()).pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
+
         if mode=='arcsinh':
             x = (x * 2 * self.alphas).arcsinh() / (1e-6 + self.alphas.abs())
 
@@ -202,13 +207,8 @@ class SoftMask(nn.Module):
 
     def forward(self, x, mask=None, mode=''):
         
-        if mode=='c':
-            masses = 1000 * torch.diagonal(x, dim1=1, dim2=2)
-            x = torch.clamp(masses.unsqueeze(-1) * masses.unsqueeze(-2), min=-1., max=1.)
-        
-        if mode=='c1d':
-            masses = 1000 * torch.diagonal(x, dim1=1, dim2=2)
-            x = torch.clamp(masses, min=-1., max=1.)
+        if mode == 'c':
+            x = x.sum(dim=1) / x.sum(dim=(1,2)).unsqueeze(-1) # computes energy fractions Epsilon_i in jet frame
         
         if mode=='ir':
             mag = x.sum(dim=1) * 0.001
@@ -254,7 +254,7 @@ def get_activation_fn(activation):
     elif activation == 'tanh':
         activation_fn = nn.Tanhshrink()   
     elif activation == 'identity':
-        activation_fn = lambda x: x
+        activation_fn = nn.Identity()
     else:
         raise ValueError('Activation function {} not implemented!'.format(activation))
     return activation_fn

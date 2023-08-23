@@ -6,7 +6,7 @@ import random
 
 from src.trainer import which
 if which('nvidia-smi') is not None:
-    min=8000
+    min=40000
     deviceid = 0
     name, mem = os.popen('"nvidia-smi" --query-gpu=gpu_name,memory.total --format=csv,nounits,noheader').read().split('\n')[deviceid].split(',')
     print(mem)
@@ -82,7 +82,7 @@ def main():
                       activation=args.activation, add_beams=args.add_beams, config1=args.config1, config2=args.config2, average_nobj=args.nobj_avg,
                       factorize=args.factorize, masked=args.masked,
                       activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
-                      scale=args.scale, ir_safe=args.ir_safe, c_safe=args.c_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
+                      scale=args.scale, irc_safe=args.irc_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
     
     model.to(device)
@@ -101,12 +101,13 @@ def main():
 
 
     # Define a loss function. This is the loss function whose gradients are actually computed. 
-    loss_fn = lambda predict, targets:      0.05 * loss_fn_m(predict,targets) + 0.01 * loss_fn_3d(predict, targets) #0.01 * loss_fn_E(predict, targets) #+ 10 * loss_fn_psi(predict,targets) #  #    #+ 0.02 * loss_fn_E(predict,targets) #  #+  + 0.01 * loss_fn_pT(predict,targets) #  #0.03 * loss_fn_inv(predict,targets) + 
+    loss_fn = lambda predict, targets:      0.05 * loss_fn_m(predict,targets) + 0.01 * loss_fn_3d(predict, targets) #0.01 * loss_fn_E(predict, targets) + 10 * loss_fn_psi(predict,targets) #  #    #+ 0.02 * loss_fn_E(predict,targets) #  #+  + 0.01 * loss_fn_pT(predict,targets) #  #0.03 * loss_fn_inv(predict,targets) + 
     # loss_fn = lambda predict, targets:      0.0005 * loss_fn_col(predict,targets) + 0.01*(-predict[...,0]).relu().mean() + 0.001 * loss_fn_inv(predict,targets) # 0.1 * loss_fn_m(predict,targets)
 
     # Apply the covariance and permutation invariance tests.
     if args.test:
-        tests(model, dataloaders['train'], args, tests=['gpu','irc', 'permutation'], cov=True)
+        with torch.autograd.set_detect_anomaly(True):
+            tests(model, dataloaders['train'], args, tests=['gpu','irc', 'permutation'], cov=True)
 
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device, dtype)
@@ -123,6 +124,7 @@ def main():
     # Test predictions on best model and/or also last checkpointed model.
     trainer.evaluate(splits=['test'], final=False)
     if args.test:
+        args.predict = False
         trainer.summarize_csv = False
         logger.info(f'EVALUATING BEST MODEL ON IR-SPLIT DATA (ADDED ONE 0-MOMENTUM PARTICLE)')
         trainer.evaluate(splits=['test'], final=False, ir_data=ir_data, expand_data=expand_data)

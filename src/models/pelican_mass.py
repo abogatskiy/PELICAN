@@ -4,7 +4,7 @@ import torch.nn as nn
 import logging
 
 from .lorentz_metric import normsq4, dot4
-from ..layers import BasicMLP, get_activation_fn, Net1to1, Net2to2, Eq2to1, Eq2to0, MessageNet, InputEncoder
+from ..layers import BasicMLP, get_activation_fn, Net2to2, Eq2to0, MessageNet, InputEncoder
 from ..trainer import init_weights
 
 class PELICANMass(nn.Module):
