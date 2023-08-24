@@ -58,12 +58,12 @@ def fix_args(args):
         args.load = True
         args.num_epoch = 0
     if len(args.num_channels_m)==0:
-        args.num_channels_m = [[] for i in range(len(args.num_channels1))]
+        args.num_channels_m = [[] for i in range(len(args.num_channels_2to2))]
         print("MessageNet was disabled for all equivariant layers")
     elif type(args.num_channels_m[0])==int:
-        args.num_channels_m = [args.num_channels_m,] * len(args.num_channels1)
+        args.num_channels_m = [args.num_channels_m,] * len(args.num_channels_2to2)
         print("MessageNet hyperparams are the same across all equivariant layers")
-        # args.num_channels_m[0][0] = args.num_channels1[0] # delete this line if not using Residual connections
+        # args.num_channels_m[0][0] = args.num_channels_2to2[0] # delete this line if not using Residual connections
     
     if args.seed < 0:
         seed = int((datetime.now().timestamp())*100000)

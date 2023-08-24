@@ -11,9 +11,9 @@ class PELICANClassifier(nn.Module):
     """
     Permutation Invariant, Lorentz Invariant/Covariant Aggregator Network
     """
-    def __init__(self, num_channels_m, num_channels1, num_channels2, num_channels_m_out,
-                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, config1='s', config2='s', average_nobj=49, factorize=False, masked=True,
-                 activate_agg2=True, activate_lin2=False, mlp_out=True,
+    def __init__(self, num_channels_m, num_channels_2to2, num_channels_out, num_channels_m_out,
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, config='s', config_out='s', average_nobj=49, factorize=False, masked=True,
+                 activate_agg_out=True, activate_lin_out=False, mlp_out=True,
                  scale=1, irc_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
                  device=torch.device('cpu'), dtype=None):
         super().__init__()
@@ -21,19 +21,20 @@ class PELICANClassifier(nn.Module):
         logging.info('Initializing network!')
 
         num_channels_m = expand_var_list(num_channels_m)
-        num_channels1 = expand_var_list(num_channels1)
-        num_channels2 = expand_var_list(num_channels2)
+        num_channels_2to2 = expand_var_list(num_channels_2to2)
+        num_channels_out = expand_var_list(num_channels_out)
 
         self.device, self.dtype = device, dtype
         self.num_channels_m = num_channels_m
-        self.num_channels1 = num_channels1
-        self.num_channels2 = num_channels2
+        self.num_channels_2to2 = num_channels_2to2
+        self.num_channels_m_out = num_channels_m_out
+        self.num_channels_out = num_channels_out
         self.batchnorm = batchnorm
         self.dropout = dropout
         self.scale = scale
         self.add_beams = add_beams
-        self.config1 = config1
-        self.config2 = config2
+        self.config = config
+        self.config_out = config_out
         self.irc_safe = irc_safe
         self.mlp_out = mlp_out
         self.average_nobj = average_nobj
@@ -47,7 +48,7 @@ class PELICANClassifier(nn.Module):
         if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
             embedding_dim = self.num_channels_m[0][0]
         else:
-            embedding_dim = self.num_channels1[0]
+            embedding_dim = self.num_channels_2to2[0]
         if add_beams: 
             assert embedding_dim > 2, f"num_channels_m[0][0] has to be at least 3 when using --add_beams but got {embedding_dim}"
             embedding_dim -= 2
@@ -58,12 +59,17 @@ class PELICANClassifier(nn.Module):
         # The input stack applies an encoding function
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
 
-        self.net2to2 = Net2to2(num_channels1 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, config=config1, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
-        self.message_layer = MessageNet(num_channels_m_out, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype)       
-        self.eq2to0 = Eq2to0(num_channels_m_out[-1], num_channels2[0] if mlp_out else 2, activate_agg=activate_agg2, activate_lin=activate_lin2, activation = activation, config=config2, factorize=False, average_nobj=average_nobj, device = device, dtype = dtype)
+        # This is the main part of the network -- a sequence of permutation-equivariant 2->2 blocks
+        # Each 2->2 block consists of a component-wise messaging layer that mixes channels, followed by the equivariant aggegration over particle indices
+        self.net2to2 = Net2to2(num_channels_2to2 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, config=config, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
         
+        # The final equivariant block is 2->1 and is defined here manually as a messaging layer followed by the 2->1 aggregation layer
+        self.message_layer = MessageNet(num_channels_m_out, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype)       
+        self.eq2to0 = Eq2to0(num_channels_m_out[-1], num_channels_out[0] if mlp_out else 2, activate_agg=activate_agg_out, activate_lin=activate_lin_out, activation = activation, config=config_out, factorize=False, average_nobj=average_nobj, device = device, dtype = dtype)
+        
+        # We have produced a permutation-invariant feature vector, and now we apply an MLP with 2 output channels to it to get the final classification weights
         if mlp_out:
-            self.mlp_out = BasicMLP(self.num_channels2 + [2], activation=activation, dropout = False, batchnorm = False, device=device, dtype=dtype)
+            self.mlp_out = BasicMLP(self.num_channels_out + [2], activation=activation, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
         self.apply(init_weights)
 
@@ -92,7 +98,9 @@ class PELICANClassifier(nn.Module):
             energies = ((dot_products.sum(1).unsqueeze(1) * dot_products.sum(1).unsqueeze(2)) / dot_products.sum((1, 2), keepdim=True)).unsqueeze(-1)
             inputs1 = inputs.clone()
             inputs = 2 * inputs1 / (eps + energies)  # inputs = 2*(1-cos(theta_ij))
-            if ('m' in self.config1 or 'M' in self.config1) or ('m' in self.config2 or 'M' in self.config2):
+            # If the aggregation option is set to means, we replace N with the SoftDrop multiplicity (NB: THIS IS EXTREMELY SLOW)
+            # TODO: pre-compute SoftDrop Multiplicities before training and safe it into a data file instead of re-computing at each epoch.
+            if ('m' in self.config or 'M' in self.config) or ('m' in self.config_out or 'M' in self.config_out):
                 nobj = SDMultiplicity(CATree(dot_products, nobj, ycut=1000, eps=eps)).unsqueeze(-1).to(device=nobj.device)
 
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.

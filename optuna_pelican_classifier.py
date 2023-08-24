@@ -39,8 +39,8 @@ def suggest_params(args, trial):
     # args.ir_safe = trial.suggest_categorical("ir_safe", [False, True])
     args.masked = trial.suggest_categorical("masked", [False, True])
 
-    args.config1 = trial.suggest_categorical("config1", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
-    args.config2 = trial.suggest_categorical("config2", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
+    args.config = trial.suggest_categorical("config", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
+    args.config_out = trial.suggest_categorical("config_out", ["s", "m", "S", "M"]) # , "sM", "Sm"]) #, "S", "m", "M", "sS", "mM", "sM", "Sm", "SM"]) #, "mx", "Mx", "sSm", "sSM", "smM", "sMmM", "mxn", "mXN", "mxMX", "sXN", "smxn"])
     
     n_layers1 = trial.suggest_int("n_layers1", 2, 6)
 
@@ -52,17 +52,17 @@ def suggest_params(args, trial):
     n_layersm_out = trial.suggest_int("n_layersm2", 1, 2)
     args.num_channels_m_out = [trial.suggest_int('n_channelsm_out['+str(k)+']', 10, 50) for k in range(n_layersm_out)]
 
-    args.num_channels1 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 40) for i in range(n_layers1 + 1)]
-    # args.num_channels1 = [trial.suggest_int("n_channels1", 3, 30)]
-    # args.num_channels1 = args.num_channels1 * (n_layers1) + [args.num_channels_m[0][0] if n_layersm > 0 else args.num_channels1[0]]
+    args.num_channels_2to2 = [trial.suggest_int("n_channels1["+str(i)+"]", 10, 40) for i in range(n_layers1 + 1)]
+    # args.num_channels_2to2 = [trial.suggest_int("n_channels1", 3, 30)]
+    # args.num_channels_2to2 = args.num_channels_2to2 * (n_layers1) + [args.num_channels_m[0][0] if n_layersm > 0 else args.num_channels_2to2[0]]
 
-    # args.num_channels1 = [trial.suggest_int("n_channels1", 1, 10)] * n_layers1
-    # args.num_channels_m = [[trial.suggest_int("n_channels1", 1, 10), args.num_channels1[0]*15*len(args.config)]] * n_layers1
-    # args.num_channels1 = args.num_channels1 + [args.num_channels_m[0][0]]
+    # args.num_channels_2to2 = [trial.suggest_int("n_channels1", 1, 10)] * n_layers1
+    # args.num_channels_m = [[trial.suggest_int("n_channels1", 1, 10), args.num_channels_2to2[0]*15*len(args.config)]] * n_layers1
+    # args.num_channels_2to2 = args.num_channels_2to2 + [args.num_channels_m[0][0]]
 
     n_layers2 = trial.suggest_int("n_layers2", 1, 2)
     # n_layers2 = 1
-    args.num_channels2 = [trial.suggest_int("n_channels2["+str(i)+"]", 10, 40) for i in range(n_layers2)]
+    args.num_channels_out = [trial.suggest_int("n_channels2["+str(i)+"]", 10, 40) for i in range(n_layers2)]
 
     # args.activation = trial.suggest_categorical("activation", ["elu", "leakyrelu"]) #, "relu", "silu", "selu", "tanh"])
     # args.optim = trial.suggest_categorical("optim", ["adamw", "sgd", "amsgrad", "rmsprop", "adam"])
@@ -101,10 +101,10 @@ def define_model(trial):
     device, dtype = init_cuda(args)
 
     # Initialize model
-    model = PELICANClassifier(args.num_channels_m, args.num_channels1, args.num_channels2, args.num_channels_m_out,
+    model = PELICANClassifier(args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
-                      activation=args.activation, add_beams=args.add_beams, sig=args.sig, config1=args.config1, config2=args.config2, factorize=args.factorize, masked=args.masked,
-                      activate_agg2=args.activate_agg2, activate_lin2=args.activate_lin2, mlp_out=args.mlp_out,
+                      activation=args.activation, add_beams=args.add_beams, sig=args.sig, config=args.config, config_out=args.config_out, factorize=args.factorize, masked=args.masked,
+                      activate_agg_out=args.activate_agg_out, activate_lin_out=args.activate_lin_out, mlp_out=args.mlp_out,
                       scale=args.scale, ir_safe=args.ir_safe, dropout = args.dropout, drop_rate=args.drop_rate, batchnorm=args.batchnorm,
                       device=device, dtype=dtype)
 
