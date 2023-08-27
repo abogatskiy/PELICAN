@@ -66,7 +66,7 @@ def main():
     args = fix_args(args)
 
     # Construct PyTorch dataloaders from datasets
-    collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass)
+    collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass, read_pid=args.read_pid)
     dataloaders = {split: DataLoader(dataset,
                                      batch_size=args.batch_size,
                                      shuffle=args.shuffle if (split == 'train') else False,
@@ -76,9 +76,9 @@ def main():
                    for split, dataset in datasets.items()}
 
     # Initialize model
-    model = PELICANClassifier(args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out,
+    model = PELICANClassifier(args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
-                      activation=args.activation, add_beams=args.add_beams, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
+                      activation=args.activation, add_beams=args.add_beams, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
                       factorize=args.factorize, masked=args.masked,
                       activate_agg_out=args.activate_agg_out, activate_lin_out=args.activate_lin_out, mlp_out=args.mlp_out,
                       scale=args.scale, irc_safe=args.irc_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,

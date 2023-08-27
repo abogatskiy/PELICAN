@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .perm_equiv_layers import eops_1_to_1, eops_2_to_2, eops_2_to_1, eops_2_to_0 #, eset_ops_3_to_3, eset_ops_4_to_4, eset_ops_1_to_3, eops_1_to_2
+from .perm_equiv_layers import eops_1_to_2, eops_2_to_2, eops_2_to_1, eops_2_to_0 #, eset_ops_3_to_3, eset_ops_4_to_4, eset_ops_1_to_3, eops_1_to_2
 from .generic_layers import get_activation_fn, MessageNet, BasicMLP, SoftMask
 from .masked_batchnorm import MaskedBatchNorm3d
 
@@ -62,7 +62,7 @@ class Eq2to0(nn.Module):
         self.bias = nn.Parameter(torch.zeros(1, out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
 
-    def forward(self, inputs, mask=None, nobj=None, softmask_irc=None):
+    def forward(self, inputs, mask=None, nobj=None, irc_weight=None):
         '''
         inputs: N x D x m x m
         Returns: N x D x m
@@ -72,9 +72,9 @@ class Eq2to0(nn.Module):
         ops = []
         for i, char in enumerate(self.config):
             if char in ['s', 'm', 'x', 'n']:
-                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char], weight=softmask_irc)
+                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char], weight=irc_weight)
             elif char in ['S', 'M', 'X', 'N']:
-                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()], weight=softmask_irc)
+                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()], weight=irc_weight)
                 mult = (nobj).view([-1,1,1])**self.alphas[i]
                 mult = mult / (self.average_nobj** self.alphas[i])
                 op = op * mult            
@@ -103,6 +103,83 @@ class Eq2to0(nn.Module):
         if mask is not None:
             output = output * mask
         return output
+
+class Eq1to2(nn.Module):
+    def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', config='s', factorize=False, average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
+        super(Eq1to2, self).__init__()
+        self.basis_dim = 5
+        self.out_dim = out_dim
+        self.in_dim = in_dim
+        self.activate_agg = activate_agg
+        self.activate_lin = activate_lin
+        self.activation_fn = get_activation_fn(activation)
+        self.config = config
+        self.factorize = factorize
+
+        self.average_nobj = average_nobj                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
+        self.alphas = nn.ParameterList([None] * len(config))
+        for i, char in enumerate(config):
+            if char in ['M', 'X', 'N']:
+                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 5, 1, 1, device=device, dtype=dtype))
+            elif char=='S':
+                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 5, 1, 1, device=device, dtype=dtype))
+
+        self.ops_func = eops_1_to_2
+
+        if factorize:
+            self.coefs00 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (in_dim, self.basis_dim), device=device, dtype=dtype))
+            self.coefs01 = nn.Parameter(torch.normal(0, np.sqrt(1. / self.basis_dim), (out_dim, self.basis_dim), device=device, dtype=dtype))            
+            self.coefs10 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))   # Replace 1. with 2. when using ELU/GELU, leave 1. for LeakyReLU
+            self.coefs11 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))   # Replace 1. with 2. when using ELU/GELU, leave 1. for LeakyReLU
+        else:
+            self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
+        
+        self.bias = nn.Parameter(torch.zeros(1, 1, out_dim, device=device, dtype=dtype))
+        self.to(device=device, dtype=dtype)
+
+    def forward(self, inputs, mask=None, nobj=None, softmask_ir=None, irc_weight=None):
+        '''
+        inputs: B x N x N x C
+        Returns: B x N x C
+        '''
+        d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
+
+        ops = []
+        for i, char in enumerate(self.config):
+            if char in ['s', 'm', 'x', 'n']:
+                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char], weight=irc_weight)
+            elif char in ['S', 'M', 'X', 'N']:
+                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()], weight=irc_weight)
+                mult = (nobj).view([-1,1,1,1,1])**self.alphas[i]
+                mult = mult / (self.average_nobj** self.alphas[i])
+                op = op * mult
+            else:
+                raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
+            if softmask_ir is not None:
+                op = torch.cat([op[:,:,:3], op[:,:,3:] * softmask_ir], dim=2)
+            ops.append(op)
+        ops = torch.cat(ops, dim=2)
+
+        if self.activate_agg:
+            ops = self.activation_fn(ops)
+
+        if self.factorize:
+            coefs = self.coefs00.unsqueeze(1) * self.coefs10.unsqueeze(-1) + self.coefs01.unsqueeze(0) * self.coefs11.unsqueeze(-1)
+        else:
+            coefs = self.coefs
+
+        output = torch.einsum('dsb,ndbij->nijs', coefs, ops)
+
+        output = output + self.bias
+
+        if self.activate_lin:
+            output = self.activation_fn(output)
+
+        if mask is not None:
+            output = output * mask
+        return output
+
+
 
 class Eq2to1(nn.Module):
     def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', config='s', factorize=False, average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
@@ -137,19 +214,19 @@ class Eq2to1(nn.Module):
         self.bias = nn.Parameter(torch.zeros(1, 1, out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
 
-    def forward(self, inputs, mask=None, nobj=None, softmask_ir=None, softmask_irc=None):
+    def forward(self, inputs, mask=None, nobj=None, softmask_ir=None, irc_weight=None):
         '''
-        inputs: B x C x N x N
-        Returns: B x C x N
+        inputs: B x N x N x C
+        Returns: B x N x C
         '''
         d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
 
         ops = []
         for i, char in enumerate(self.config):
             if char in ['s', 'm', 'x', 'n']:
-                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char], weight=softmask_irc)
+                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char], weight=irc_weight)
             elif char in ['S', 'M', 'X', 'N']:
-                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()], weight=softmask_irc)
+                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()], weight=irc_weight)
                 mult = (nobj).view([-1,1,1,1])**self.alphas[i]
                 mult = mult / (self.average_nobj** self.alphas[i])
                 op = op * mult
@@ -222,14 +299,14 @@ class Eq2to2(nn.Module):
 
         self.to(device=device, dtype=dtype)
 
-    def forward(self, inputs, mask=None, nobj=None, softmask_ir=None, softmask_irc=None):
+    def forward(self, inputs, mask=None, nobj=None, softmask_ir=None, irc_weight=None):
 
         d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
 
         ops=[]
         for i, char in enumerate(self.config):
             if char.lower() in ['s', 'm', 'x', 'n']:
-                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()], weight=softmask_irc, skip_order_zero=False if i==0 else True, folklore = self.folklore)
+                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()], weight=irc_weight, skip_order_zero=False if i==0 else True, folklore = self.folklore)
                 if char in ['S', 'M', 'X', 'N']:
                     if i==0:
                         alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
@@ -309,7 +386,7 @@ class Net2to2(nn.Module):
         self.eq_layers = nn.ModuleList([Eq2to2(num_channels[i], eq_out_dims[i], ops_func, activate_agg=activate_agg, activate_lin=activate_lin, activation=activation, config=config, average_nobj=average_nobj, factorize=factorize, device=device, dtype=dtype) for i in range(num_layers)])
         self.to(device=device, dtype=dtype)
 
-    def forward(self, x, mask=None, nobj=None, softmask_ir=None, softmask_irc=None):
+    def forward(self, x, mask=None, nobj=None, softmask_ir=None, irc_weight=None):
         '''
         x: N x m x m x in_dim
         Returns: N x m x m x out_dim
@@ -319,6 +396,6 @@ class Net2to2(nn.Module):
         for agg, msg in zip(self.eq_layers, self.message_layers):
             x = msg(x, mask)
             if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
-            x = agg(x, mask, nobj, softmask_irc=softmask_irc)
+            x = agg(x, mask, nobj, irc_weight=irc_weight)
             # if self.dropout: x = self.dropout_layer(x.permute(0,3,1,2)).permute(0,2,3,1)
         return x
