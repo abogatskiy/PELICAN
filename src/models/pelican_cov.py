@@ -120,7 +120,7 @@ class PELICANRegression(nn.Module):
         # In the C-safe case, this is still fine because inputs depends only on relative angles
         inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='angle' if self.irc_safe else 'log')
 
-        # If beams are included, then at this point we also append the scalar channels that contain particle labels.
+        # Now we also append the scalar channels that contain scalar particle data, fed through a 1->2 layer
         if self.num_scalars > 0:
             particle_scalars = self.eq1to2(particle_scalars, mask=edge_mask.unsqueeze(-1), nobj=nobj, irc_weight = irc_weight if self.irc_safe else None)
             inputs = torch.cat([inputs, particle_scalars], dim=-1)

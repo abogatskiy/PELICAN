@@ -67,6 +67,7 @@ class PELICANClassifier(nn.Module):
 
         # The input stack applies an encoding function
         self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
+        
         # If there are scalars (like beam labels or PIDs) we promote them using an equivariant 1->2 layer and then concatenate them to the embedded dot products
         if self.num_scalars > 0:
             self.eq1to2 = Eq1to2(self.num_scalars, num_channels_scalar, activate_agg=activate_agg_in, activate_lin=activate_lin_in, activation = activation, average_nobj=average_nobj, config=config_out, factorize=factorize, device = device, dtype = dtype)

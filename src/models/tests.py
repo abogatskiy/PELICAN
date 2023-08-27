@@ -28,7 +28,6 @@ def permutation_test(model, data):
 
 	data_noperm = data
 	data_perm = {key: apply_perm(0, val) if key in ['Pmu', 'scalars'] else val for key, val in data.items()}
-	data_perm['scalars'] = apply_perm(1, data_perm['scalars'])
 
 	outputs_noperm = model(data_noperm)['predict']
 	outputs_perm = model(data_perm)['predict']
@@ -64,6 +63,9 @@ def ir_data(data_irc, num_particles=1, alpha=0):
 	rand_pmus3 = alpha * (2 * torch.rand(batch_size, num_particles, 3, dtype = data_irc['Pmu'].dtype, device = data_irc['Pmu'].device) - 1)
 	rand_pmus = torch.cat([rand_pmus3.norm(dim=2, keepdim=True) + alpha * torch.rand(batch_size, num_particles, 1,  dtype = data_irc['Pmu'].dtype, device = data_irc['Pmu'].device), rand_pmus3], dim=2)
 	data_irc['Pmu'][:, -num_particles:] = rand_pmus
+	idx = 4 if data_irc['Pmu'].shape[1] > 4 else 2
+	if 'scalars' in data_irc.keys():
+		data_irc['scalars'][:, -num_particles:] = data_irc['scalars'][:, -num_particles:] + data_irc['scalars'][:, [idx]]
 	data_irc['particle_mask'][:, -num_particles:] = True
 	data_irc['edge_mask'] = data_irc['particle_mask'].unsqueeze(1) * data_irc['particle_mask'].unsqueeze(2)
 	data_irc['Nobj'] = data_irc['Nobj'] + num_particles
@@ -121,15 +123,10 @@ def expand_data(data, num_particles=1, c=False):
 		data['Pmu'] = torch.cat([beam, data['Pmu']], 1)
 	# data['Pmu'] = torch.cat([beam, data['Pmu']+torch.tensor([1,0,0,0],dtype = data['Pmu'].dtype, device = data['Pmu'].device)], 1) # Use this to perturb masses if the dataset is all massless
 	data['Pmu'] = torch.cat((data['Pmu'], zero_pmus), 1)
-	s = data['Pmu'].shape
 	particle_mask = data['Pmu'][...,0] != 0.
 	edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
-	labels = torch.zeros([s[0],s[1],s[1],2])
-	if data['scalars'][0,0,0,0] == 1.:
-		labels[:,0:(4 if c else 2),:,1]=1.
-		labels[:,:,0:(4 if c else 2),0]=1.
-		labels = torch.where(edge_mask.unsqueeze(-1), labels, zero)
-	data['scalars'] = labels.to(dtype=data['Pmu'].dtype)
+	if 'scalars' in data.keys():
+		data['scalars'] = torch.cat([data['scalars'][:,:2],]*(1 if c else 0) + [data['scalars']] + [0 * data['scalars'][:,[0]],] * num_particles, dim=1)
 	data['Nobj'] = data['Nobj'] + 2
 	data['particle_mask'] = particle_mask
 	data['edge_mask'] = edge_mask

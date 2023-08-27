@@ -65,7 +65,7 @@ def eops_1_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None)
         nobj = nobj_avg
 
     if weight is not None:
-        sum_all = aggregation_fn(inputs * weight, nobj, dim=2, keepdims=True) # B x C x 1
+        sum_all = aggregation_fn(inputs * weight.unsqueeze(1), nobj, dim=2, keepdims=True) # B x C x 1
     else:
         sum_all = aggregation_fn(inputs, nobj, dim=2, keepdims=True) # B x C x 1
 
