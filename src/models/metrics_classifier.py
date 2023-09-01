@@ -40,7 +40,7 @@ def AUCScore(predict, targets):
 
 def ROC(predict, targets):
     if torch.equal(targets, torch.ones_like(targets)) or torch.equal(targets, torch.zeros_like(targets)):
-        return None, 0., 0.
+        return None, 0., 0., 0., 0.
     else:
         curve = roc_curve(targets, predict[:, 1])
         eB03, eS03 = BR(curve, at_eS=0.3)
