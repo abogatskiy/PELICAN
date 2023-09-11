@@ -5,7 +5,7 @@ import itertools
 
 def metrics(predict, targets, loss_fn, prefix, logger=None):
     num_classes = predict.shape[-1]
-    loss = loss_fn(predict, targets.long())).item()
+    loss = loss_fn(predict, targets.long()).item()
     accuracy = Accuracy(predict, targets).item()
     auc_score = AUCScore(predict, targets)
     roc, eB03s, eS03s, eB05s, eS05s, tpr10s, fpr10s, tpr1s, fpr1s = ROC(predict, targets)
