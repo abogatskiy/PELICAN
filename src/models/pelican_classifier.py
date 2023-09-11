@@ -66,7 +66,7 @@ class PELICANClassifier(nn.Module):
             self.softmask = SoftMask(device=device,dtype=dtype)
 
         # The input stack applies an encoding function
-        # self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
+        self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
         
         # If there are scalars (like beam labels or PIDs) we promote them using an equivariant 1->2 layer and then concatenate them to the embedded dot products
         if self.num_scalars > 0:
@@ -118,7 +118,7 @@ class PELICANClassifier(nn.Module):
 
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.
         # In the C-safe case, this is still fine because inputs depends only on relative angles
-        # inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='angle' if self.irc_safe else 'log')
+        inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='angle' if self.irc_safe else 'log')
 
         # If beams are included, then at this point we also append the scalar channels that contain particle labels.
         if self.num_scalars > 0:
