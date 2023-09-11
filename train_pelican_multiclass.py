@@ -20,12 +20,12 @@ logger = logging.getLogger('')
 import torch
 from torch.utils.data import DataLoader
 
-from src.models import PELICANClassifier
+from src.models import PELICANMultiClassifier
 from src.models import tests
 from src.trainer import Trainer
 from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args
 from src.trainer import init_optimizer, init_scheduler
-from src.models.metrics_classifier import metrics, minibatch_metrics, minibatch_metrics_string
+from src.models.metrics_multiclass import metrics, minibatch_metrics, minibatch_metrics_string
 
 
 from src.dataloaders import initialize_datasets, collate_fn
@@ -60,7 +60,7 @@ def main():
     # Initialize dataloder
     if args.fix_data:
         torch.manual_seed(165937750084982)
-    args, datasets = initialize_datasets(args, args.datadir, num_pts=None)
+    args, datasets = initialize_datasets(args, args.datadir, num_pts=None, balance=False)
 
     # Fix possible inconsistencies in arguments
     args = fix_args(args)
@@ -76,7 +76,7 @@ def main():
                    for split, dataset in datasets.items()}
 
     # Initialize model
-    model = PELICANClassifier(args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out,
+    model = PELICANMultiClassifier(args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out, num_classes=5,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
                       factorize=args.factorize, masked=args.masked,
@@ -100,7 +100,7 @@ def main():
 
     # Define a loss function.
     # loss_fn = torch.nn.functional.cross_entropy
-    loss_fn = torch.nn.CrossEntropyLoss()
+    loss_fn = lambda predict, targets: torch.nn.CrossEntropyLoss()(predict, targets.long().argmax(dim=1))
     
     # Apply the covariance and permutation invariance tests.
     if args.test:

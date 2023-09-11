@@ -7,11 +7,11 @@ from .lorentz_metric import normsq4, dot4, CATree, SDMultiplicity
 from ..layers import BasicMLP, get_activation_fn, Net2to2, Eq1to2, Eq2to2, Eq2to0, MessageNet, InputEncoder, SoftMask, eops_2_to_2
 from ..trainer import init_weights
 
-class PELICANClassifier(nn.Module):
+class PELICANMultiClassifier(nn.Module):
     """
     Permutation Invariant, Lorentz Invariant/Covariant Aggregator Network
     """
-    def __init__(self, num_channels_scalar, num_channels_m, num_channels_2to2, num_channels_out, num_channels_m_out,
+    def __init__(self, num_channels_scalar, num_channels_m, num_channels_2to2, num_channels_out, num_channels_m_out, num_classes=5,
                  activate_agg_in=False, activate_lin_in=True,
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, read_pid=False, config='s', config_out='s', average_nobj=49, factorize=False, masked=True,
                  activate_agg_out=True, activate_lin_out=False, mlp_out=True,
@@ -30,6 +30,7 @@ class PELICANClassifier(nn.Module):
         self.num_channels_2to2 = num_channels_2to2
         self.num_channels_m_out = num_channels_m_out
         self.num_channels_out = num_channels_out
+        self.num_classes = num_classes
         self.batchnorm = batchnorm
         self.dropout = dropout
         self.scale = scale
@@ -66,11 +67,11 @@ class PELICANClassifier(nn.Module):
             self.softmask = SoftMask(device=device,dtype=dtype)
 
         # The input stack applies an encoding function
-        # self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
+        self.input_encoder = InputEncoder(embedding_dim, device = device, dtype = dtype)
         
         # If there are scalars (like beam labels or PIDs) we promote them using an equivariant 1->2 layer and then concatenate them to the embedded dot products
         if self.num_scalars > 0:
-            self.eq1to2 = Eq1to2(self.num_scalars, num_channels_scalar, activate_agg=activate_agg_in, activate_lin=activate_lin_in, activation = activation, average_nobj=average_nobj, config=config_out, factorize=factorize, device = device, dtype = dtype)
+            self.eq1to2 = Eq1to2(self.num_scalars, num_channels_scalar, activate_agg=activate_agg_in, activate_lin=activate_lin_in, activation = activation, average_nobj=average_nobj, config=config_out, factorize=False, device = device, dtype = dtype)
 
         # This is the main part of the network -- a sequence of permutation-equivariant 2->2 blocks
         # Each 2->2 block consists of a component-wise messaging layer that mixes channels, followed by the equivariant aggegration over particle indices
@@ -78,11 +79,11 @@ class PELICANClassifier(nn.Module):
         
         # The final equivariant block is 2->1 and is defined here manually as a messaging layer followed by the 2->1 aggregation layer
         self.msg_2to0 = MessageNet(num_channels_m_out, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype)       
-        self.agg_2to0 = Eq2to0(num_channels_m_out[-1], num_channels_out[0] if mlp_out else 2, activate_agg=activate_agg_out, activate_lin=activate_lin_out, activation = activation, config=config_out, factorize=False, average_nobj=average_nobj, device = device, dtype = dtype)
+        self.agg_2to0 = Eq2to0(num_channels_m_out[-1], num_channels_out[0] if mlp_out else num_classes, activate_agg=activate_agg_out, activate_lin=activate_lin_out, activation = activation, config=config_out, factorize=False, average_nobj=average_nobj, device = device, dtype = dtype)
         
         # We have produced a permutation-invariant feature vector, and now we apply an MLP with 2 output channels to it to get the final classification weights
         if mlp_out:
-            self.mlp_out = BasicMLP(self.num_channels_out + [2], activation=activation, dropout = False, batchnorm = False, device=device, dtype=dtype)
+            self.mlp_out = BasicMLP(self.num_channels_out + [num_classes], activation=activation, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
         self.apply(init_weights)
 
@@ -118,7 +119,7 @@ class PELICANClassifier(nn.Module):
 
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.
         # In the C-safe case, this is still fine because inputs depends only on relative angles
-        # inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='angle' if self.irc_safe else 'log')
+        inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='angle' if self.irc_safe else 'log')
 
         # If beams are included, then at this point we also append the scalar channels that contain particle labels.
         if self.num_scalars > 0:

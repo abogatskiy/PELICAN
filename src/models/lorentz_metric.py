@@ -16,7 +16,7 @@ def dot4(p1, p2):
 
 
 
-def SDMultiplicity(jetsbatch, zcut=0.007, thetacut=0., R0 = 0.8, beta = -1.):
+def SDMultiplicity(jetsbatch, zcut=0.005, thetacut=0., R0 = 0.8, beta = -1.):
     """
     Given a C/A tree produced by CATree(), compute the Lorentz-invariant
     analog of the Soft Drop multiplicity nSD from https://arxiv.org/pdf/1704.06266.pdf

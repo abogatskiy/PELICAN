@@ -45,20 +45,36 @@ def eops_1_to_1(inputs, normalize=False):
     op2 = sums.expand(-1, -1, dim)
     return torch.stack([op1, op2], dim=2)
 
-# def eops_1_to_2(inputs, normalize=False):
-#     '''
-#     inputs: N x D x m tensor
-#     '''
-#     N, D, m = inputs.shape
-#     dim = inputs.shape[-1]
-#     sum_all = inputs.sum(dim=2, keepdim=True) # N x D x 1
+def eops_1_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None):
+    '''
+    inputs: B x N x C tensor (event, particle, channel)
+    '''
+    inputs = inputs.permute(0, 2, 1)
+    B, C, N = inputs.shape
 
-#     op1 = torch.diag_embed(inputs)
-#     op2 = torch.diag_embed(sum_all.expand(-1, -1, dim))
-#     op3 = inputs.unsqueeze(2).expand(-1, -1, dim, -1)
-#     op4 = inputs.unsqueeze(3).expand(-1, -1, -1, dim)
-#     op5 = sum_all.unsqueeze(3).expand(-1, -1, dim, dim)
-#     return torch.stack([op1, op2, op3, op4, op5], dim=2)
+    if aggregation == 'mean':
+        aggregation_fn = masked_mean
+    elif aggregation == 'max':
+        aggregation_fn = masked_amax
+    elif aggregation == 'min':
+        aggregation_fn = masked_amin
+    elif aggregation == 'var':
+        aggregation_fn = masked_var
+    elif aggregation == 'sum':
+        aggregation_fn = masked_sum
+        nobj = nobj_avg
+
+    if weight is not None:
+        sum_all = aggregation_fn(inputs * weight.unsqueeze(1), nobj, dim=2, keepdims=True) # B x C x 1
+    else:
+        sum_all = aggregation_fn(inputs, nobj, dim=2, keepdims=True) # B x C x 1
+
+    op1 = torch.diag_embed(inputs)
+    op2 = inputs.unsqueeze(2).expand(-1, -1, N, -1)
+    op3 = inputs.unsqueeze(3).expand(-1, -1, -1, N)
+    op4 = torch.diag_embed(sum_all.expand(-1, -1, N))
+    op5 = sum_all.unsqueeze(3).expand(-1, -1, N, N)
+    return torch.stack([op1, op2, op3, op4, op5], dim=2)
 
 def eops_2_to_0(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None):
     inputs = inputs.permute(0, 3, 1, 2)
@@ -77,7 +93,6 @@ def eops_2_to_0(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None)
         aggregation_fn = masked_sum
         nobj = nobj_avg
 
-    sum_diag_part = aggregation_fn(diag_part, nobj, dim=2) # B x C
     if weight is not None:
         sum_diag_part = aggregation_fn(diag_part * weight.unsqueeze(1), nobj, dim=2) # B x C x 1
         weight_rows = weight.unsqueeze(1).unsqueeze(2)

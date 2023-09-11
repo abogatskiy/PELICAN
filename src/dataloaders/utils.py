@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import ConcatDataset
 from . import JetDataset
 
-def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, testfile=''):
+def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, testfile='', balance=True):
     """
     Initialize datasets.
     """
@@ -28,16 +28,16 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
     for split in splits:
         logger.info(f'Looking for {split} files in datadir:')
         for file in files:
-            if (split in file): 
+            if (split in file):
                 datafiles[split].append(file)
                 logger.info(file)
-                
+
     # if a testfile is explicitly provided, that will override any test sets found in datadir
     if testfile != '': 
         datafiles['test']=[testfile]
         logger.info(f'Using the explicitly specified test dataset:')
         logger.info(testfile)
-                
+
     nfiles = {split:len(datafiles[split]) for split in splits}
 
     ### ------ 2: Set the number of data points ------ ###
@@ -75,7 +75,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data
-    torch_datasets = {split: ConcatDataset([JetDataset(data, num_pts=num_pts_per_file[split][idx], shuffle=shuffle[split]) for idx, data in enumerate(datasets[split])]) for split in splits if len(datasets[split])>0}
+    torch_datasets = {split: ConcatDataset([JetDataset(data, num_pts=num_pts_per_file[split][idx], shuffle=shuffle[split], balance=balance) for idx, data in enumerate(datasets[split])]) for split in splits if len(datasets[split])>0}
 
     # Now, update the number of training/test/validation sets in args
     if 'train' in torch_datasets.keys():

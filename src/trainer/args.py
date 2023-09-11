@@ -149,9 +149,11 @@ def setup_argparse():
     parser.add_argument('--num-test', type=int, default=-1, metavar='N',
                         help='Number of test samples to use. Set to -1 to use entire dataset. (default: -1)')
     parser.add_argument('--add-beams', action=argparse.BooleanOptionalAction, default=True,
-                        help='Append two proton beams of the form (m^2,0,0,+-1) to each event')
+                        help='Append two proton beams of the form (m^2,0,0,+-1) to each event and add one-hot labels for them')
     parser.add_argument('--beam-mass', type=float, default=0., metavar='N',
                     help='Set mass m of the beams, so that E=sqrt(1 + m^2) (default = 1)')
+    parser.add_argument('--read-pid', action=argparse.BooleanOptionalAction, default=False,
+                        help='Read PIDs from the pdgid key in data and feed as one-hot labels')
     parser.add_argument('--force-download', action=argparse.BooleanOptionalAction, default=False,
                         help='Force download and processing of dataset.')
 
@@ -175,17 +177,24 @@ def setup_argparse():
                         help='Set number of workers in dataloader. (Default: 0)')
 
     # Model options
-
-    # parser.add_argument('--num-channels0', nargs='*', type=int, default=[5,]*2, metavar='N',
-    #                     help='Number of channels to allow after mixing (default: [3])')
-    parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
+    parser.add_argument('--num-channels-scalar', type=int, metavar='N',
                         help='Number of channels to allow after mixing (default: )',
+                        # default = 25
+                        # default = 60
+                        default = 78
+                        )
+    parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
+                        help="""Numbers of channels in each messaging block. Presented as a list of lists, one list per messaging block.
+                                Each block's list should contain as many integers as layers that you want that MLP to have.
+                                The number of output channels will be automatically inferred from the equivariant blocks.
+                                Can be empty, in which case the block does nothing (except batchnorm if that's turned on)""",
                         # default = [[25,],]*5
                         # default = [[60],]*5
                         default = [[132],]*5
                         )
-    parser.add_argument('--num-channels1', nargs='*', type=int, metavar='N',
-                        help='Number of channels to allow after mixing (default: )',
+    parser.add_argument('--num-channels-2to2', nargs='*', type=int, metavar='N',
+                        help="""Number of input channels to the equivariant blocks. Should be a list of as many integers as there are 2->2 blocks.
+                                The length of this list should match the length of --num-channels-m""",
                         # default=[15,]*5
                         # default=[35,]*5
                         default=[78,]*5
@@ -202,13 +211,13 @@ def setup_argparse():
                         )
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Include an output MLP (default = True)')
-    parser.add_argument('--num-channels2', nargs='*', type=int, 
+    parser.add_argument('--num-channels-out', nargs='*', type=int, 
                         # default=[25], 
                         # default=[60], 
                         default=[132], 
                         metavar='N',
                         help="""Numbers of channels in the output MLP.
-                        Number of layers (linear + activation) equals len(num-channels2).
+                        Number of layers (linear + activation) equals len(num-channels-out).
                         The first number specifies the output dimension of Eq2to0 (or Eq2to1).
                         The last layer automatically outputs the necessary number of channels (2 for classification, num-targets for regression).
                         (default: )""")
@@ -222,17 +231,17 @@ def setup_argparse():
     parser.add_argument('--batchnorm', type=str, default='b',
                     help='Enable batch/instance normalization at the end of each MessageNet (batch | instance | None) (default = b)')
 
-    parser.add_argument('--config1', type=str, default='M',
+    parser.add_argument('--config', type=str, default='M',
                     help='Configuration for aggregation functions in Net2to2 (any combination of letters s,S,m,M,x,X,n,N (default = M)')
-    parser.add_argument('--config2', type=str, default='M',
+    parser.add_argument('--config-out', type=str, default='M',
                     help='Configuration for aggregation functions in Eq2to0 (any combination of letters s,S,m,M,x,X,n,N (default = M)')
     parser.add_argument('--activate-agg', action=argparse.BooleanOptionalAction, default=False,
                     help='Apply an activation function right after permutation-equvariant Eq2to2 aggregation (default = False)')
     parser.add_argument('--activate-lin', action=argparse.BooleanOptionalAction, default=True,
                     help='Apply an activation function right after the linear mixing following Eq2to2 aggregation (default = True)')
-    parser.add_argument('--activate-agg2', action=argparse.BooleanOptionalAction, default=True,
+    parser.add_argument('--activate-agg-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Apply an activation function right after permutation-equvariant Eq2to0 aggregation (default = True)')
-    parser.add_argument('--activate-lin2', action=argparse.BooleanOptionalAction, default=False,
+    parser.add_argument('--activate-lin-out', action=argparse.BooleanOptionalAction, default=False,
                     help='Apply an activation function right after the linear mixing following Eq2to0 aggregation (default = False)')
     parser.add_argument('--factorize', action=argparse.BooleanOptionalAction, default=True,
                     help='Use this option to significantly reduce the number of weights used in Eq2to2 layers (default = True)')
