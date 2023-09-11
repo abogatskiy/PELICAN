@@ -5,7 +5,6 @@ from .utils import init_scheduler, init_optimizer, _max_norm
 # import torch.optim.lr_scheduler as sched
 
 import numpy as np
-from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
 from .scheduler import GradualWarmupScheduler, GradualCooldownScheduler
 # from torchviz import make_dot
 

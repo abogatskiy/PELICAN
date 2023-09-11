@@ -60,7 +60,7 @@ class PELICANRegression(nn.Module):
             self.num_scalars = 0
             
         if add_beams: 
-            assert embedding_dim > num_channels_scalar, f"num_channels_m[0][0] has to be at least {num_channels_scalar + 1} because you enabled --add_beams or --read-pid but got {embedding_dim}"
+            assert embedding_dim > num_channels_scalar, f"num_channels_m[0][0] or num_channels[0] has to be at least {num_channels_scalar + 1} because you enabled --add_beams or --read-pid but got {embedding_dim}"
             embedding_dim -= num_channels_scalar
 
         if irc_safe:
@@ -77,8 +77,8 @@ class PELICANRegression(nn.Module):
         self.net2to2 = Net2to2(num_channels_2to2 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, config=config, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
         
         # The final equivariant block is 2->1 and is defined here manually as a messaging layer followed by the 2->1 aggregation layer
-        self.message_layer = MessageNet(num_channels_m_out, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype)       
-        self.eq2to1 = Eq2to1(num_channels_m_out[-1], num_channels_out[0] if mlp_out else num_targets,  activate_agg=activate_agg_out, activate_lin=activate_lin_out, activation = activation, average_nobj=average_nobj, config=config_out, factorize=factorize, device = device, dtype = dtype)
+        self.msg_2to1 = MessageNet(num_channels_m_out, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype)       
+        self.agg_2to1 = Eq2to1(num_channels_m_out[-1], num_channels_out[0] if mlp_out else num_targets,  activate_agg=activate_agg_out, activate_lin=activate_lin_out, activation = activation, average_nobj=average_nobj, config=config_out, factorize=factorize, device = device, dtype = dtype)
 
         # We have produced one feature vector per each of the N particles, and now we apply an MLP to each of those to get the final PELICAN weights
         if mlp_out:
@@ -133,7 +133,7 @@ class PELICANRegression(nn.Module):
         act2 = self.message_layer(act1, mask=edge_mask.unsqueeze(-1))
         if self.dropout:
             act2 = self.dropout_layer(act2)
-        act3 = self.eq2to1(act2, mask=particle_mask.unsqueeze(-1), nobj=nobj,
+        act3 = self.agg_2to1(act2, mask=particle_mask.unsqueeze(-1), nobj=nobj,
                            irc_weight = irc_weight if self.irc_safe else None)
 
         # The output layer applies dropout and an MLP.
