@@ -72,9 +72,9 @@ class Eq2to0(nn.Module):
         ops = []
         for i, char in enumerate(self.config):
             if char in ['s', 'm', 'x', 'n']:
-                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char], weight=irc_weight)
+                op = self.ops_func(inputs, nobj=nobj, nobj_avg=self.average_nobj, aggregation=d[char], weight=irc_weight)
             elif char in ['S', 'M', 'X', 'N']:
-                op = self.ops_func(inputs, nobj=nobj, aggregation=d[char.lower()], weight=irc_weight)
+                op = self.ops_func(inputs, nobj=nobj, nobj_avg=self.average_nobj, aggregation=d[char.lower()], weight=irc_weight)
                 mult = (nobj).view([-1,1,1])**self.alphas[i]
                 mult = mult / (self.average_nobj** self.alphas[i])
                 op = op * mult            
