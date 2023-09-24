@@ -59,7 +59,7 @@ class PELICANMultiClassifier(nn.Module):
         else:
             self.num_scalars = 0
 
-        if add_beams: 
+        if self.num_scalars > 0: 
             assert embedding_dim > num_channels_scalar, f"num_channels_m[0][0] has to be at least {num_channels_scalar + 1} because you enabled --add_beams or --read-pid but got {embedding_dim}"
             embedding_dim -= num_channels_scalar
         
