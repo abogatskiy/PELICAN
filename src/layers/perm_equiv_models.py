@@ -134,7 +134,7 @@ class Eq1to2(nn.Module):
         else:
             self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         
-        self.bias = nn.Parameter(torch.zeros(1, 1, out_dim, device=device, dtype=dtype))
+        self.bias = nn.Parameter(torch.zeros(out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
 
     def forward(self, inputs, mask=None, nobj=None, softmask_ir=None, irc_weight=None):
@@ -170,7 +170,7 @@ class Eq1to2(nn.Module):
 
         output = torch.einsum('dsb,ndbij->nijs', coefs, ops)
 
-        output = output + self.bias
+        output = output + self.bias.view(1,1,-1)
 
         if self.activate_lin:
             output = self.activation_fn(output)
@@ -211,7 +211,7 @@ class Eq2to1(nn.Module):
         else:
             self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
         
-        self.bias = nn.Parameter(torch.zeros(1, 1, out_dim, device=device, dtype=dtype))
+        self.bias = nn.Parameter(torch.zeros(out_dim, device=device, dtype=dtype))
         self.to(device=device, dtype=dtype)
 
     def forward(self, inputs, mask=None, nobj=None, softmask_ir=None, irc_weight=None):
@@ -247,7 +247,7 @@ class Eq2to1(nn.Module):
 
         output = torch.einsum('dsb,ndbi->nis', coefs, ops)
 
-        output = output + self.bias
+        output = output + self.bias.view(1,1,-1)
 
         if self.activate_lin:
             output = self.activation_fn(output)
@@ -289,8 +289,8 @@ class Eq2to2(nn.Module):
             self.coefs11 = nn.Parameter(torch.normal(0, np.sqrt(1. / in_dim), (in_dim, out_dim), device=device, dtype=dtype))   # Replace 1. with 2. when using ELU/GELU, leave 1. for LeakyReLU
         else:
             self.coefs = nn.Parameter(torch.normal(0, np.sqrt(2./(in_dim * self.basis_dim)), (in_dim, out_dim, self.basis_dim), device=device, dtype=dtype))
-        self.bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
-        self.diag_bias = nn.Parameter(torch.zeros(1, 1, 1, out_dim, device=device, dtype=dtype))
+        self.bias = nn.Parameter(torch.zeros(out_dim, device=device, dtype=dtype))
+        self.diag_bias = nn.Parameter(torch.zeros(out_dim, device=device, dtype=dtype))
 
         if ops_func is None:
             self.ops_func = eops_2_to_2
@@ -340,7 +340,7 @@ class Eq2to2(nn.Module):
 
         diag_eye = torch.eye(inputs.shape[1], device=self.device, dtype=self.dtype).unsqueeze(0).unsqueeze(-1)
         diag_bias = diag_eye.multiply(self.diag_bias)
-        output = output + self.bias + diag_bias
+        output = output + self.bias.view(1,1,1,-1) + diag_bias.view(1,1,1,-1)
 
         if self.activate_lin:
             output = self.activation_fn(output)
