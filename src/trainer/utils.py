@@ -154,9 +154,9 @@ def init_optimizer(args, model, step_per_epoch=None):
     elif optim_type == 'adamw':
         optimizer = optim.AdamW(params, amsgrad=False)
     elif optim_type == 'radam':
-        optimizer = optim.RAdam(params)
+        optimizer = optim.RAdam(params, amsgrad=False)
     elif optim_type == 'amsgrad':
-        optimizer = optim.Adam(params, amsgrad=False)
+        optimizer = optim.Adam(params, amsgrad=True)
     elif optim_type == 'rmsprop':
         optimizer = optim.RMSprop(params)
     elif optim_type == 'sgd':

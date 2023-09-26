@@ -269,7 +269,8 @@ class Eq2to2(nn.Module):
         self.folklore = folklore
 
         self.average_nobj = average_nobj                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
-        self.basis_dim = (16 if folklore else 15) + (11 if folklore else 10) * (len(config) - 1)
+        # self.basis_dim = (16 if folklore else 15) + (11 if folklore else 10) * (len(config) - 1)
+        self.basis_dim = 6
 
         self.alphas = nn.ParameterList([None] * len(config))
         self.dummy_alphas = torch.zeros(1, in_dim, 5, 1, 1, device=device, dtype=dtype)
@@ -339,8 +340,8 @@ class Eq2to2(nn.Module):
         output = torch.einsum('dsb,ndbij->nijs', coefs, ops)
 
         diag_eye = torch.eye(inputs.shape[1], device=self.device, dtype=self.dtype).unsqueeze(0).unsqueeze(-1)
-        diag_bias = diag_eye.multiply(self.diag_bias)
-        output = output + self.bias.view(1,1,1,-1) + diag_bias.view(1,1,1,-1)
+        diag_bias = diag_eye.multiply(self.diag_bias.view(1,1,1,-1))
+        output = output + self.bias.view(1,1,1,-1) + diag_bias
 
         if self.activate_lin:
             output = self.activation_fn(output)
