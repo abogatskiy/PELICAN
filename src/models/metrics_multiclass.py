@@ -4,8 +4,9 @@ from sklearn.metrics import classification_report, confusion_matrix, roc_auc_sco
 import itertools
 
 def metrics(predict, targets, loss_fn, prefix, logger=None):
-    num_classes = predict.shape[-1]
     loss = torch.nn.CrossEntropyLoss()(predict, targets).item()
+    predict = predict.softmax(dim=1)
+    num_classes = predict.shape[-1]
     accuracy = Accuracy(predict, targets).item()
     auc_score = AUCScore(predict, targets)
     roc, eB03s, eS03s, eB05s, eS05s, tpr10s, fpr10s, tpr1s, fpr1s = ROC(predict, targets)
@@ -19,6 +20,7 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     return metrics, string
 
 def minibatch_metrics(predict, targets, loss):
+    predict = predict.softmax(dim=1)
     accuracy = Accuracy(predict, targets).item()
     auc_score = AUCScore(predict, targets)
     return [loss, accuracy, auc_score]
