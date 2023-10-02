@@ -122,7 +122,7 @@ class Trainer:
         self.minibatch = checkpoint['minibatch']
         del checkpoint
 
-        logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.epoch}:\n{self.best_metrics}')
+        logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.best_epoch}:\n{self.best_metrics}')
 
     def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True, ir_data=None, c_data=None, expand_data=None):
         """
