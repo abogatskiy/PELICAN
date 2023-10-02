@@ -177,8 +177,13 @@ def setup_argparse():
                         help='Set number of workers in dataloader. (Default: 0)')
 
     # Model options
+    parser.add_argument('--num-classes', type=int, default=2, metavar='N',
+                        help='For PELICANClassifier ONLY: Number of output classes for classification models. (default: 2)')
+    parser.add_argument('--num-hidden', type=int, default=2, metavar='N',
+                        help='For CODENAME ONLY: width of the hidden layer. (default: 2)')
+    
     parser.add_argument('--num-channels-scalar', type=int, metavar='N',
-                        help='Number of channels to allow after mixing (default: )',
+                        help='Number of output channels in the Eq1to2 embedding block for scalars. Not for PELICANNano.',
                         # default = 25
                         # default = 60
                         default = 78
@@ -187,14 +192,16 @@ def setup_argparse():
                         help="""Numbers of channels in each messaging block. Presented as a list of lists, one list per messaging block.
                                 Each block's list should contain as many integers as layers that you want that MLP to have.
                                 The number of output channels will be automatically inferred from the equivariant blocks.
-                                Can be empty, in which case the block does nothing (except batchnorm if that's turned on)""",
+                                Can be empty, in which case the block does nothing (except batchnorm if that's turned on).
+                                Not for CODENAME.""",
                         # default = [[25,],]*5
                         # default = [[60],]*5
                         default = [[132],]*5
                         )
     parser.add_argument('--num-channels-2to2', nargs='*', type=int, metavar='N',
                         help="""Number of input channels to the equivariant blocks. Should be a list of as many integers as there are 2->2 blocks.
-                                The length of this list should match the length of --num-channels-m""",
+                                The length of this list should match the length of --num-channels-m.
+                                Not for CODENAME.""",
                         # default=[15,]*5
                         # default=[35,]*5
                         default=[78,]*5
@@ -203,14 +210,14 @@ def setup_argparse():
                         help="""Channels in the final message layer between Net2to2 and Eq2to0 (or Eq2to1)
                                 number of layers (linear + activation) is len(num-channels-m-out) - 1. 
                                 The first number also specifies the output dimension of the last Eq2to2,
-                                and the last number specifies the input dimension of Eq2to0 (or Eq2to1)
-                                (default: )""", 
+                                and the last number specifies the input dimension of Eq2to0 (or Eq2to1).
+                                Not for CODENAME.""", 
                                 # default = [25, 15]
                                 # default = [60, 35]
                                 default = [132, 78]
                         )
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
-                    help='Include an output MLP (default = True)')
+                    help='Include an output MLP (default = True). Not for PELICANNano.')
     parser.add_argument('--num-channels-out', nargs='*', type=int, 
                         # default=[25], 
                         # default=[60], 
@@ -220,7 +227,7 @@ def setup_argparse():
                         Number of layers (linear + activation) equals len(num-channels-out).
                         The first number specifies the output dimension of Eq2to0 (or Eq2to1).
                         The last layer automatically outputs the necessary number of channels (2 for classification, num-targets for regression).
-                        (default: )""")
+                        Not for CODENAME.""")
 
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,
                     help='Enable a dropout layer at the end of the network (default = False)')

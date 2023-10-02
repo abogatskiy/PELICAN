@@ -11,7 +11,7 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     conf_matrix = confusion_matrix(targets, predict.argmax(dim=1)) / targets.shape[0]
     metrics = {'loss': loss, 'accuracy': accuracy, 'AUC': auc_score, 'BgRejectionAt0.3': 1/eB03 if eB03>0 else 0, 'atSignEfficiency03': eS03, 'BgRejectionAt0.5': 1/eB05 if eB05>0 else 0, 'atSignEfficiency05': eS05, 'FP_rate': conf_matrix[0,1], 'FN_rate': conf_matrix[1,0]}
     string = ' L: {:10.4f}, ACC: {:10.4f}, AUC: {:10.4f},    BR: {:10.1f} @ {:>4.4f},    BR: {:10.1f} @ {:>4.4f},   FP: {:10.4f}, FN: {:10.4f}'.format(loss, accuracy, auc_score, 1/eB03 if eB03>0 else 0, eS03,  1/eB05 if eB05>0 else 0, eS05, conf_matrix[0,1], conf_matrix[1,0])
-    np.savetxt(prefix+'_ROC.csv', ROC(predict, targets)[0], delimiter=',')
+    np.savetxt(prefix+'_ROC.csv', roc, delimiter=',')
     # if logger:
     #     logger.info('ROC saved to file ' + prefix+'_ROC.csv' + '\n')
     return metrics, string
@@ -26,6 +26,8 @@ def minibatch_metrics_string(metrics):
     string = ', L:{:> 9.4f}, ACC:{:> 9.4f}, AUC:{:> 9.4f}'.format(*metrics)
     return string
 
+
+
 def Entropy(predict, targets):
     return torch.nn.CrossEntropyLoss()(predict, targets.long())      # Cross Entropy Loss (positive number). The closer to 0 the better.
 
@@ -37,13 +39,13 @@ def AUCScore(predict, targets):
     if torch.equal(targets, torch.ones_like(targets)) or torch.equal(targets, torch.zeros_like(targets)):
         return 0
     else:
-        return roc_auc_score(targets, predict[:, 1])          # Area Under Curve score (between 0 and 1). The closer to 1 the better.
+        return roc_auc_score(targets, predict[:, -1])          # Area Under Curve score (between 0 and 1). The closer to 1 the better.
 
 def ROC(predict, targets):
     if torch.equal(targets, torch.ones_like(targets)) or torch.equal(targets, torch.zeros_like(targets)):
         return None, 0., 0., 0., 0.
     else:
-        curve = roc_curve(targets, predict[:, 1])
+        curve = roc_curve(targets, predict[:, -1])
         eB03, eS03 = BR(curve, at_eS=0.3)
         eB05, eS05 = BR(curve, at_eS=0.5)
         return curve, eB03, eS03, eB05, eS05
