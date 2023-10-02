@@ -268,9 +268,9 @@ class Eq2to2(nn.Module):
         self.factorize=factorize
         self.folklore = folklore
 
-        self.average_nobj = average_nobj                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
-        # self.basis_dim = (16 if folklore else 15) + (11 if folklore else 10) * (len(config) - 1)
-        self.basis_dim = 6
+        self.average_nobj = average_nobj
+        self.basis_dim = (16 if folklore else 15) + (11 if folklore else 10) * (len(config) - 1)
+        # self.basis_dim = 6
 
         self.alphas = nn.ParameterList([None] * len(config))
         self.dummy_alphas = torch.zeros(1, in_dim, 5, 1, 1, device=device, dtype=dtype)
