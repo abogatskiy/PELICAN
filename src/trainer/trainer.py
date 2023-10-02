@@ -20,7 +20,7 @@ class Trainer:
     """
     def __init__(self, args, dataloaders, model, loss_fn, metrics_fn, minibatch_metrics_fn, minibatch_metrics_string_fn, 
                  optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype):
-        np.set_printoptions(precision=3)
+        np.set_printoptions(precision=5)
         self.args = args
         self.dataloaders = dataloaders
         self.model = model

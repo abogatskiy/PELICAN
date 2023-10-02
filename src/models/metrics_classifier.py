@@ -4,6 +4,7 @@ from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
 
 def metrics(predict, targets, loss_fn, prefix, logger=None):
     loss = loss_fn(predict, targets.long()).item()
+    predict = predict.softmax(dim=1)
     accuracy = Accuracy(predict, targets).item()
     auc_score = AUCScore(predict, targets)
     roc, eB03, eS03, eB05, eS05 = ROC(predict, targets)
@@ -16,6 +17,7 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     return metrics, string
 
 def minibatch_metrics(predict, targets, loss):
+    predict = predict.softmax(dim=1)
     accuracy = Accuracy(predict, targets).item()
     auc_score = AUCScore(predict, targets)
     return [loss, accuracy, auc_score]
@@ -23,7 +25,6 @@ def minibatch_metrics(predict, targets, loss):
 def minibatch_metrics_string(metrics):
     string = ', L:{:> 9.4f}, ACC:{:> 9.4f}, AUC:{:> 9.4f}'.format(*metrics)
     return string
-
 
 def Entropy(predict, targets):
     return torch.nn.CrossEntropyLoss()(predict, targets.long())      # Cross Entropy Loss (positive number). The closer to 0 the better.

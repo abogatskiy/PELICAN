@@ -14,7 +14,7 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     report = classification_report(targets.argmax(dim=1), predict.argmax(dim=1), target_names=['g','q','W','Z','t'])
     metrics = {'loss': loss, 'accuracy': accuracy, 'AUC': auc_score, 'eS at eB=0.1': tpr10s, 'eB at eB=0.1': fpr10s, 'eS at eB=0.01': tpr1s, 'eB at eB=0.01': fpr1s, '1/eB at eS=0.3': [1/eB03 if eB03>0 else 0 for eB03 in eB03s], 'eS at eS=0.3': eS03s, '1/eB at eS=0.5': [1/eB05 if eB05>0 else 0 for eB05 in eB05s], 'eS at eS=0.5': eS05s, 'conf': conf_matrix, 'report': report}
     string = ' L: {:10.4f}, ACC: {:10.4f}, AUC: {},    eS: {} @ {:>4.2f},    eS: {} @ {:>4.2f},    1/eB: {} @ {:>4.2f},    1/eB: {} @ {:>4.2f},\nconf:\n{},\nreport:\n{}'.format(loss, accuracy, auc_score, tpr10s, 0.1, tpr1s, 0.01, [1/eB03 if eB03>0 else 0 for eB03 in eB03s], 0.3,  [1/eB05 if eB05>0 else 0 for eB05 in eB05s], 0.5, conf_matrix, report)
-    np.savetxt(prefix+'_ROC.csv', np.array(list(itertools.zip_longest(*ROC(predict, targets)[0],fillvalue=0.))), delimiter=',')
+    np.savetxt(prefix+'_ROC.csv', np.array(list(itertools.zip_longest(*roc[0],fillvalue=0.))), delimiter=',')
     # if logger:
     #     logger.info('ROC saved to file ' + prefix+'_ROC.csv' + '\n')
     return metrics, string
