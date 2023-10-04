@@ -384,6 +384,7 @@ class Trainer:
         metricsfile = self.args.predictfile + '.metrics.' + dataset + '.csv'   
         testmetricsfile = os.path.join(self.args.workdir, self.args.logdir, self.args.prefix.split("-")[0]+'.'+description+'.metrics.csv')
 
+
         if epoch >= 0 and self.summarize_csv=='all':
             with open(metricsfile, mode='a' if (self.args.load or epoch>1) else 'w') as file_:
                 if epoch == 1:
@@ -419,7 +420,7 @@ class Trainer:
                     if metric.size==1:
                         self.writer.add_scalar(dataset+'/'+name, metric, epoch)
                     else:
-                        for i, m in enumerate(metric):
+                        for i, m in enumerate(metric.flatten()):
                             self.writer.add_scalar(dataset+'/'+name+'_'+str(i), m, epoch)
 
         return metrics, logstring
