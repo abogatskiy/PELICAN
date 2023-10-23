@@ -154,7 +154,9 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
     batch : dict of Pytorch tensors
         The collated data.
     """
-    data = {prop: batch_stack([mol[prop] for mol in data], nobj=nobj) for prop in data[0].keys()}
+    common_keys = data[0].keys()
+    # common_keys = set.intersection(*[set(d.keys()) for d in data]) # Uncomment if different data files have different sets of keys
+    data = {prop: batch_stack([mol[prop] for mol in data], nobj=nobj) for prop in common_keys}
     device = data['Pmu'].device
     dtype = data['Pmu'].dtype
     zero = torch.tensor(0.)
