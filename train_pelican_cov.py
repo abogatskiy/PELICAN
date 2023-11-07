@@ -6,13 +6,13 @@ import random
 
 from src.trainer import which
 if which('nvidia-smi') is not None:
-    min=40000
+    min=8000
     deviceid = 0
     name, mem = os.popen('"nvidia-smi" --query-gpu=gpu_name,memory.total --format=csv,nounits,noheader').read().split('\n')[deviceid].split(',')
     print(mem)
     mem = int(mem)
     if mem < min:
-        print('Less GPU memory than requested. Terminating.')
+        print(f'Less GPU memory than requested ({mem}<{min}). Terminating.')
         sys.exit()
 
 logger = logging.getLogger('')

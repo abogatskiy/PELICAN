@@ -12,7 +12,7 @@ if which('nvidia-smi') is not None:
     print(mem)
     mem = int(mem)
     if mem < min:
-        print('Less GPU memory than requested. Terminating.')
+        print(f'Less GPU memory than requested ({mem}<{min}). Terminating.')
         sys.exit()
 
 logger = logging.getLogger('')
@@ -117,15 +117,13 @@ def main():
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device, dtype)
     
-    # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
-    trainer.load_checkpoint()
-
-    # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
-    if args.reproducible:
-        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
-
-    # Train model.
     if not args.task.startswith('eval'):
+        # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
+        trainer.load_checkpoint()
+        # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
+        if args.reproducible:
+            os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+        # Train model.
         trainer.train()
 
     # Test predictions on best model and also last checkpointed model.
