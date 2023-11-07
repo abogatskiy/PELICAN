@@ -264,6 +264,9 @@ class Trainer:
         Get the learning target.
         If a stats dictionary is included, return a normalized learning target.
         """
+        if self.args.target is None:
+            return None
+        
         target_type = torch.long if self.args.target=='is_signal' else self.dtype
         targets = data[self.args.target].to(self.device, target_type)
 
@@ -355,8 +358,6 @@ class Trainer:
         return all_predict, all_targets
 
     def log_predict(self, predict, targets, dataset, epoch=-1, epoch_t=None, description='', repeat=None):
-        predict = {key: val.cpu().double() for key, val in predict.items()}
-        targets = targets.cpu().double()
 
         datastrings = {'train': 'Training  ', 'test': 'Testing   ', 'valid': 'Validation'}
 
@@ -367,6 +368,12 @@ class Trainer:
 
         prefix = self.args.predictfile + '.' + suffix + '.' + dataset
         metrics, logstring = None, 'metrics skipped!'
+
+        if targets is None:
+            return metrics, logstring
+
+        predict = {key: val.cpu().double() for key, val in predict.items()}
+        targets = targets.cpu().double()
 
         if repeat is None:
             metrics, logstring = self.metrics_fn(predict['predict'], targets, self.loss_fn, prefix, logger)

@@ -179,8 +179,6 @@ def setup_argparse():
     # Model options
     parser.add_argument('--num-classes', type=int, default=2, metavar='N',
                         help='For PELICANClassifier ONLY: Number of output classes for classification models. (default: 2)')
-    parser.add_argument('--num-hidden', type=int, default=2, metavar='N',
-                        help='For CODENAME ONLY: width of the hidden layer. (default: 2)')
     
     parser.add_argument('--num-channels-scalar', type=int, metavar='N',
                         help='Number of output channels in the Eq1to2 embedding block for scalars. Not for PELICANNano.',
@@ -193,7 +191,7 @@ def setup_argparse():
                                 Each block's list should contain as many integers as layers that you want that MLP to have.
                                 The number of output channels will be automatically inferred from the equivariant blocks.
                                 Can be empty, in which case the block does nothing (except batchnorm if that's turned on).
-                                Not for CODENAME.""",
+                                """,
                         # default = [[25,],]*5
                         # default = [[60],]*5
                         default = [[132],]*5
@@ -201,7 +199,7 @@ def setup_argparse():
     parser.add_argument('--num-channels-2to2', nargs='*', type=int, metavar='N',
                         help="""Number of input channels to the equivariant blocks. Should be a list of as many integers as there are 2->2 blocks.
                                 The length of this list should match the length of --num-channels-m.
-                                Not for CODENAME.""",
+                                """,
                         # default=[15,]*5
                         # default=[35,]*5
                         default=[78,]*5
@@ -211,7 +209,7 @@ def setup_argparse():
                                 number of layers (linear + activation) is len(num-channels-m-out) - 1. 
                                 The first number also specifies the output dimension of the last Eq2to2,
                                 and the last number specifies the input dimension of Eq2to0 (or Eq2to1).
-                                Not for CODENAME.""", 
+                                """, 
                                 # default = [25, 15]
                                 # default = [60, 35]
                                 default = [132, 78]
@@ -227,7 +225,7 @@ def setup_argparse():
                         Number of layers (linear + activation) equals len(num-channels-out).
                         The first number specifies the output dimension of Eq2to0 (or Eq2to1).
                         The last layer automatically outputs the necessary number of channels (2 for classification, num-targets for regression).
-                        Not for CODENAME.""")
+                        """)
 
     parser.add_argument('--dropout', action=argparse.BooleanOptionalAction, default=True,
                     help='Enable a dropout layer at the end of the network (default = False)')
