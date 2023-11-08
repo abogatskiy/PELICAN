@@ -132,9 +132,9 @@ def setup_argparse():
 
     # Dataset options
     parser.add_argument('--dataset', type=str, default='jet',
-                        help='Data set. Options: (jet, 2v3bodycomplex). Default: jet.')
+                        help='Data set. (Default: jet)')
     parser.add_argument('--target', type=str, default='is_signal',
-                        help='Learning target for a dataset (such as qm9) with multiple options.')
+                        help='The name of the key that contains the training targets. (default: is_signal)')
     parser.add_argument('--num-targets', type=int, default=1, metavar='N',
                         help='Number of 4-vector targets for the regression task. (default: 1)')
 

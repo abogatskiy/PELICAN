@@ -65,6 +65,9 @@ def fix_args(args):
         print("MessageNet hyperparams are the same across all equivariant layers")
         # args.num_channels_m[0][0] = args.num_channels_2to2[0] # delete this line if not using Residual connections
     
+    if args.target == 'None':
+        args.target = None
+
     if args.seed < 0:
         seed = int((datetime.now().timestamp())*100000)
         logger.info('Setting seed based upon time: {}'.format(seed))
