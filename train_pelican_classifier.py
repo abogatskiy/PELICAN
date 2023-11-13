@@ -63,7 +63,7 @@ def main():
     # Initialize dataloder
     if args.fix_data:
         torch.manual_seed(165937750084982)
-    args, datasets = initialize_datasets(args, args.datadir, num_pts=None, balance=(args.num_classes==2))
+    args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile, balance=(args.num_classes==2))
 
     # Fix possible inconsistencies in arguments
     args = fix_args(args)
