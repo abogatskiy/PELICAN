@@ -20,7 +20,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
     # We will look for the keywords defined in splits to be be in the filenames, and will thus determine what
     # set each file belongs to.
     splits = ['train', 'test', 'valid'] # We will consider all HDF5 files in datadir with one of these keywords in the filename
-    shuffle = {'train': True, 'valid': False, 'test': False} # Shuffle only the training set
+    shuffle = {'train': True, 'valid': True, 'test': False} # Shuffle only the training set
     datafiles = {split:[] for split in splits}
 
     # now search datadir for h5 files and assign them to splits based on their filenames
@@ -71,7 +71,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
         keys = []
         for dataset in datasets[split]:
             keys.append(dataset.keys())
-        assert all([key == keys[0] for key in keys]), 'Datasets must have same set of keys!'
+        # assert all([key == keys[0] for key in keys]), 'Datasets must have same set of keys!'
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data

@@ -59,7 +59,7 @@ class PELICANRegression(nn.Module):
         else:
             self.num_scalars = 0
             
-        if add_beams: 
+        if self.num_scalars > 0: 
             assert embedding_dim > num_channels_scalar, f"num_channels_m[0][0] or num_channels[0] has to be at least {num_channels_scalar + 1} because you enabled --add_beams or --read-pid but got {embedding_dim}"
             embedding_dim -= num_channels_scalar
 
@@ -130,7 +130,7 @@ class PELICANRegression(nn.Module):
                             irc_weight = irc_weight if self.irc_safe else None)
 
         # The last equivariant 2->1 block is constructed here by hand: message layer, dropout, and Eq2to1.
-        act2 = self.message_layer(act1, mask=edge_mask.unsqueeze(-1))
+        act2 = self.msg_2to1(act1, mask=edge_mask.unsqueeze(-1))
         if self.dropout:
             act2 = self.dropout_layer(act2)
         act3 = self.agg_2to1(act2, mask=particle_mask.unsqueeze(-1), nobj=nobj,

@@ -252,7 +252,7 @@ def get_activation_fn(activation):
     elif activation == 'soft':
         activation_fn = nn.Softsign()
     elif activation == 'tanh':
-        activation_fn = nn.Tanhshrink()   
+        activation_fn = nn.Tanh()   
     elif activation == 'identity':
         activation_fn = nn.Identity()
     else:

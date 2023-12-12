@@ -20,7 +20,7 @@ class Trainer:
     """
     def __init__(self, args, dataloaders, model, loss_fn, metrics_fn, minibatch_metrics_fn, minibatch_metrics_string_fn, 
                  optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype):
-        np.set_printoptions(precision=3)
+        np.set_printoptions(precision=5)
         self.args = args
         self.dataloaders = dataloaders
         self.model = model
@@ -118,11 +118,12 @@ class Trainer:
         if self.scheduler is not None:
             self.scheduler.load_state_dict(checkpoint['scheduler_state'])
         self.epoch = checkpoint['epoch']
+        self.best_epoch = checkpoint['best_epoch']
         self.best_metrics = checkpoint['best_metrics']
         self.minibatch = checkpoint['minibatch']
         del checkpoint
 
-        logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.epoch}:\n{self.best_metrics}')
+        logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.best_epoch}:\n{self.best_metrics}')
 
     def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True, ir_data=None, c_data=None, expand_data=None):
         """
@@ -264,6 +265,9 @@ class Trainer:
         Get the learning target.
         If a stats dictionary is included, return a normalized learning target.
         """
+        if self.args.target is None:
+            return None
+        
         target_type = torch.long if self.args.target=='is_signal' else self.dtype
         targets = data[self.args.target].to(self.device, target_type)
 
@@ -346,7 +350,10 @@ class Trainer:
                 all_targets.append(targets)
                 for key, val in predict.items(): all_predict.setdefault(key, []).append(val)
 
-        all_targets = torch.cat(all_targets)
+        if all_targets[0] is not None:
+            all_targets = torch.cat(all_targets)
+        else:
+            all_targets = None
         all_predict = {key: torch.cat(val) for key, val in all_predict.items()}
 
         dt = (datetime.now() - start_time).total_seconds()
@@ -355,8 +362,6 @@ class Trainer:
         return all_predict, all_targets
 
     def log_predict(self, predict, targets, dataset, epoch=-1, epoch_t=None, description='', repeat=None):
-        predict = {key: val.cpu().double() for key, val in predict.items()}
-        targets = targets.cpu().double()
 
         datastrings = {'train': 'Training  ', 'test': 'Testing   ', 'valid': 'Validation'}
 
@@ -366,60 +371,66 @@ class Trainer:
             suffix = 'best'
 
         prefix = self.args.predictfile + '.' + suffix + '.' + dataset
-        metrics, logstring = None, 'metrics skipped!'
+        metrics, logstring = None, 'Metrics skipped because target is None!'
 
-        if repeat is None:
-            metrics, logstring = self.metrics_fn(predict['predict'], targets, self.loss_fn, prefix, logger)
-        else:
-            metrics, logstring = repeat[0], repeat[1]
+        predict = {key: val.cpu().double() for key, val in predict.items()}
 
-        if epoch >= 0:
-            logger.info(f'Epoch {epoch} {description} {datastrings[dataset]}'+logstring)
-        else:
-            logger.info(f'{description:<5} {datastrings[dataset]:<10}'+logstring)
+        if targets is not None:
+            targets = targets.cpu().double()
 
-        if epoch_t:
-            logger.info(f'Total epoch time:      {(datetime.now() - epoch_t).total_seconds()}s')
+            if repeat is None:
+                metrics, logstring = self.metrics_fn(predict['predict'], targets, self.loss_fn, prefix, logger)
+            else:
+                metrics, logstring = repeat[0], repeat[1]
 
-        metricsfile = self.args.predictfile + '.metrics.' + dataset + '.csv'   
-        testmetricsfile = os.path.join(self.args.workdir, self.args.logdir, self.args.prefix.split("-")[0]+'.'+description+'.metrics.csv')
+            if epoch >= 0:
+                logger.info(f'Epoch {epoch} {description} {datastrings[dataset]}'+logstring)
+            else:
+                logger.info(f'{description:<5} {datastrings[dataset]:<10}'+logstring)
 
-        if epoch >= 0 and self.summarize_csv=='all':
-            with open(metricsfile, mode='a' if (self.args.load or epoch>1) else 'w') as file_:
-                if epoch == 1:
-                    file_.write(",".join(metrics.keys()))
-                file_.write(",".join(map(str, metrics.values())))
-                file_.write("\n")  # Next line.
-        if epoch < 0 and self.summarize_csv in ['test','all']:
-            if not os.path.exists(testmetricsfile):
-                with open(testmetricsfile, mode='a') as file_:
-                    file_.write("prefix,timestamp,"+",".join(metrics.keys()))
+            if epoch_t:
+                logger.info(f'Total epoch time:      {(datetime.now() - epoch_t).total_seconds()}s')
+
+            metricsfile = self.args.predictfile + '.metrics.' + dataset + '.csv'   
+            testmetricsfile = os.path.join(self.args.workdir, self.args.logdir, self.args.prefix.split("-")[0]+'.'+description+'.metrics.csv')
+
+            if epoch >= 0 and self.summarize_csv=='all':
+                with open(metricsfile, mode='a' if (self.args.load or epoch>1) else 'w') as file_:
+                    if epoch == 1:
+                        file_.write(",".join(metrics.keys()))
+                    file_.write(",".join(map(str, metrics.values())))
                     file_.write("\n")  # Next line.
-            with open(testmetricsfile, mode='a') as file_:
-                file_.write(self.args.prefix+','+str(datetime.now())+','+",".join(map(str, metrics.values())))
-                file_.write("\n")  # Next line.
+            if epoch < 0 and self.summarize_csv in ['test','all']:
+                if not os.path.exists(testmetricsfile):
+                    with open(testmetricsfile, mode='a') as file_:
+                        file_.write("prefix,timestamp,"+",".join(metrics.keys()))
+                        file_.write("\n")  # Next line.
+                with open(testmetricsfile, mode='a') as file_:
+                    file_.write(self.args.prefix+','+str(datetime.now())+','+",".join(map(str, metrics.values())))
+                    file_.write("\n")  # Next line.
+
+            if self.summarize:
+                if description == 'Best': dataset = 'Best_' + dataset
+                if description == 'Final': dataset = 'Final_' + dataset
+                for name, metric in metrics.items():
+                    if not isinstance(metric, np.ndarray):
+                        self.writer.add_scalar(dataset+'/'+name, metric, epoch)
+                    else:
+                        if metric.size==1:
+                            self.writer.add_scalar(dataset+'/'+name, metric, epoch)
+                        else:
+                            for i, m in enumerate(metric.flatten()):
+                                self.writer.add_scalar(dataset+'/'+name+'_'+str(i), m, epoch)
 
 
         if self.args.predict and (repeat is None):
             file = self.args.predictfile + '.' + suffix + '.' + dataset + '.pt'
             logger.info('Saving predictions to file: {}'.format(file))
-            predict.update({'targets': targets})
+            if targets is not None:
+                predict.update({'targets': targets})
             torch.save(predict, file)
         
         if repeat is not None:
             logger.info('Predictions already saved above')
-
-        if self.summarize:
-            if description == 'Best': dataset = 'Best_' + dataset
-            if description == 'Final': dataset = 'Final_' + dataset
-            for name, metric in metrics.items():
-                if not isinstance(metric, np.ndarray):
-                    self.writer.add_scalar(dataset+'/'+name, metric, epoch)
-                else:
-                    if metric.size==1:
-                        self.writer.add_scalar(dataset+'/'+name, metric, epoch)
-                    else:
-                        for i, m in enumerate(metric):
-                            self.writer.add_scalar(dataset+'/'+name+'_'+str(i), m, epoch)
 
         return metrics, logstring

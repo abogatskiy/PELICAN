@@ -12,7 +12,7 @@ if which('nvidia-smi') is not None:
     print(mem)
     mem = int(mem)
     if mem < min:
-        print('Less GPU memory than requested. Terminating.')
+        print(f'Less GPU memory than requested ({mem}<{min}). Terminating.')
         sys.exit()
 
 logger = logging.getLogger('')
@@ -25,8 +25,6 @@ from src.models import tests
 from src.trainer import Trainer
 from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args
 from src.trainer import init_optimizer, init_scheduler
-from src.models.metrics_classifier import metrics, minibatch_metrics, minibatch_metrics_string
-
 
 from src.dataloaders import initialize_datasets, collate_fn
 
@@ -36,8 +34,13 @@ torch.set_printoptions(linewidth=1000, threshold=100000, sci_mode=False)
 
 def main():
 
-    # Initialize arguments -- Just
+    # Initialize arguments
     args = init_argparse()
+
+    if args.num_classes<=2:
+        from src.models.metrics_classifier import metrics, minibatch_metrics, minibatch_metrics_string
+    else:
+        from src.models.metrics_multiclass import metrics, minibatch_metrics, minibatch_metrics_string
 
     # Initialize file paths
     args = init_file_paths(args)
@@ -60,7 +63,7 @@ def main():
     # Initialize dataloder
     if args.fix_data:
         torch.manual_seed(165937750084982)
-    args, datasets = initialize_datasets(args, args.datadir, num_pts=None)
+    args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile, balance=(args.num_classes==2))
 
     # Fix possible inconsistencies in arguments
     args = fix_args(args)
@@ -76,7 +79,7 @@ def main():
                    for split, dataset in datasets.items()}
 
     # Initialize model
-    model = PELICANClassifier(args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out,
+    model = PELICANClassifier(args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out, num_classes=args.num_classes,
                       activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                       activation=args.activation, add_beams=args.add_beams, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
                       factorize=args.factorize, masked=args.masked,
@@ -100,7 +103,12 @@ def main():
 
     # Define a loss function.
     # loss_fn = torch.nn.functional.cross_entropy
-    loss_fn = torch.nn.CrossEntropyLoss()
+    if args.num_classes==1:
+        raise NotImplementedError
+    elif args.num_classes==2:
+        loss_fn = torch.nn.CrossEntropyLoss()
+    else:
+        loss_fn = lambda predict, targets: torch.nn.CrossEntropyLoss()(predict, targets.long().argmax(dim=1))
     
     # Apply the covariance and permutation invariance tests.
     if args.test:
@@ -109,15 +117,13 @@ def main():
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device, dtype)
     
-    # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
-    trainer.load_checkpoint()
-
-    # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
-    if args.reproducible:
-        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
-
-    # Train model.
     if not args.task.startswith('eval'):
+        # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
+        trainer.load_checkpoint()
+        # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
+        if args.reproducible:
+            os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+        # Train model.
         trainer.train()
 
     # Test predictions on best model and also last checkpointed model.
