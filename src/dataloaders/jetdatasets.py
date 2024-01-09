@@ -7,15 +7,16 @@ from math import inf
 import numpy as np
 
 import logging
+logger = logging.getLogger(__name__)
 
 class JetDataset(Dataset):
     """
     PyTorch dataset.
     """
-    def __init__(self, filename, num_pts=-1, shuffle=True, balance=True):
+    def __init__(self, filename, num_pts=-1, shuffle=True, balance=True, RAMdataset=True):
 
         self.filename = filename
-        self.data = filename
+        self.RAMdataset = RAMdataset
 
         with h5py.File(filename, mode='r') as f:
             if num_pts < 0:
@@ -56,14 +57,27 @@ class JetDataset(Dataset):
             else:
                 self.perm = None
 
+            if RAMdataset:
+                logger.warn(f'Reading {self.num_pts} events from {filename} into RAM.')
+                if self.perm is None:
+                    self.data = {key: torch.from_numpy(val[:self.num_pts]) for key, val in f.items()}
+                else:
+                    # this returns the permutation of range(num_pts) that unsorts sorted(self.perm), and subset=sorted(self.perm)
+                    self.perm, subset = zip(*list(sorted(enumerate(self.perm), key=lambda x: x[1])))
+                    # only load data[subset] into RAM
+                    self.data = {key: torch.from_numpy(val[list(subset)]) for key, val in f.items()}
+            else:
+                logger.warn(f'Chose {self.num_pts} event indices from {filename}. Batches will be read directly from disk (very slow!).')
 
     def __len__(self):
         return self.num_pts
 
     def __getitem__(self, idx):
-        self.data = h5py.File(self.filename,'r')
+        if not self.RAMdataset:
+            self.data = h5py.File(self.filename,'r')
         if self.perm is not None:
             idx = self.perm[idx]
         item = {key: val[idx] for key, val in self.data.items()}
-        item = {key: torch.from_numpy(val) if isinstance(val, np.ndarray) else torch.tensor(val) for key, val in item.items()}
+        if not self.RAMdataset:
+            item = {key: torch.from_numpy(val) if isinstance(val, np.ndarray) else torch.tensor(val) for key, val in item.items()}
         return item
