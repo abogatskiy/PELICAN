@@ -1,5 +1,5 @@
 import argparse
-
+import os
 from math import inf
 
 #### Argument parser ####
@@ -48,8 +48,6 @@ def setup_argparse():
                         help='Set optimizer. (SGD, AMSgrad, Adam, AdamW, RMSprop)')
     parser.add_argument('--weight-decay', type=float, default=0, metavar='N',
                         help='Set the weight decay used in optimizer (default: 0)')
-    parser.add_argument('--parallel', action=argparse.BooleanOptionalAction, default=False,
-                        help='Use nn.DataParallel when multiple GPUs are available.')
     parser.add_argument('--summarize', action=argparse.BooleanOptionalAction, default=False,
                         help='Use a TensorBoard SummaryWriter() to log metrics.')
     parser.add_argument('--summarize-csv', type=str, default='test', metavar='str',
@@ -166,7 +164,8 @@ def setup_argparse():
                         help='Use CPU')
     parser.add_argument('--mps', '--m1', dest='device', action='store_const', const='mps',
                         help='Use M1 chip [Experimental]')
-
+    parser.add_argument('--distributed', '--ddp', action=argparse.BooleanOptionalAction, default=False,
+                        help='Use nn.DistributedDataParallel when multiple GPUs are available.')
     parser.add_argument('--float', dest='dtype', action='store_const', const='float',
                         help='Use floats.')
     parser.add_argument('--double', dest='dtype', action='store_const', const='double',
@@ -184,7 +183,7 @@ def setup_argparse():
                         help='Number of output channels in the Eq1to2 embedding block for scalars. Not for PELICANNano.',
                         # default = 25
                         # default = 60
-                        default = 78
+                        default = 10
                         )
     parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
                         help="""Numbers of channels in each messaging block. Presented as a list of lists, one list per messaging block.
@@ -192,17 +191,19 @@ def setup_argparse():
                                 The number of output channels will be automatically inferred from the equivariant blocks.
                                 Can be empty, in which case the block does nothing (except batchnorm if that's turned on).
                                 """,
-                        # default = [[25,],]*5
-                        # default = [[60],]*5
-                        default = [[132],]*5
+                        # default = [[16,],]*4
+                        # default = [[25,],]*4
+                        default = [[60],]*5
+                        # default = [[132],]*5
                         )
     parser.add_argument('--num-channels-2to2', nargs='*', type=int, metavar='N',
                         help="""Number of input channels to the equivariant blocks. Should be a list of as many integers as there are 2->2 blocks.
                                 The length of this list should match the length of --num-channels-m.
                                 """,
-                        # default=[15,]*5
-                        # default=[35,]*5
-                        default=[78,]*5
+                        # default=[10,]*4
+                        # default=[15,]*4
+                        default=[35,]*5
+                        # default=[78,]*5
                         )
     parser.add_argument('--num-channels-m-out', nargs='*', type=int, metavar='N',
                         help="""Channels in the final message layer between Net2to2 and Eq2to0 (or Eq2to1)
@@ -210,16 +211,18 @@ def setup_argparse():
                                 The first number also specifies the output dimension of the last Eq2to2,
                                 and the last number specifies the input dimension of Eq2to0 (or Eq2to1).
                                 """, 
+                                # default = [16, 10]
                                 # default = [25, 15]
-                                # default = [60, 35]
-                                default = [132, 78]
+                                default = [60, 35]
+                                # default = [132, 78]
                         )
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Include an output MLP (default = True). Not for PELICANNano.')
     parser.add_argument('--num-channels-out', nargs='*', type=int, 
+                        # default=[16], 
                         # default=[25], 
-                        # default=[60], 
-                        default=[132], 
+                        default=[60], 
+                        # default=[132], 
                         metavar='N',
                         help="""Numbers of channels in the output MLP.
                         Number of layers (linear + activation) equals len(num-channels-out).
