@@ -26,7 +26,7 @@ from torch.nn.parallel import DistributedDataParallel
 from src.models import PELICANRegression
 from src.models import tests, expand_data, ir_data, irc_data
 from src.trainer import Trainer
-from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args, set_seed
+from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args, set_seed, get_world_size
 from src.trainer import init_optimizer, init_scheduler
 from src.models.metrics_cov import metrics, minibatch_metrics, minibatch_metrics_string, Angle3D
 from src.models.metrics_cov import loss_fn_dR, loss_fn_pT, loss_fn_m, loss_fn_psi, loss_fn_inv, loss_fn_col, loss_fn_m2, loss_fn_3d, loss_fn_4d, loss_fn_E, loss_fn_col3
@@ -75,7 +75,8 @@ def main():
     # Set a manual random seed for torch, cuda, numpy, and random
     args = set_seed(args, device_id)
 
-    if args.distributed:
+    distributed = (get_world_size() > 1)
+    if distributed:
         world_size = dist.get_world_size()
         logger.info(f'World size {world_size}')
 
@@ -86,14 +87,16 @@ def main():
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass)
-    if args.distributed:
-        samplers = {split: DistributedSampler(dataset, shuffle=args.shuffle) if split=='train' else DistributedSampler(dataset, shuffle=False) for split, dataset in datasets.items()}
+    if distributed:
+        samplers = {'train': DistributedSampler(datasets['train'], shuffle=args.shuffle),
+                    'valid': DistributedSampler(datasets['valid'], shuffle=False),
+                    'test': None}
     else:
         samplers = {split: None for split in datasets.keys()}
 
     dataloaders = {split: DataLoader(dataset,
                                      batch_size = args.batch_size,
-                                     shuffle = args.shuffle if (split == 'train' and not args.distributed) else False,
+                                     shuffle = args.shuffle if (split == 'train' and not distributed) else False,
                                      num_workers = args.num_workers,
                                      pin_memory=True,
                                      worker_init_fn = seed_worker,
@@ -113,7 +116,7 @@ def main():
     
     model.to(device)
 
-    if args.distributed:
+    if distributed:
         model = DistributedDataParallel(model, device_ids=[device_id])
 
     # Initialize the scheduler and optimizer
@@ -156,7 +159,7 @@ def main():
         trainer.evaluate(splits=['test'], final=False, ir_data=ir_data, expand_data=expand_data)
         logger.info(f'EVALUATING BEST MODEL ON IRC-SPLIT DATA (ADD A NEW PARTICLE SLOT AND SPLIT ONE BEAM INTO TWO EQUAL HALVES)')
         trainer.evaluate(splits=['test'], final=False, c_data=irc_data, expand_data=expand_data)
-    if args.distributed:
+    if distributed:
         dist.destroy_process_group()
 
 def seed_worker(worker_id):

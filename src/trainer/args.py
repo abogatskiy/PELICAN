@@ -164,8 +164,6 @@ def setup_argparse():
                         help='Use CPU')
     parser.add_argument('--mps', '--m1', dest='device', action='store_const', const='mps',
                         help='Use M1 chip [Experimental]')
-    parser.add_argument('--distributed', '--ddp', action=argparse.BooleanOptionalAction, default=False,
-                        help='Use nn.DistributedDataParallel when multiple GPUs are available.')
     parser.add_argument('--float', dest='dtype', action='store_const', const='float',
                         help='Use floats.')
     parser.add_argument('--double', dest='dtype', action='store_const', const='double',

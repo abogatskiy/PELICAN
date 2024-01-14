@@ -1,5 +1,5 @@
 import torch
-from .utils import all_gather
+from .utils import all_gather, get_world_size
 # from torch.utils.data import DataLoader
 # import torch.optim as optim
 # import torch.optim.lr_scheduler as sched
@@ -119,12 +119,13 @@ class Trainer:
 
         logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.best_epoch}:\n{self.best_metrics}')
 
-    def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True, ir_data=None, c_data=None, expand_data=None):
+    def evaluate(self, splits=['train', 'valid', 'test'], distributed=False, best=True, final=True, ir_data=None, c_data=None, expand_data=None):
         """
-        Evaluate model on training/validation/testing splits.
+        Evaluate model on splits (in practice used only for final testing).
 
         :splits: List of splits to include. Only valid splits are: 'train', 'valid', 'test'
-        :best: Evaluate best model as determined by minimum validation error over evolution
+        :distributed: Evaluate using multiple GPUs. Off by default so that the order of datapoints is preserved.
+        :best: Evaluate best model as determined by minimum validation loss over evolution
         :final: Evaluate final model at end of training phase
         """
         if not self.args.save:
@@ -141,7 +142,7 @@ class Trainer:
 
             # Loop over splits, predict, and output/log predictions
             for split in splits:
-                predict, targets = self.predict(set=split, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
+                predict, targets = self.predict(set=split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                 if self.device_id <= 0:
                     best_metrics, logstring = self.log_predict(predict, targets, split, description='Final')
 
@@ -155,7 +156,7 @@ class Trainer:
                 logger.info(f'Getting predictions for best model {self.args.bestfile} (epoch {best_epoch}, best validation metrics were {checkpoint["best_metrics"]}).')
                 # Loop over splits, predict, and output/log predictions
                 for split in splits:
-                    predict, targets = self.predict(split, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
+                    predict, targets = self.predict(split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                     if self.device_id <= 0:
                         best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
             elif best_epoch == final_epoch:
@@ -227,7 +228,7 @@ class Trainer:
         epoch0 = self.epoch
         for epoch in range(epoch0, self.args.num_epoch + 1):
             self.epoch = epoch
-            if self.args.distributed:
+            if get_world_size() > 1:
                 self.dataloaders['train'].batch_sampler.sampler.set_epoch(epoch)
             logger.info('STARTING Epoch {}'.format(epoch))
 
@@ -311,13 +312,16 @@ class Trainer:
 
         return all_predict, all_targets, epoch_t
 
-    def predict(self, set='valid', ir_data=None, c_data=None, expand_data=None):
+    def predict(self, set='valid', distributed=True, ir_data=None, c_data=None, expand_data=None):
         dataloader = self.dataloaders[set]
 
         self.model.eval()
         all_predict, all_targets = {}, []
         start_time = datetime.now()
         logger.info('Starting testing on {} set: '.format(set))
+
+        if not distributed and self.device_id > 0:
+            return None, None
 
         with torch.no_grad():
             for batch_idx, data in enumerate(dataloader):
@@ -327,8 +331,12 @@ class Trainer:
                     data = ir_data(data)
                 if c_data is not None:
                     data = c_data(data)
-                targets = all_gather(self._get_target(data))
-                predict = {key: all_gather(val) for key, val in self.model(data).items()}
+                if distributed:
+                    targets = all_gather(self._get_target(data))
+                    predict = {key: all_gather(val) for key, val in self.model(data).items()}
+                else:
+                    targets = self._get_target(data)  
+                    predict = {key: val for key, val in self.model(data).items()}
                 if self.device_id <= 0:
                     all_targets.append(targets)
                     for key, val in predict.items(): all_predict.setdefault(key, []).append(val)

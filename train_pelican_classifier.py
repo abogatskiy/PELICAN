@@ -26,7 +26,7 @@ from torch.nn.parallel import DistributedDataParallel
 from src.models import PELICANClassifier
 from src.models import tests
 from src.trainer import Trainer
-from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args, set_seed
+from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args, set_seed, get_world_size
 from src.trainer import init_optimizer, init_scheduler
 
 from src.dataloaders import initialize_datasets, collate_fn
@@ -75,7 +75,8 @@ def main():
     # Set a manual random seed for torch, cuda, numpy, and random
     args = set_seed(args, device_id)
 
-    if args.distributed:
+    distributed = (get_world_size() > 1)
+    if distributed:
         world_size = dist.get_world_size()
         logger.info(f'World size {world_size}')
 
@@ -86,14 +87,16 @@ def main():
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass, read_pid=args.read_pid)
-    if args.distributed:
-        samplers = {split: DistributedSampler(dataset, shuffle=args.shuffle) if split=='train' else DistributedSampler(dataset, shuffle=False) for split, dataset in datasets.items()}
+    if distributed:
+        samplers = {'train': DistributedSampler(datasets['train'], shuffle=args.shuffle),
+                    'valid': DistributedSampler(datasets['valid'], shuffle=False),
+                    'test': None}
     else:
         samplers = {split: None for split in datasets.keys()}
 
     dataloaders = {split: DataLoader(dataset,
                                      batch_size = args.batch_size,
-                                     shuffle = args.shuffle if (split == 'train' and not args.distributed) else False,
+                                     shuffle = args.shuffle if (split == 'train' and not distributed) else False,
                                      num_workers = args.num_workers,
                                      pin_memory=True,
                                      worker_init_fn = seed_worker,
@@ -113,7 +116,7 @@ def main():
     
     model.to(device)
 
-    if args.distributed:
+    if distributed:
         model = DistributedDataParallel(model, device_ids=[device_id])
 
     # Initialize the scheduler and optimizer
@@ -151,8 +154,11 @@ def main():
         trainer.train()
 
     # Test predictions on best model and also last checkpointed model.
-    trainer.evaluate(splits=['test'])
-    if args.distributed:
+    # Only one GPU will do this during DDP sessions so that the order 
+    # of batches is preserved in the output file.
+    if device_id <=0 :
+        trainer.evaluate(splits=['test'])
+    if distributed:
         dist.destroy_process_group()
 
 def seed_worker(worker_id):

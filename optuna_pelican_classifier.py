@@ -137,7 +137,7 @@ def objective(trial):
 
     trial.set_user_attr("seed", args.seed)
 
-    if args.distributed:
+    if distributed:
         model = torch.nn.DataParallel(model)
 
     # Initialize the scheduler and optimizer
