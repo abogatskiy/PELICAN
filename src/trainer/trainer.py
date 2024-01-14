@@ -1,5 +1,5 @@
 import torch
-from .utils import init_scheduler, init_optimizer, _max_norm
+from .utils import all_gather, get_world_size
 # from torch.utils.data import DataLoader
 # import torch.optim as optim
 # import torch.optim.lr_scheduler as sched
@@ -19,7 +19,7 @@ class Trainer:
     Class to train network. Includes checkpoints, optimizer, scheduler,
     """
     def __init__(self, args, dataloaders, model, loss_fn, metrics_fn, minibatch_metrics_fn, minibatch_metrics_string_fn, 
-                 optimizer, scheduler, restart_epochs, summarize_csv, summarize, device, dtype):
+                 optimizer, scheduler, restart_epochs, summarize_csv, summarize, device_id, device, dtype):
         np.set_printoptions(precision=5)
         self.args = args
         self.dataloaders = dataloaders
@@ -51,11 +51,6 @@ class Trainer:
                 self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
         self.restart_epochs = restart_epochs
 
-
-
-        self.stats = None  # dataloaders['train'].dataset.stats
-
-        # TODO: Fix this until TB summarize is implemented.
         self.summarize_csv = summarize_csv
         self.summarize = summarize
         if summarize:
@@ -63,10 +58,10 @@ class Trainer:
             self.writer = SummaryWriter(log_dir=args.logdir+args.prefix)
 
         self.epoch = 1
-        self.minibatch = 0
         self.best_epoch = 0
         self.best_metrics = {'loss': inf}
 
+        self.device_id = device_id
         self.device = device
         self.dtype = dtype
 
@@ -79,7 +74,7 @@ class Trainer:
                      'optimizer_state': self.optimizer.state_dict(),
                      'scheduler_state': self.scheduler.state_dict(),
                      'epoch': self.epoch,
-                     'minibatch': self.minibatch,
+                     'best_epoch': self.best_epoch,
                      'best_metrics': self.best_metrics}
 
         if valid_metrics is None:
@@ -120,17 +115,17 @@ class Trainer:
         self.epoch = checkpoint['epoch']
         self.best_epoch = checkpoint['best_epoch']
         self.best_metrics = checkpoint['best_metrics']
-        self.minibatch = checkpoint['minibatch']
         del checkpoint
 
         logger.info(f'Loaded checkpoint at epoch {self.epoch}.\nBest metrics from checkpoint are at epoch {self.best_epoch}:\n{self.best_metrics}')
 
-    def evaluate(self, splits=['train', 'valid', 'test'], best=True, final=True, ir_data=None, c_data=None, expand_data=None):
+    def evaluate(self, splits=['train', 'valid', 'test'], distributed=False, best=True, final=True, ir_data=None, c_data=None, expand_data=None):
         """
-        Evaluate model on training/validation/testing splits.
+        Evaluate model on splits (in practice used only for final testing).
 
         :splits: List of splits to include. Only valid splits are: 'train', 'valid', 'test'
-        :best: Evaluate best model as determined by minimum validation error over evolution
+        :distributed: Evaluate using multiple GPUs. Off by default so that the order of datapoints is preserved.
+        :best: Evaluate best model as determined by minimum validation loss over evolution
         :final: Evaluate final model at end of training phase
         """
         if not self.args.save:
@@ -147,8 +142,9 @@ class Trainer:
 
             # Loop over splits, predict, and output/log predictions
             for split in splits:
-                predict, targets = self.predict(set=split, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
-                best_metrics, logstring = self.log_predict(predict, targets, split, description='Final')
+                predict, targets = self.predict(set=split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
+                if self.device_id <= 0:
+                    best_metrics, logstring = self.log_predict(predict, targets, split, description='Final')
 
         # Evaluate best model as determined by validation error
         if best:
@@ -160,11 +156,13 @@ class Trainer:
                 logger.info(f'Getting predictions for best model {self.args.bestfile} (epoch {best_epoch}, best validation metrics were {checkpoint["best_metrics"]}).')
                 # Loop over splits, predict, and output/log predictions
                 for split in splits:
-                    predict, targets = self.predict(split, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
-                    best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
+                    predict, targets = self.predict(split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
+                    if self.device_id <= 0:
+                        best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
             elif best_epoch == final_epoch:
                 logger.info('BEST MODEL IS SAME AS FINAL')
-                self.log_predict(predict, targets, split, description='Best', repeat=[best_metrics, logstring])
+                if self.device_id <= 0:
+                    self.log_predict(predict, targets, split, description='Best', repeat=[best_metrics, logstring])
         logger.info('Inference phase complete!\n')
 
     def _warm_restart(self, epoch):
@@ -230,21 +228,22 @@ class Trainer:
         epoch0 = self.epoch
         for epoch in range(epoch0, self.args.num_epoch + 1):
             self.epoch = epoch
-            epoch_time = datetime.now()
+            if get_world_size() > 1:
+                self.dataloaders['train'].batch_sampler.sampler.set_epoch(epoch)
             logger.info('STARTING Epoch {}'.format(epoch))
 
             self._warm_restart(epoch)
             self._step_lr_epoch()
 
             train_predict, train_targets, epoch_t = self.train_epoch()
-            train_metrics,_ = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
-
-            self._save_checkpoint()
+            if self.device_id <= 0:
+                train_metrics,_ = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
+                self._save_checkpoint()
 
             valid_predict, valid_targets = self.predict(set='valid')
-            valid_metrics, _ = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
-
-            self._save_checkpoint(valid_metrics)
+            if self.device_id <= 0:
+                valid_metrics, _ = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
+                self._save_checkpoint(valid_metrics)
             
             if trial:
                 trial.set_user_attr("best_epoch", self.best_epoch)
@@ -260,81 +259,69 @@ class Trainer:
 
         return self.best_epoch, self.best_metrics
 
-    def _get_target(self, data, stats=None):
+    def _get_target(self, data):
         """
         Get the learning target.
         If a stats dictionary is included, return a normalized learning target.
-        """
-        if self.args.target is None:
-            return None
-        
+        """        
         target_type = torch.long if self.args.target=='is_signal' else self.dtype
         targets = data[self.args.target].to(self.device, target_type)
-
         return targets
 
     def train_epoch(self):
         dataloader = self.dataloaders['train']
 
-        current_idx, num_data_pts = 0, len(dataloader.dataset)
         self.loss_val, self.alt_loss_val, self.batch_time = 0, 0, 0
         all_predict, all_targets = {}, []
 
         self.model.train()
         epoch_t = datetime.now()
 
-        total_loss = 0
-
         for batch_idx, data in enumerate(dataloader):
             batch_t = datetime.now()
-
             # Get targets and predictions
-            targets = self._get_target(data, self.stats)
+            targets = self._get_target(data)
             predict = self.model(data)
             fwd_t = datetime.now()
-            # predict_t = datetime.now()
 
             # Calculate loss and backprop
             loss = self.loss_fn(predict['predict'], targets)
-            total_loss += loss
-                
-            # Standard zero-gradient and backward propagation
             self.optimizer.zero_grad()
-            total_loss.backward()
+            loss.backward()
             bwd_t = datetime.now()
-            total_loss = 0
-            if not self.args.quiet and not all(param.grad is not None for param in dict(self.model.named_parameters()).values()):
-                print("WARNING: The following params have missing gradients at backward pass (they are probably not being used in output):\n", {key: '' for key, param in self.model.named_parameters() if param.grad is None})
 
+            if not self.args.quiet and not all(param.grad is not None for param in dict(self.model.named_parameters()).values()):
+                logger.warning("The following params have missing gradients at backward pass (they are probably not being used in output):\n", {key: '' for key, param in self.model.named_parameters() if param.grad is None})
             # Step optimizer and learning rate
             self.optimizer.step()
             # self.model.apply(_max_norm)
-
             self._step_lr_batch()
 
-
-            targets = targets.detach().cpu()
-            predict = {key: val.detach().cpu() for key, val in predict.items()}
-
-            all_targets.append(targets)
-            for key, val in predict.items(): all_predict.setdefault(key,[]).append(val)
-
-            self._log_minibatch(batch_idx, loss, targets, predict['predict'], batch_t, fwd_t, bwd_t, epoch_t)
-
-            self.minibatch += 1
-
+            targets = all_gather(targets).detach().cpu()
+            predict = {key: all_gather(val).detach().cpu() for key, val in predict.items()}
+            if self.device_id <= 0:
+                all_targets.append(targets)
+                for key, val in predict.items(): all_predict.setdefault(key,[]).append(val)
+                self._log_minibatch(batch_idx, loss, targets, predict['predict'], batch_t, fwd_t, bwd_t, epoch_t)
+        
+        if self.device_id > 0:
+            return None, None, epoch_t
+        
         all_predict = {key: torch.cat(val) for key, val in all_predict.items()}
         all_targets = torch.cat(all_targets)
 
         return all_predict, all_targets, epoch_t
 
-    def predict(self, set='valid', ir_data=None, c_data=None, expand_data=None):
+    def predict(self, set='valid', distributed=True, ir_data=None, c_data=None, expand_data=None):
         dataloader = self.dataloaders[set]
 
         self.model.eval()
         all_predict, all_targets = {}, []
         start_time = datetime.now()
         logger.info('Starting testing on {} set: '.format(set))
+
+        if not distributed and self.device_id > 0:
+            return None, None
 
         with torch.no_grad():
             for batch_idx, data in enumerate(dataloader):
@@ -344,12 +331,19 @@ class Trainer:
                     data = ir_data(data)
                 if c_data is not None:
                     data = c_data(data)
-                targets = self._get_target(data, self.stats)
-                predict = {key: val for key, val in self.model(data).items()}
+                if distributed:
+                    targets = all_gather(self._get_target(data))
+                    predict = {key: all_gather(val) for key, val in self.model(data).items()}
+                else:
+                    targets = self._get_target(data)  
+                    predict = {key: val for key, val in self.model(data).items()}
+                if self.device_id <= 0:
+                    all_targets.append(targets)
+                    for key, val in predict.items(): all_predict.setdefault(key, []).append(val)
 
-                all_targets.append(targets)
-                for key, val in predict.items(): all_predict.setdefault(key, []).append(val)
-
+        if self.device_id > 0:
+            return None, None
+        
         if all_targets[0] is not None:
             all_targets = torch.cat(all_targets)
         else:

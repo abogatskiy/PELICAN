@@ -138,7 +138,7 @@ def drop_zeros(props, to_keep):
 
 def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, beam_mass=1, read_pid=False):
     """
-    Collation function that collates datapoints into the batch format for lgn
+    Collation function that collates datapoints into the batch format
 
     Parameters
     ----------
@@ -156,7 +156,7 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
     """
     common_keys = data[0].keys()
     # common_keys = set.intersection(*[set(d.keys()) for d in data]) # Uncomment if different data files have different sets of keys
-    data = {prop: batch_stack([mol[prop] for mol in data], nobj=nobj) for prop in common_keys}
+    data = {key: batch_stack([event[key] for event in data], nobj=nobj) for key in common_keys}
     device = data['Pmu'].device
     dtype = data['Pmu'].dtype
     zero = torch.tensor(0.)

@@ -15,15 +15,18 @@ if which('nvidia-smi') is not None:
         print(f'Less GPU memory than requested ({mem}<{min}). Terminating.')
         sys.exit()
 
-logger = logging.getLogger('')
 
 import torch
 from torch.utils.data import DataLoader
+import torch.distributed as dist
+from torch.distributed.elastic.utils.data import ElasticDistributedSampler
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel
 
 from src.models import PELICANClassifier
 from src.models import tests
 from src.trainer import Trainer
-from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args
+from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args, set_seed, get_world_size
 from src.trainer import init_optimizer, init_scheduler
 
 from src.dataloaders import initialize_datasets, collate_fn
@@ -46,36 +49,60 @@ def main():
     args = init_file_paths(args)
 
     # Fix possible inconsistencies in arguments
-    args = fix_args(args)
+    # args = fix_args(args)
 
+    if 'LOCAL_RANK' in os.environ:
+        device_id = int(os.environ["LOCAL_RANK"])
+    else:
+        device_id = -1
+    
     # Initialize logger
-    init_logger(args)
+    logger = logging.getLogger('')
+    init_logger(args, device_id)
 
     if which('nvidia-smi') is not None:
-        logger.info(f'Using {name} with {mem} MB of GPU memory')
+        logger.info(f'Using {name} with {mem} MB of GPU memory (local rank {device_id})')
 
     # Write input paramaters and paths to log
-    logging_printout(args)
+    if device_id <= 0:
+        logging_printout(args)
 
     # Initialize device and data type
-    device, dtype = init_cuda(args)
+    device, dtype = init_cuda(args, device_id)
+
+    # Fix possible inconsistencies in arguments
+    args = fix_args(args)
+    # Set a manual random seed for torch, cuda, numpy, and random
+    args = set_seed(args, device_id)
+
+    distributed = (get_world_size() > 1)
+    if distributed:
+        world_size = dist.get_world_size()
+        logger.info(f'World size {world_size}')
 
     # Initialize dataloder
     if args.fix_data:
         torch.manual_seed(165937750084982)
     args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile, balance=(args.num_classes==2))
 
-    # Fix possible inconsistencies in arguments
-    args = fix_args(args)
-
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass, read_pid=args.read_pid)
+    if distributed:
+        samplers = {'train': DistributedSampler(datasets['train'], shuffle=args.shuffle),
+                    'valid': DistributedSampler(datasets['valid'], shuffle=False),
+                    'test': None}
+    else:
+        samplers = {split: None for split in datasets.keys()}
+
     dataloaders = {split: DataLoader(dataset,
-                                     batch_size=args.batch_size,
-                                     shuffle=args.shuffle if (split == 'train') else False,
-                                     num_workers=args.num_workers,
-                                     worker_init_fn=seed_worker,
-                                     collate_fn=collate)
+                                     batch_size = args.batch_size,
+                                     shuffle = args.shuffle if (split == 'train' and not distributed) else False,
+                                     num_workers = args.num_workers,
+                                     pin_memory=True,
+                                     worker_init_fn = seed_worker,
+                                     collate_fn =collate,
+                                     sampler = samplers[split]
+                                     )
                    for split, dataset in datasets.items()}
 
     # Initialize model
@@ -89,8 +116,8 @@ def main():
     
     model.to(device)
 
-    if args.parallel:
-        model = torch.nn.DataParallel(model)
+    if distributed:
+        model = DistributedDataParallel(model, device_ids=[device_id])
 
     # Initialize the scheduler and optimizer
     if args.task.startswith('eval'):
@@ -111,11 +138,11 @@ def main():
         loss_fn = lambda predict, targets: torch.nn.CrossEntropyLoss()(predict, targets.long().argmax(dim=1))
     
     # Apply the covariance and permutation invariance tests.
-    if args.test:
+    if args.test and device_id <= 0:
         tests(model, dataloaders['train'], args, tests=['gpu','irc', 'permutation'])
 
     # Instantiate the training class
-    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device, dtype)
+    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device_id, device, dtype)
     
     if not args.task.startswith('eval'):
         # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
@@ -127,7 +154,12 @@ def main():
         trainer.train()
 
     # Test predictions on best model and also last checkpointed model.
-    trainer.evaluate(splits=['test'])
+    # Only one GPU will do this during DDP sessions so that the order 
+    # of batches is preserved in the output file.
+    if device_id <=0 :
+        trainer.evaluate(splits=['test'])
+    if distributed:
+        dist.destroy_process_group()
 
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32

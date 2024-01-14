@@ -20,17 +20,17 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
     # We will look for the keywords defined in splits to be be in the filenames, and will thus determine what
     # set each file belongs to.
     splits = ['train', 'test', 'valid'] # We will consider all HDF5 files in datadir with one of these keywords in the filename
-    shuffle = {'train': True, 'valid': True, 'test': False} # Shuffle only the training set
+    shuffle = {'train': False, 'valid': False, 'test': False} # Shuffle only the training set
     datafiles = {split:[] for split in splits}
 
     # now search datadir for h5 files and assign them to splits based on their filenames
     files = glob.glob(datadir + '/*.h5')
     for split in splits:
         logger.info(f'Looking for {split} files in datadir:')
-        for file in files:
-            if (split in file):
-                datafiles[split].append(file)
-                logger.info(file)
+        for filename in files:
+            if (split in filename):
+                datafiles[split].append(filename)
+                logger.info(filename)
 
     # if a testfile is explicitly provided, that will override any test sets found in datadir
     if testfile != '': 
@@ -61,21 +61,20 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
     datasets = {}
     for split in splits:
         datasets[split] = []
-        for file in datafiles[split]:
-            with h5py.File(file,'r') as f:
-                datasets[split].append({key: torch.from_numpy(val[:]) for key, val in f.items()})
+        for filename in datafiles[split]:
+                datasets[split].append(filename)
  
     ### ------ 4: Error checking ------ ###
     # Basic error checking: Check the files belonging to the same split have the same set of keys.
-    for split in splits:
-        keys = []
-        for dataset in datasets[split]:
-            keys.append(dataset.keys())
+    # for split in splits:
+    #     keys = []
+    #     for dataset in datasets[split]:
+    #         keys.append(dataset.keys())
         # assert all([key == keys[0] for key in keys]), 'Datasets must have same set of keys!'
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data
-    torch_datasets = {split: ConcatDataset([JetDataset(data, num_pts=num_pts_per_file[split][idx], shuffle=shuffle[split], balance=balance) for idx, data in enumerate(datasets[split])]) for split in splits if len(datasets[split])>0}
+    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], shuffle=shuffle[split], balance=balance) for idx, filename in enumerate(datasets[split])]) for split in splits if len(datasets[split])>0}
 
     # Now, update the number of training/test/validation sets in args
     if 'train' in torch_datasets.keys():

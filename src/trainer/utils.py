@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
 import torch.optim as optim
 import torch.optim.lr_scheduler as sched
 from .optimizers import DemonRanger
+import torch.distributed as dist
 import numpy as np
 import random
 
-import os, sys, pickle
+import os, sys
 from datetime import datetime
 from math import inf, log, log2, exp, ceil
 
@@ -27,8 +27,8 @@ def init_argparse():
 
     return args
 
-def init_logger(args):
-    if args.logfile:
+def init_logger(args, device_id=-1):
+    if args.logfile and device_id <= 0:
         handlers = [logging.FileHandler(args.logfile, mode='a' if args.load else 'w'), logging.StreamHandler()]
     else:
         handlers = [logging.StreamHandler()]
@@ -59,17 +59,25 @@ def fix_args(args):
         args.num_epoch = 0
     if len(args.num_channels_m)==0:
         args.num_channels_m = [[] for i in range(len(args.num_channels_2to2))]
-        print("MessageNet was disabled for all equivariant layers")
+        logger.warn("MessageNet was disabled for all equivariant layers")
     elif type(args.num_channels_m[0])==int:
         args.num_channels_m = [args.num_channels_m,] * len(args.num_channels_2to2)
-        print("MessageNet hyperparams are the same across all equivariant layers")
+        logger.warn("MessageNet hyperparams are the same across all equivariant layers")
         # args.num_channels_m[0][0] = args.num_channels_2to2[0] # delete this line if not using Residual connections
-    
     if args.target == 'None':
         args.target = None
 
+    return args
+
+def set_seed(args, device_id):
     if args.seed < 0:
         seed = int((datetime.now().timestamp())*100000)
+        if get_world_size() > 1:
+            # make sure all GPUs get the same random seed 
+            # (e.g. so that --num-train and --num-valid produce consistent datasets)
+            list = [seed]
+            dist.broadcast_object_list(list, 0)
+            seed = list[0]
         logger.info('Setting seed based upon time: {}'.format(seed))
         args.seed = seed
     torch.manual_seed(args.seed)
@@ -82,7 +90,6 @@ def fix_args(args):
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
         torch.use_deterministic_algorithms(True)
-    
     return args
 
 def init_file_paths(args):
@@ -244,12 +251,17 @@ def _git_version():
 
     return str(git_commit.stdout.decode())
 
-def init_cuda(args):
+def init_cuda(args, device_id=-1):
     if args.device in ['gpu', 'cuda']:
         assert(torch.cuda.is_available()), "No CUDA device available!"
         logger.info('Initializing CUDA/GPU! Device: {}'.format(torch.cuda.current_device()))
-        torch.cuda.init()
-        device = torch.device('cuda')
+        if device_id < 0:
+            device = torch.device('cuda')
+        else:
+            torch.cuda.set_device(device_id)
+            dist.init_process_group(backend='nccl')
+            logger.info(f"Setting cuda device = {device_id}")            
+            device = torch.device(device_id)
     elif args.device in ['mps', 'm1']:
         logger.info('Initializing M1 Chip!')
         device = torch.device('mps')
@@ -278,3 +290,42 @@ def _max_norm(m):
             norm = w.norm(2, dim=0, keepdim=True).clamp(min=_max_norm_val / 2)
             desired = torch.clamp(norm, max=_max_norm_val)
             m.weight *= (desired / norm)
+
+def all_gather(tensor):
+    """
+    All gathers the provided tensor from all processes across machines
+    and concatenates along the 0-th dimension into one.
+    """
+
+    world_size = get_world_size()
+    if world_size <= 1:
+        return tensor
+    tensor_placeholder = [torch.zeros_like(tensor) for _ in range(world_size)]
+    dist.all_gather(tensor_placeholder, tensor, async_op=False)
+    output_tensor=torch.cat(tensor_placeholder, dim=0)
+    return output_tensor 
+
+def get_world_size():
+    """
+    Get the size of the world.
+    """
+    if not dist.is_available():
+        return 1
+    if not dist.is_initialized():
+        return 1
+    print(f'world_size {dist.get_world_size()}')
+    return dist.get_world_size()
+
+def synchronize():
+    """
+    Helper function to synchronize (barrier) among all processes when
+    using distributed training
+    """
+    if not dist.is_available():
+        return
+    if not dist.is_initialized():
+        return
+    world_size = dist.get_world_size()
+    if world_size == 1:
+        return
+    dist.barrier()
