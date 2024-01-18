@@ -115,6 +115,7 @@ class Trainer:
         if self.scheduler is not None:
             self.scheduler.load_state_dict(checkpoint['scheduler_state'])
         self.epoch = checkpoint['epoch']
+        self.minibatch = checkpoint['minibatch']        
         self.best_epoch = checkpoint['best_epoch']
         self.best_metrics = checkpoint['best_metrics']
         del checkpoint
