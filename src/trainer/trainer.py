@@ -30,7 +30,7 @@ class Trainer:
         self.minibatch_metrics_string_fn = minibatch_metrics_string_fn
         self.optimizer = optimizer
         self.scheduler = scheduler
-        warmup_epochs = 4 #int(self.args.num_epoch/8)
+        warmup_epochs = 0 #int(self.args.num_epoch/8)
         if args.num_epoch > warmup_epochs:
             if warmup_epochs > 0:
                 self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
@@ -58,6 +58,7 @@ class Trainer:
             self.writer = SummaryWriter(log_dir=args.logdir+args.prefix)
 
         self.epoch = 1
+        self.minibatch=0
         self.best_epoch = 0
         self.best_metrics = {'loss': inf}
 
@@ -74,6 +75,7 @@ class Trainer:
                      'optimizer_state': self.optimizer.state_dict(),
                      'scheduler_state': self.scheduler.state_dict(),
                      'epoch': self.epoch,
+                     'minibatch': self.minibatch,
                      'best_epoch': self.best_epoch,
                      'best_metrics': self.best_metrics}
 
@@ -278,6 +280,7 @@ class Trainer:
         epoch_t = datetime.now()
 
         for batch_idx, data in enumerate(dataloader):
+            self.minibatch = batch_idx
             batch_t = datetime.now()
             # Get targets and predictions
             targets = self._get_target(data)
@@ -302,7 +305,10 @@ class Trainer:
             if self.device_id <= 0:
                 all_targets.append(targets)
                 for key, val in predict.items(): all_predict.setdefault(key,[]).append(val)
-                self._log_minibatch(batch_idx, loss, targets, predict['predict'], batch_t, fwd_t, bwd_t, epoch_t)
+                if (self.args.save_every > 0) and (batch_idx + 1) % self.args.save_every == 0:
+                    self._save_checkpoint()
+                if (self.args.log_every > 0) and batch_idx % self.args.log_every == 0:
+                    self._log_minibatch(batch_idx, loss, targets, predict['predict'], batch_t, fwd_t, bwd_t, epoch_t)
         
         if self.device_id > 0:
             return None, None, epoch_t

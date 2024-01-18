@@ -8,12 +8,14 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     predict = predict.softmax(dim=1)
     num_classes = predict.shape[-1]
     accuracy = Accuracy(predict, targets).item()
-    auc_score = AUCScore(predict, targets)
+    auc_ovr = AUCScore(predict, targets)
+    auc_macro = AUCScoreMacro(predict, targets)
     roc, eB03s, eS03s, eB05s, eS05s, tpr10s, fpr10s, tpr1s, fpr1s = ROC(predict, targets)
     conf_matrix = confusion_matrix(targets.argmax(dim=1), predict.argmax(dim=1), normalize='true')
-    report = classification_report(targets.argmax(dim=1), predict.argmax(dim=1), target_names=['g','q','W','Z','t'])
+    report = classification_report(targets.argmax(dim=1), predict.argmax(dim=1), target_names=[str(i) for i in range(num_classes)])
     metrics = {'loss': loss, 'accuracy': accuracy}
-    metrics.update({f'AUC | {c}': auc for c, auc in enumerate(auc_score)})
+    metrics.update({f'AUC_macro': auc_macro})
+    metrics.update({f'AUC | {c}': auc for c, auc in enumerate(auc_ovr)})
     metrics.update({f'eS at eB=0.1 | {c}': tpr for c, tpr in enumerate(tpr10s)})
     metrics.update({f'eB at eB=0.1 | {c}': fpr for c, fpr in enumerate(fpr10s)})
     metrics.update({f'eS at eB=0.01 | {c}': tpr for c, tpr in enumerate(tpr1s)})
@@ -23,7 +25,7 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     metrics.update({f'1/eB at eS=0.5 | {c}': 1/eB if eB>0 else 0 for c, eB in enumerate(eB05s)})
     metrics.update({f'eS at eS=0.5 | {c}': eS for c, eS in enumerate(eS05s)})
     metrics.update({'conf': conf_matrix, 'report': report})
-    string = ' L: {:10.4f}, ACC: {:10.4f}, AUC: {},    eS: {} @ {:>4.2f},    eS: {} @ {:>4.2f},    1/eB: {} @ {:>4.2f},    1/eB: {} @ {:>4.2f},\nconf:\n{},\nreport:\n{}'.format(loss, accuracy, auc_score, tpr10s, 0.1, tpr1s, 0.01, [1/eB03 if eB03>0 else 0 for eB03 in eB03s], 0.3,  [1/eB05 if eB05>0 else 0 for eB05 in eB05s], 0.5, conf_matrix, report)
+    string = ' L: {:10.4f}, ACC: {:10.4f}, AUC: {}, AUCs: {},    eS: {} @ {:>4.2f},    eS: {} @ {:>4.2f},    1/eB: {} @ {:>4.2f},    1/eB: {} @ {:>4.2f},\nconf:\n{},\nreport:\n{}'.format(loss, accuracy, auc_macro, auc_ovr, tpr10s, 0.1, tpr1s, 0.01, [1/eB03 if eB03>0 else 0 for eB03 in eB03s], 0.3,  [1/eB05 if eB05>0 else 0 for eB05 in eB05s], 0.5, conf_matrix, report)
     np.savetxt(prefix+'_ROC.csv', np.array(list(itertools.zip_longest(*roc,fillvalue=0.))), delimiter=',')
     # if logger:
     #     logger.info('ROC saved to file ' + prefix+'_ROC.csv' + '\n')
@@ -32,11 +34,11 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
 def minibatch_metrics(predict, targets, loss):
     predict = predict.softmax(dim=1)
     accuracy = Accuracy(predict, targets).item()
-    auc_score = AUCScore(predict, targets)
+    auc_score = AUCScoreMacro(predict, targets)
     return [loss, accuracy, auc_score]
 
 def minibatch_metrics_string(metrics):
-    string = ', L:{:> 9.4f}, ACC:{:> 9.4f}, AUC:{}'.format(*metrics)
+    string = ', L:{:> 9.4f}, ACC:{:> 9.4f}, AUC:{:> 9.4f}'.format(*metrics)
     return string
 
 
@@ -57,6 +59,10 @@ def AUCScore(predict, targets):
         else:
             scores.append(roc_auc_score(targets[...,c], predict[...,c], multi_class='ovr'))        # Area Under Curve score (between 0 and 1). The closer to 1 the better.
     return np.array(scores)
+
+def AUCScoreMacro(predict, targets):
+    return roc_auc_score(targets, predict, multi_class='ovo', average='macro')
+
 
 def ROC(predict, targets):
     num_classes = targets.shape[-1]

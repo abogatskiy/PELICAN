@@ -20,11 +20,11 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
     # We will look for the keywords defined in splits to be be in the filenames, and will thus determine what
     # set each file belongs to.
     splits = ['train', 'test', 'valid'] # We will consider all HDF5 files in datadir with one of these keywords in the filename
-    shuffle = {'train': False, 'valid': False, 'test': False} # Shuffle only the training set
+    randomize_subset = {'train': True, 'valid': True, 'test': False} # Shuffle only the training set
     datafiles = {split:[] for split in splits}
 
     # now search datadir for h5 files and assign them to splits based on their filenames
-    files = glob.glob(datadir + '/*.h5')
+    files = sorted(glob.glob(datadir + '/*.h5'))
     for split in splits:
         logger.info(f'Looking for {split} files in datadir:')
         for filename in files:
@@ -74,7 +74,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data
-    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], shuffle=shuffle[split], balance=balance) for idx, filename in enumerate(datasets[split])]) for split in splits if len(datasets[split])>0}
+    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance) for idx, filename in enumerate(datasets[split])]) for split in splits if len(datasets[split])>0}
 
     # Now, update the number of training/test/validation sets in args
     if 'train' in torch_datasets.keys():

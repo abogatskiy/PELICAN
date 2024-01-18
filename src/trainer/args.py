@@ -26,8 +26,10 @@ def setup_argparse():
                         help='number of epochs to train (default: 10)')
     parser.add_argument('--batch-size', '-bs', type=int, default=16, metavar='N',
                         help='Mini-batch size (default: 10)')
-    parser.add_argument('--batch-group-size', '-bgs', type=int, default=1, metavar='N',
-                        help='Mini-batch size (default: 10)')    
+    parser.add_argument('--save-every', type=int, default=0, metavar='N',
+                        help='Save checkpoint during training every save_every minibatches (default: 0)')
+    parser.add_argument('--log-every', type=int, default=1, metavar='N',
+                        help='Print logstrings every log_every minibatches (0 for no minibatch logging) (default: 1)')
 
     parser.add_argument('--lr-init', type=float, default=0.0025, metavar='N',
                         help='Initial learning rate (default: 0.005)')

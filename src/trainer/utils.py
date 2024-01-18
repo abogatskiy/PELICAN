@@ -313,7 +313,6 @@ def get_world_size():
         return 1
     if not dist.is_initialized():
         return 1
-    print(f'world_size {dist.get_world_size()}')
     return dist.get_world_size()
 
 def synchronize():
