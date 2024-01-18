@@ -1,16 +1,10 @@
 import torch
 from .utils import all_gather, get_world_size
-# from torch.utils.data import DataLoader
-# import torch.optim as optim
-# import torch.optim.lr_scheduler as sched
-
 import numpy as np
 from .scheduler import GradualWarmupScheduler, GradualCooldownScheduler
-# from torchviz import make_dot
-
-import argparse, os, sys, pickle
+import os
 from datetime import datetime
-from math import sqrt, inf, ceil, exp
+from math import inf, ceil
 import logging
 logger = logging.getLogger(__name__)
 
@@ -19,7 +13,8 @@ class Trainer:
     Class to train network. Includes checkpoints, optimizer, scheduler,
     """
     def __init__(self, args, dataloaders, model, loss_fn, metrics_fn, minibatch_metrics_fn, minibatch_metrics_string_fn, 
-                 optimizer, scheduler, restart_epochs, summarize_csv, summarize, device_id, device, dtype):
+                 optimizer, scheduler, restart_epochs, summarize_csv, summarize, device_id, device, dtype,
+                 warmup_epochs=4, cooldown_epochs=3):
         np.set_printoptions(precision=5)
         self.args = args
         self.dataloaders = dataloaders
@@ -29,26 +24,7 @@ class Trainer:
         self.minibatch_metrics_fn = minibatch_metrics_fn
         self.minibatch_metrics_string_fn = minibatch_metrics_string_fn
         self.optimizer = optimizer
-        self.scheduler = scheduler
-        warmup_epochs = 0 #int(self.args.num_epoch/8)
-        if args.num_epoch > warmup_epochs:
-            if warmup_epochs > 0:
-                self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
-            if args.lr_decay_type == 'warm':
-                cooldown_epochs = int(self.args.num_epoch/11)
-                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
-                cooldown_length = cooldown_epochs*len(dataloaders['train'])
-                self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
-            elif args.lr_decay_type == 'flat':
-                cooldown_epochs = int(self.args.num_epoch/3)
-                coodlown_start = (self.args.num_epoch - cooldown_epochs)*len(dataloaders['train'])
-                cooldown_length = cooldown_epochs*len(dataloaders['train'])
-                self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
-            elif args.lr_decay_type == 'cos':
-                cooldown_epochs = 3
-                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
-                cooldown_length = cooldown_epochs*len(dataloaders['train'])
-                self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
+        self.scheduler = self._wrap_scheduler(scheduler, warmup_epochs, cooldown_epochs)
         self.restart_epochs = restart_epochs
 
         self.summarize_csv = summarize_csv
@@ -65,6 +41,29 @@ class Trainer:
         self.device_id = device_id
         self.device = device
         self.dtype = dtype
+
+    def _wrap_scheduler(self, scheduler, warmup_epochs, cooldown_epochs):
+        if self.args.num_epoch < warmup_epochs:
+            return scheduler
+        if warmup_epochs > 0:
+            scheduler = GradualWarmupScheduler(self.optimizer, multiplier=1, warmup_epochs=len(self.dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
+        if cooldown_epochs > 0:
+            if self.args.lr_decay_type == 'warm':
+                cooldown_epochs = int(self.args.num_epoch/11)
+                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(self.dataloaders['train'])
+                cooldown_length = cooldown_epochs*len(self.dataloaders['train'])
+                scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
+            elif self.args.lr_decay_type == 'flat':
+                cooldown_epochs = int(self.args.num_epoch/3)
+                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(self.dataloaders['train'])
+                cooldown_length = cooldown_epochs*len(self.dataloaders['train'])
+                scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
+            elif self.args.lr_decay_type == 'cos':
+                cooldown_epochs = 3
+                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(self.dataloaders['train'])
+                cooldown_length = cooldown_epochs*len(self.dataloaders['train'])
+                scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
+        return scheduler
 
     def _save_checkpoint(self, valid_metrics=None):
         if not self.args.save:
@@ -240,13 +239,13 @@ class Trainer:
 
             train_predict, train_targets, epoch_t = self.train_epoch()
             if self.device_id <= 0:
-                train_metrics,_ = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
                 self._save_checkpoint()
+                train_metrics,_ = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
 
             valid_predict, valid_targets = self.predict(set='valid')
             if self.device_id <= 0:
-                valid_metrics, _ = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
                 self._save_checkpoint(valid_metrics)
+                valid_metrics, _ = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
             
             if trial:
                 trial.set_user_attr("best_epoch", self.best_epoch)

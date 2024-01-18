@@ -11,7 +11,7 @@
 #SBATCH --gpus=8
 #SBATCH --ntasks-per-node=8
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=64G
+#SBATCH --mem=128G
 
 # Print the task id.
 echo "My SLURM_ARRAY_TASK_ID: " $SLURM_ARRAY_TASK_ID
@@ -43,4 +43,4 @@ conda activate py310
 A=(jc_1-{a..z})
 
 # Top-tagging dataset
-CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --datadir=${data_path}/JetClass --num-classes=10 --target=signal_type --cuda --nobj=80 --nobj-avg=49 --num-epoch=5 --lr-decay-type=cos --num-train=-1 --num-valid=100000 --batch-size=64 --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --optim=adamw --activation=leakyrelu --masked --scale=1 --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.01 --drop-rate-out=0.01 --weight-decay=0.005 --reproducible --no-fix-data --no-summarize --config=M --config-out=M --factorize --log-every=100 --save-every=20000 --alpha=10
+CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --datadir=${data_path}/JetClass --num-classes=10 --target=signal_type --cuda --nobj=80 --nobj-avg=49 --num-epoch=5 --lr-decay-type=cos --num-train=-1 --num-valid=100000 --batch-size=64 --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --optim=adamw --activation=leakyrelu --masked --scale=1 --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.01 --drop-rate-out=0.01 --weight-decay=0.005 --reproducible --no-fix-data --no-summarize --config=M --config-out=M --factorize --log-every=100 --save-every=20000 --alpha=10 --load

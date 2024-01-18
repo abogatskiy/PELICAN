@@ -142,7 +142,10 @@ def main():
         tests(model, dataloaders['train'], args, tests=['gpu','irc', 'permutation'])
 
     # Instantiate the training class
-    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device_id, device, dtype)
+    trainer = Trainer(args, dataloaders, model, loss_fn, metrics,
+                      minibatch_metrics, minibatch_metrics_string, optimizer, scheduler,
+                      restart_epochs, args.summarize_csv, args.summarize, device_id, device, dtype,
+                      warmup_epochs=0, cooldown_epochs=0)
     
     if not args.task.startswith('eval'):
         # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
