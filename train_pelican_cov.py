@@ -83,7 +83,7 @@ def main():
     # Initialize dataloder
     if args.fix_data:
         torch.manual_seed(165937750084982)
-    args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile)
+    args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile, RAMdataset=args.RAMdataset)
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass)
@@ -139,7 +139,10 @@ def main():
             tests(model, dataloaders['train'], args, tests=['gpu','irc', 'permutation'], cov=True)
 
     # Instantiate the training class
-    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device_id, device, dtype)
+    trainer = Trainer(args, dataloaders, model, loss_fn, metrics,
+                      minibatch_metrics, minibatch_metrics_string, optimizer, scheduler,
+                      restart_epochs, args.summarize_csv, args.summarize, device_id, device, dtype,
+                      warmup_epochs=args.warmup, cooldown_epochs=args.cooldown)
 
     if not args.task.startswith('eval'):
         # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.

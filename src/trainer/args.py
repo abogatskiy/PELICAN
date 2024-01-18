@@ -22,17 +22,21 @@ def setup_argparse():
                         help='Train or evaluate model. (train | eval)')
 
     # Optimizer options
-    parser.add_argument('--num-epoch', type=int, default=80, metavar='N',
-                        help='number of epochs to train (default: 10)')
+    parser.add_argument('--num-epoch', type=int, default=35, metavar='N',
+                        help='number of epochs to train (default: 35)')
+    parser.add_argument('--warmup', type=int, default=4, metavar='N',
+                        help='Number of epochs of linear LR warmup (default: 4)')
+    parser.add_argument('--cooldown', type=int, default=3, metavar='N',
+                        help='Number of epochs of exponential LR cooldown (default: 3)')
     parser.add_argument('--batch-size', '-bs', type=int, default=16, metavar='N',
-                        help='Mini-batch size (default: 10)')
+                        help='Mini-batch size (default: 16)')
     parser.add_argument('--save-every', type=int, default=0, metavar='N',
                         help='Save checkpoint during training every save_every minibatches (default: 0)')
     parser.add_argument('--log-every', type=int, default=1, metavar='N',
                         help='Print logstrings every log_every minibatches (0 for no minibatch logging) (default: 1)')
 
     parser.add_argument('--lr-init', type=float, default=0.0025, metavar='N',
-                        help='Initial learning rate (default: 0.005)')
+                        help='Initial learning rate (default: 0.0025)')
     parser.add_argument('--lr-final', type=float, default=1e-5, metavar='N',
                         help='Final (held) learning rate (default: 1e-5)')
     parser.add_argument('--lr-decay', type=int, default=-1, metavar='N',
@@ -56,6 +60,8 @@ def setup_argparse():
                         help='Use CSV files to log validation and testing metrics. (test | all | none)')
 
     # Dataloader and randomness options
+    parser.add_argument('--RAMdataset', action=argparse.BooleanOptionalAction, default=True,
+                        help='Load datasets into RAM before training.')
     parser.add_argument('--shuffle', action=argparse.BooleanOptionalAction, default=True,
                         help='Shuffle minibatches.')
     parser.add_argument('--seed', type=int, default=-1, metavar='N',

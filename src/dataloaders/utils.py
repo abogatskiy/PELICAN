@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import ConcatDataset
 from . import JetDataset
 
-def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, testfile='', balance=True):
+def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, testfile='', balance=True, RAMdataset=True):
     """
     Initialize datasets.
     """
@@ -74,7 +74,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data
-    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance) for idx, filename in enumerate(datasets[split])]) for split in splits if len(datasets[split])>0}
+    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance, RAMdataset=RAMdataset) for idx, filename in enumerate(datasets[split])]) for split in splits if len(datasets[split])>0}
 
     # Now, update the number of training/test/validation sets in args
     if 'train' in torch_datasets.keys():
