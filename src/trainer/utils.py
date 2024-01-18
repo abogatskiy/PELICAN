@@ -295,6 +295,7 @@ def all_gather(tensor):
     """
     All gathers the provided tensor from all processes across machines
     and concatenates along the 0-th dimension into one.
+    If only one process, returns the input.
     """
 
     world_size = get_world_size()

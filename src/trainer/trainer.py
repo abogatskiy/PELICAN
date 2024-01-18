@@ -337,12 +337,8 @@ class Trainer:
                     data = ir_data(data)
                 if c_data is not None:
                     data = c_data(data)
-                if distributed:
-                    targets = all_gather(self._get_target(data))
-                    predict = {key: all_gather(val) for key, val in self.model(data).items()}
-                else:
-                    targets = self._get_target(data)  
-                    predict = {key: val for key, val in self.model(data).items()}
+                targets = all_gather(self._get_target(data)).detach().cpu()
+                predict = {key: all_gather(val).detach().cpu() for key, val in self.model(data).items()}
                 if self.device_id <= 0:
                     all_targets.append(targets)
                     for key, val in predict.items(): all_predict.setdefault(key, []).append(val)
