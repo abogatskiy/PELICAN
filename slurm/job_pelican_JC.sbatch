@@ -3,8 +3,8 @@
 #SBATCH --job-name=jc_1
 #SBATCH --output=./out/array_%A_%a.out
 #SBATCH --error=./err/array_%A_%a.err
-#SBATCH --array=1
-#SBATCH --time=168:00:00
+#SBATCH --array=3
+#SBATCH --time=120:00:00
 #SBATCH --partition=gpu
 #SBATCH -C h100
 #SBATCH --nodes=1
@@ -43,4 +43,4 @@ conda activate py310
 A=(jc_1-{a..z})
 
 # Top-tagging dataset
-CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --datadir=${data_path}/JetClass --num-workers=16 --num-classes=10 --target=signal_type --cuda --nobj=80 --nobj-avg=49 --num-epoch=5 --warmup=0 --cooldown=0 --lr-decay-type=cos --num-train=-1 --num-valid=100000 --batch-size=64 --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --optim=adamw --activation=leakyrelu --masked --scale=1 --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.01 --drop-rate-out=0.01 --weight-decay=0.005 --reproducible --no-fix-data --no-summarize --config=M --config-out=M --factorize --no-RAM-dataset --log-every=100 --save-every=20000 --alpha=10 --load
+CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --batch-size=128 --num-workers=0 --datadir=${data_path}/JetClass --num-classes=10 --target=signal_type --cuda --nobj=80 --nobj-avg=49 --num-epoch=5 --warmup=0 --cooldown=0 --lr-decay-type=cos --num-train=-1 --num-valid=100000 --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --optim=adamw --activation=leakyrelu --masked --scale=1 --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.01 --drop-rate-out=0.01 --weight-decay=0.005 --reproducible --no-fix-data --no-summarize --config=M --config-out=M --factorize --no-RAMdataset --log-every=1000 --save-every=20000 --alpha=10

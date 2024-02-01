@@ -244,8 +244,9 @@ class Trainer:
 
             valid_predict, valid_targets = self.predict(set='valid')
             if self.device_id <= 0:
-                self._save_checkpoint(valid_metrics)
+                self._save_checkpoint()
                 valid_metrics, _ = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
+                self._save_checkpoint(valid_metrics)
             
             if trial:
                 trial.set_user_attr("best_epoch", self.best_epoch)
@@ -326,19 +327,26 @@ class Trainer:
         start_time = datetime.now()
         logger.info('Starting testing on {} set: '.format(set))
 
-        if not distributed and self.device_id > 0:
-            return None, None
-
+        if not distributed:
+            if self.device_id > 0:
+                return None, None
+            gather = lambda x: x
+        else:
+            gather = all_gather
+        
         with torch.no_grad():
             for batch_idx, data in enumerate(dataloader):
+                if batch_idx % 100 == 1: print(f'predicting batch {batch_idx}/{len(dataloader)}, {(datetime.now()-start_time)/batch_idx}')
                 if expand_data:
                     data = expand_data(data)
                 if ir_data is not None:
                     data = ir_data(data)
                 if c_data is not None:
                     data = c_data(data)
-                targets = all_gather(self._get_target(data)).detach().cpu()
-                predict = {key: all_gather(val).detach().cpu() for key, val in self.model(data).items()}
+                
+                targets = gather(self._get_target(data)).detach().cpu()
+                predict = self.model(data)
+                predict = {key: gather(val).detach().cpu() for key, val in predict.items()}
                 if self.device_id <= 0:
                     all_targets.append(targets)
                     for key, val in predict.items(): all_predict.setdefault(key, []).append(val)

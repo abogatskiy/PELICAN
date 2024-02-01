@@ -72,8 +72,8 @@ class JetDataset(Dataset):
                     self.perm, subset = zip(*list(sorted(enumerate(self.perm), key=lambda x: x[1])))
                     # only load data[subset] into RAM
                     self.data = {key: torch.from_numpy(val[list(subset)]) for key, val in f.items()}
-            else:
-                logger.warn(f'Chose {self.num_pts} event indices from {filename}. Batches will be read directly from disk (might be slow!).')
+            elif num_pts > 0 and num_pts < len_data:
+                logger.warn(f'Chose {num_pts} event indices from {filename}. Batches will be read directly from disk (might be slow!).')
 
     def __len__(self):
         return self.num_pts

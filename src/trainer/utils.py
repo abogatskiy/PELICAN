@@ -204,7 +204,7 @@ def init_scheduler(args, optimizer):
     else:
         lr_decay = min(args.lr_decay, args.num_epoch)
         
-    minibatch_per_epoch = ceil(args.num_train / args.batch_size)
+    minibatch_per_epoch = ceil(args.num_train / args.batch_size / get_world_size())
     if args.lr_minibatch:
         lr_decay = lr_decay*minibatch_per_epoch
 

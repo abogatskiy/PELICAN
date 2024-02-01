@@ -87,10 +87,13 @@ def main():
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass, read_pid=args.read_pid)
+    
+    # Whether testing set evaluation should be distributed
+    distributed_test=True
     if distributed:
         samplers = {'train': DistributedSampler(datasets['train'], shuffle=args.shuffle),
                     'valid': DistributedSampler(datasets['valid'], shuffle=False),
-                    'test': None}
+                    'test': DistributedSampler(datasets['test'], shuffle=False) if distributed_test else None}
     else:
         samplers = {split: None for split in datasets.keys()}
 
@@ -157,10 +160,9 @@ def main():
         trainer.train()
 
     # Test predictions on best model and also last checkpointed model.
-    # Only one GPU will do this during DDP sessions so that the order 
-    # of batches is preserved in the output file.
-    if device_id <=0 :
-        trainer.evaluate(splits=['test'])
+    # If distributed==False, only one GPU will do this during DDP sessions 
+    # so that the order  of batches is preserved in the output file.
+    trainer.evaluate(splits=['test'], distributed=distributed and distributed_test)
     if distributed:
         dist.destroy_process_group()
 
