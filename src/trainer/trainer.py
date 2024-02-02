@@ -336,7 +336,6 @@ class Trainer:
         
         with torch.no_grad():
             for batch_idx, data in enumerate(dataloader):
-                if batch_idx % 100 == 1: print(f'predicting batch {batch_idx}/{len(dataloader)}, {(datetime.now()-start_time)/batch_idx}')
                 if expand_data:
                     data = expand_data(data)
                 if ir_data is not None:
