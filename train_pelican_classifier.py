@@ -19,7 +19,6 @@ if which('nvidia-smi') is not None:
 import torch
 from torch.utils.data import DataLoader
 import torch.distributed as dist
-from torch.distributed.elastic.utils.data import ElasticDistributedSampler
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel
 
@@ -109,13 +108,14 @@ def main():
                    for split, dataset in datasets.items()}
 
     # Initialize model
-    model = PELICANClassifier(args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out, num_classes=args.num_classes,
-                      activate_agg=args.activate_agg, activate_lin=args.activate_lin,
-                      activation=args.activation, add_beams=args.add_beams, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
-                      factorize=args.factorize, masked=args.masked,
-                      activate_agg_out=args.activate_agg_out, activate_lin_out=args.activate_lin_out, mlp_out=args.mlp_out,
-                      scale=args.scale, irc_safe=args.irc_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
-                      device=device, dtype=dtype)
+    model = PELICANClassifier(args.rank1_width_multiplier, args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out, 
+                              stabilizer=args.stabilizer, num_classes=args.num_classes,
+                              activate_agg=args.activate_agg, activate_lin=args.activate_lin,
+                              activation=args.activation, add_beams=args.add_beams, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
+                              factorize=args.factorize, masked=args.masked,
+                              activate_agg_out=args.activate_agg_out, activate_lin_out=args.activate_lin_out, mlp_out=args.mlp_out,
+                              scale=args.scale, irc_safe=args.irc_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
+                              device=device, dtype=dtype)
     
     model.to(device)
 

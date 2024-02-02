@@ -2,8 +2,6 @@ import torch
 from torch.utils.data import Dataset
 
 import h5py
-from itertools import islice
-from math import inf
 import numpy as np
 
 import logging

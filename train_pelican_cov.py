@@ -19,7 +19,6 @@ if which('nvidia-smi') is not None:
 import torch
 from torch.utils.data import DataLoader
 import torch.distributed as dist
-from torch.distributed.elastic.utils.data import ElasticDistributedSampler
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel
 
@@ -28,9 +27,8 @@ from src.models import tests, expand_data, ir_data, irc_data
 from src.trainer import Trainer
 from src.trainer import init_argparse, init_file_paths, init_logger, init_cuda, logging_printout, fix_args, set_seed, get_world_size
 from src.trainer import init_optimizer, init_scheduler
-from src.models.metrics_cov import metrics, minibatch_metrics, minibatch_metrics_string, Angle3D
+from src.models.metrics_cov import metrics, minibatch_metrics, minibatch_metrics_string
 from src.models.metrics_cov import loss_fn_dR, loss_fn_pT, loss_fn_m, loss_fn_psi, loss_fn_inv, loss_fn_col, loss_fn_m2, loss_fn_3d, loss_fn_4d, loss_fn_E, loss_fn_col3
-from src.models.lorentz_metric import normsq4, dot4
 
 from src.dataloaders import initialize_datasets, collate_fn
 
@@ -106,13 +104,14 @@ def main():
                    for split, dataset in datasets.items()}
 
     # Initialize model
-    model = PELICANRegression(args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out, num_targets=args.num_targets,
-                      activate_agg=args.activate_agg, activate_lin=args.activate_lin,
-                      activation=args.activation, add_beams=args.add_beams, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
-                      factorize=args.factorize, masked=args.masked,
-                      activate_agg_out=args.activate_agg_out, activate_lin_out=args.activate_lin_out, mlp_out=args.mlp_out,
-                      scale=args.scale, irc_safe=args.irc_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
-                      device=device, dtype=dtype)
+    model = PELICANRegression(args.rank1_width_multiplier, args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out,
+                              num_targets=args.num_targets, stabilizer=args.stabilizer, 
+                              activate_agg=args.activate_agg, activate_lin=args.activate_lin,
+                              activation=args.activation, add_beams=args.add_beams, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
+                              factorize=args.factorize, masked=args.masked,
+                              activate_agg_out=args.activate_agg_out, activate_lin_out=args.activate_lin_out, mlp_out=args.mlp_out,
+                              scale=args.scale, irc_safe=args.irc_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
+                              device=device, dtype=dtype)
     
     model.to(device)
 

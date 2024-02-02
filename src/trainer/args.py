@@ -182,13 +182,18 @@ def setup_argparse():
                         help='Set number of workers in dataloader. (Default: 0)')
 
     # Model options
+    parser.add_argument('--stabilizer', type=str, default='so13', metavar='N',
+                        help='Stabilizer to which the symmetry is to be reduced (so13 | so3 | so12 | se2 | so2 | R | 1). (default: so13)')
+    
     parser.add_argument('--num-classes', type=int, default=2, metavar='N',
                         help='For PELICANClassifier ONLY: Number of output classes for classification models. (default: 2)')
     
+    parser.add_argument('--rank1-width-multiplier', type=int, metavar='N',
+                        help='Number of embedding channels per each rank 1 momentum feature',
+                        default = 2
+                        )
     parser.add_argument('--num-channels-scalar', type=int, metavar='N',
-                        help='Number of output channels in the Eq1to2 embedding block for scalars. Not for PELICANNano.',
-                        # default = 25
-                        # default = 60
+                        help='Number of output channels in the Eq1to2 embedding block for scalars',
                         default = 10
                         )
     parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
@@ -223,7 +228,7 @@ def setup_argparse():
                                 # default = [132, 78]
                         )
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
-                    help='Include an output MLP (default = True). Not for PELICANNano.')
+                    help='Include an output MLP (default = True)')
     parser.add_argument('--num-channels-out', nargs='*', type=int, 
                         # default=[16], 
                         # default=[25], 

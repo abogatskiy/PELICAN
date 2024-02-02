@@ -1,11 +1,9 @@
-import torch
 import numpy as np
 
-import logging, os, h5py, glob
+import logging, glob
 import logging
 logger = logging.getLogger(__name__)
 
-from torch.utils.data import DataLoader
 from torch.utils.data import ConcatDataset
 from . import JetDataset
 

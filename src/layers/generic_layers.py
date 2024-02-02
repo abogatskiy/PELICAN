@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 from .masked_batchnorm import MaskedBatchNorm1d, MaskedBatchNorm2d
 from .masked_instancenorm import MaskedInstanceNorm2d, MaskedInstanceNorm3d
+# from ..models.lorentz_metric import dot4, dot3, dot2, dot12, dot11
+
+
 class BasicMLP(nn.Module):
     """
     Multilayer perceptron used in various locations.  Operates only on the last axis of the data.
@@ -76,7 +79,7 @@ class MessageNet(nn.Module):
     If num_channels has length 2, this becomes a linear layer.
     """
 
-    def __init__(self, num_channels, depth=2, activation='leakyrelu', ir_safe=False, batchnorm = None, masked=True, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, depth=1, activation='leakyrelu', ir_safe=False, batchnorm = None, masked=True, device=torch.device('cpu'), dtype=torch.float):
         super().__init__()
 
         self.num_channels = num_channels
@@ -160,37 +163,110 @@ class MessageNet(nn.Module):
 
 
 class InputEncoder(nn.Module):
-    def __init__(self, out_dim, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, rank1_out_dim, rank2_out_dim, rank1_in_dim = 0, rank2_in_dim = 1, device=torch.device('cpu'), dtype=torch.float):
         super().__init__()
 
-        self.to(device=device, dtype=dtype)
-        self.alphas = nn.Parameter(torch.linspace(0.05, 0.5, out_dim, device=device, dtype=dtype).view(1, 1, 1, out_dim))
+        self.rank1_in_dim = rank1_in_dim
+        self.rank2_in_dim = rank2_in_dim
+        self.rank1_out_dim = rank1_out_dim if rank1_in_dim else 0
+        self.rank2_out_dim = rank2_out_dim if rank2_in_dim else 0
+        if rank1_in_dim > 0:
+            self.rank1_alphas = nn.Parameter(torch.rand((rank1_in_dim, self.rank1_out_dim), device=device, dtype=dtype))
+        if rank2_in_dim > 0:
+            # rank2_dim is never higher than 1 for us, so these alphas are defined with that in mind
+            self.rank2_alphas = nn.Parameter(torch.linspace(0.05, 0.5, rank2_out_dim, device=device, dtype=dtype))
         # self.alphas = nn.Parameter(0.5 * torch.rand(1, 1, 1, out_dim, device=device, dtype=dtype))
         # self.betas = nn.Parameter(torch.randn(1, 1, 1, out_dim, device=device, dtype=dtype))
         self.zero = torch.tensor(0, device=device, dtype=dtype)
 
-    def forward(self, x, mask=None, mode='log'):
+    def forward(self, rank1_inputs, dot_products, rank1_mask=None, rank2_mask=None, mode='log'):
+        def fn(x, alphas, mode):
+            if mode=='log':
+                x = ((1 + x).abs().pow(1e-6 + alphas ** 2) - 1) / (1e-6 + alphas ** 2)
+            elif mode=='angle':
+                x = ((1e-5 + x.abs()).pow(1e-6 + alphas ** 2) - 1) / (1e-6 + alphas ** 2)
+            elif mode=='arcsinh':
+                x = (x * 2 * alphas).arcsinh() / (1e-6 + alphas.abs())
+            return x
+        
+        if self.rank1_in_dim > 0:
+            s = rank1_inputs.shape[:-1]
+            l = len(s)
+            rank1_alphas = self.rank1_alphas.view([1,]*l+[self.rank1_in_dim, self.rank1_out_dim])
+            rank1_out = fn(rank1_inputs.unsqueeze(-1), rank1_alphas, mode).view(s+(self.rank1_in_dim*self.rank1_out_dim,))
+        else:
+            rank1_out = None
+        if self.rank2_in_dim > 0: 
+            s = dot_products.shape[:-1]
+            l = len(s)
+            rank2_alphas = self.rank2_alphas.view([1,]*l+[self.rank2_out_dim])
+            rank2_out = fn(dot_products, rank2_alphas, mode)
+        else:
+            rank2_out = None
 
-        # x = x.unsqueeze(-1)
-        # x = (1. + x).abs().pow(1e-6 + self.alphas) - 1.
-        # x = ((self.betas.abs() + x).abs().pow(1e-6 + self.alphas ** 2) - self.betas.abs().pow(1e-6 + self.alphas ** 2)) / (1e-6 + self.alphas ** 2) #288
-        # x = x * (x < (100 * self.betas.exp())) 
-        # x = (1e-2 + x).abs().log()/2  # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
+        if rank1_mask is not None and self.rank1_in_dim > 0:
+            rank1_out = torch.where(rank1_mask, rank1_out, self.zero)
+        if rank2_mask is not None and self.rank2_in_dim > 0: 
+            rank2_out = torch.where(rank2_mask, rank2_out, self.zero)
 
-        if mode=='log':
-            x = ((1 + x).abs().pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
+        return rank1_out, rank2_out
+        
+class GInvariants(nn.Module):
+    def __init__(self, stabilizer='so13', irc_safe=False):
+        super().__init__()
 
-        if mode=='angle':
-            x = ((1e-5 + x.abs()).pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
+        dict_rank1 = {'so13': 0, 'so3': 1, 'so12': 1, 'se2': 1, 'so2': 2, 'R': 2, '1': 4}
+        dict_rank2 = {'so13': 1, 'so3': 1, 'so12': 1, 'se2': 1, 'so2': 1, 'R': 1, '1': 0}
 
-        if mode=='arcsinh':
-            x = (x * 2 * self.alphas).arcsinh() / (1e-6 + self.alphas.abs())
+        self.stabilizer = stabilizer
+        self.irc_safe = irc_safe
+        self.rank1_dim = dict_rank1[stabilizer]
+        self.rank2_dim = dict_rank2[stabilizer]
 
-        if mask is not None:
-            x = torch.where(mask, x, self.zero)
+    def forward(self, event_momenta):
 
-        return x
+        # event_momenta = event_momenta.unsqueeze(1)
 
+        if self.stabilizer=='so13':
+            rank1 = None
+            rank2 = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2)).unsqueeze(-1)
+        elif self.stabilizer=='so3':
+            rank1 = event_momenta[...,[0]] # Energy
+            rank2 = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2)).unsqueeze(-1)
+            # rank2 = dot3(event_momenta, event_momenta).unsqueeze(-1)
+        elif self.stabilizer=='so12':
+            rank1 = event_momenta[...,[-1]] #p_z
+            rank2 = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2)).unsqueeze(-1)
+            # rank2 = dot12(event_momenta, event_momenta).unsqueeze(-1)
+        elif self.stabilizer=='se2':
+            rank1 = event_momenta[...,[0]] - event_momenta[...,[-1]] #E - p_z
+            rank2 = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2)).unsqueeze(-1)
+        elif self.stabilizer=='so2':
+            rank1 = event_momenta[...,[0, 3]] # E, p_z
+            rank2 = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2)).unsqueeze(-1)
+            # rank2 = dot2(event_momenta, event_momenta).unsqueeze(-1)            
+        elif self.stabilizer=='R':
+            rank1 = event_momenta[...,[1, 2]] # p_x, p_y
+            rank2 = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2)).unsqueeze(-1)
+            # rank2 = dot11(event_momenta, event_momenta).unsqueeze(-1)  
+        elif self.stabilizer=='1':
+            rank1 = event_momenta
+            rank2 = None
+
+        irc_weight = None
+        # TODO: make irc_safe option work with rank1 inputs
+        if self.irc_safe:
+            if self.rank1_dim > 0:
+                raise NotImplementedError
+            # Define the C-safe weight proportional to fractional constituent energy in jet frame (Lorentz-invariant and adds up to 1)
+            irc_weight = self.softmask(rank2.squeeze(-1), mode='c')
+            # Replace input dot products with 2*(1-cos(theta_ij)) where theta is the pairwise angle in jet frame (assuming massless particles)
+            eps = 1e-12
+            energies = ((rank2.sum(1).unsqueeze(1) * rank2.sum(1).unsqueeze(2)) / rank2.sum((1, 2), keepdim=True)).unsqueeze(-1)
+            inputs1 = rank2.clone()
+            rank2 = 2 * inputs1 / (eps + energies)  # 2*(1-cos(theta_ij)) in massless case
+
+        return rank1, rank2, irc_weight
 
 class SoftMask(nn.Module):
     """
@@ -302,3 +378,32 @@ class SiLU(nn.Module):
         Forward pass of the function.
         '''
         return silu(input) # simply apply already implemented SiLU
+    
+
+
+def dot4(p1, p2):
+    # Quick hack to calculate the dot products of the four-vectors
+    # The last dimension of the input gets eaten up
+    # Broadcasts over other dimensions
+    prod = p1 * p2
+    return 2 * prod[..., 0] - prod.sum(dim=-1)
+
+def dot3(p1, p2):
+    # Dot product of the spatial parts
+    prod = p1[...,1:] * p2[...,1:]
+    return prod.sum(dim=-1)
+
+def dot2(p1, p2):
+    # Dot product of the xy parts (pT)
+    prod = p1[...,1:3] * p2[...,1:3]
+    return prod.sum(dim=-1)
+
+def dot12(p1, p2):
+    # 2+1 invariant dot product
+    prod = p1[...,:3] * p2[...,:3]
+    return 2 * prod[..., 0] - prod.sum(dim=-1)
+
+def dot11(p1, p2):
+    # 1+1 invariant dot product
+    prod = p1[...,[0,-1]] * p2[...,[0,-1]]
+    return 2 * prod[..., 0] - prod.sum(dim=-1)

@@ -14,7 +14,25 @@ def dot4(p1, p2):
     prod = p1 * p2
     return 2 * prod[..., 0] - prod.sum(dim=-1)
 
+def dot3(p1, p2):
+    # Dot product of the spatial parts
+    prod = p1[...,1:] * p2[...,1:]
+    return prod.sum(dim=-1)
 
+def dot2(p1, p2):
+    # Dot product of the xy parts (pT)
+    prod = p1[...,1:3] * p2[...,1:3]
+    return prod.sum(dim=-1)
+
+def dot12(p1, p2):
+    # 2+1 invariant dot product
+    prod = p1[...,:3] * p2[...,:3]
+    return 2 * prod[..., 0] - prod.sum(dim=-1)
+
+def dot11(p1, p2):
+    # 1+1 invariant dot product
+    prod = p1[...,[0,-1]] * p2[...,[0,-1]]
+    return 2 * prod[..., 0] - prod.sum(dim=-1)
 
 def SDMultiplicity(jetsbatch, zcut=0.005, thetacut=0., R0 = 0.8, beta = -1.):
     """

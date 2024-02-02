@@ -44,10 +44,10 @@ def minibatch_metrics_string(metrics):
 
 
 def Entropy(predict, targets):
-    return torch.nn.CrossEntropyLoss()(predict, targets.long())      # Cross Entropy Loss (positive number). The closer to 0 the better.
+    return torch.nn.CrossEntropyLoss()(predict, targets.long())
 
 def Accuracy(predict, targets):
-    return (predict.argmax(dim=1) == targets.long().argmax(dim=1)).float().mean()  # right now this is accuracy of classification
+    return (predict.argmax(dim=1) == targets.long().argmax(dim=1)).float().mean()
 
 # AUC score for logging
 def AUCScore(predict, targets):
@@ -57,10 +57,14 @@ def AUCScore(predict, targets):
         if torch.equal(targets[...,c], torch.ones_like(targets[...,c])) or torch.equal(targets[...,c], torch.zeros_like(targets[...,c])):
             scores.append(0)
         else:
-            scores.append(roc_auc_score(targets[...,c], predict[...,c], multi_class='ovr'))        # Area Under Curve score (between 0 and 1). The closer to 1 the better.
+            # AUC for each class
+            scores.append(roc_auc_score(targets[...,c], predict[...,c], multi_class='ovr'))
     return np.array(scores)
 
 def AUCScoreMacro(predict, targets):
+    # If any of the classes are not represented in the sample, macro AUC can't be computed
+    if (targets.sum(0)==0).any():
+        return 0
     return roc_auc_score(targets, predict, multi_class='ovo', average='macro')
 
 
