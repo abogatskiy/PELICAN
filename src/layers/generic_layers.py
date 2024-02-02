@@ -163,18 +163,18 @@ class MessageNet(nn.Module):
 
 
 class InputEncoder(nn.Module):
-    def __init__(self, rank1_out_dim, rank2_out_dim, rank1_in_dim = 0, rank2_in_dim = 1, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, rank1_dim_multiplier, rank2_dim_multiplier, rank1_in_dim = 0, rank2_in_dim = 1, device=torch.device('cpu'), dtype=torch.float):
         super().__init__()
 
         self.rank1_in_dim = rank1_in_dim
         self.rank2_in_dim = rank2_in_dim
-        self.rank1_out_dim = rank1_out_dim if rank1_in_dim else 0
-        self.rank2_out_dim = rank2_out_dim if rank2_in_dim else 0
+        self.rank1_dim_multiplier = rank1_dim_multiplier if rank1_in_dim else 0
+        self.rank2_dim_multiplier = rank2_dim_multiplier if rank2_in_dim else 0
         if rank1_in_dim > 0:
-            self.rank1_alphas = nn.Parameter(torch.rand((rank1_in_dim, self.rank1_out_dim), device=device, dtype=dtype))
+            self.rank1_alphas = nn.Parameter(torch.linspace(0.05, 0.5, rank1_in_dim, device=device, dtype=dtype).unsqueeze(-1).repeat((1, rank1_dim_multiplier)))
         if rank2_in_dim > 0:
             # rank2_dim is never higher than 1 for us, so these alphas are defined with that in mind
-            self.rank2_alphas = nn.Parameter(torch.linspace(0.05, 0.5, rank2_out_dim, device=device, dtype=dtype))
+            self.rank2_alphas = nn.Parameter(torch.linspace(0.05, 0.5, rank2_in_dim, device=device, dtype=dtype).unsqueeze(-1).repeat((1, rank2_dim_multiplier)))
         # self.alphas = nn.Parameter(0.5 * torch.rand(1, 1, 1, out_dim, device=device, dtype=dtype))
         # self.betas = nn.Parameter(torch.randn(1, 1, 1, out_dim, device=device, dtype=dtype))
         self.zero = torch.tensor(0, device=device, dtype=dtype)
@@ -192,15 +192,15 @@ class InputEncoder(nn.Module):
         if self.rank1_in_dim > 0:
             s = rank1_inputs.shape[:-1]
             l = len(s)
-            rank1_alphas = self.rank1_alphas.view([1,]*l+[self.rank1_in_dim, self.rank1_out_dim])
-            rank1_out = fn(rank1_inputs.unsqueeze(-1), rank1_alphas, mode).view(s+(self.rank1_in_dim*self.rank1_out_dim,))
+            rank1_alphas = self.rank1_alphas.view([1,]*l+[self.rank1_in_dim, self.rank1_dim_multiplier])
+            rank1_out = fn(rank1_inputs.unsqueeze(-1), rank1_alphas, mode).view(s+(self.rank1_in_dim*self.rank1_dim_multiplier,))
         else:
             rank1_out = None
         if self.rank2_in_dim > 0: 
             s = dot_products.shape[:-1]
             l = len(s)
-            rank2_alphas = self.rank2_alphas.view([1,]*l+[self.rank2_out_dim])
-            rank2_out = fn(dot_products, rank2_alphas, mode)
+            rank2_alphas = self.rank2_alphas.view([1,]*l+[self.rank2_in_dim, self.rank2_dim_multiplier])
+            rank2_out = fn(dot_products.unsqueeze(-1), rank2_alphas, mode).view(s+(self.rank2_in_dim*self.rank2_dim_multiplier,))
         else:
             rank2_out = None
 
@@ -215,8 +215,8 @@ class GInvariants(nn.Module):
     def __init__(self, stabilizer='so13', irc_safe=False):
         super().__init__()
 
-        dict_rank1 = {'so13': 0, 'so3': 1, 'so12': 1, 'se2': 1, 'so2': 2, 'R': 2, '1': 4}
-        dict_rank2 = {'so13': 1, 'so3': 1, 'so12': 1, 'se2': 1, 'so2': 1, 'R': 1, '1': 0}
+        dict_rank1 = {'so13': 0, 'so3': 1, 'so12': 1, 'se2': 1, 'so2': 2, 'R': 2, '1': 0}
+        dict_rank2 = {'so13': 1, 'so3': 1, 'so12': 1, 'se2': 1, 'so2': 1, 'R': 1, '1': 4}
 
         self.stabilizer = stabilizer
         self.irc_safe = irc_safe
@@ -250,8 +250,8 @@ class GInvariants(nn.Module):
             rank2 = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2)).unsqueeze(-1)
             # rank2 = dot11(event_momenta, event_momenta).unsqueeze(-1)  
         elif self.stabilizer=='1':
-            rank1 = event_momenta
-            rank2 = None
+            rank1 = None
+            rank2 = event_momenta.unsqueeze(1)*event_momenta.unsqueeze(2)
 
         irc_weight = None
         # TODO: make irc_safe option work with rank1 inputs

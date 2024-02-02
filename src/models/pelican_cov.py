@@ -79,7 +79,7 @@ class PELICANRegression(nn.Module):
         self.input_encoder = InputEncoder(rank1_width_multiplier, embedding_dim, rank1_in_dim = self.rank1_dim, rank2_in_dim=self.rank2_dim, device = device, dtype = dtype)
         # If there are scalars (like beam labels or PIDs) we promote them using an equivariant 1->2 layer and then concatenate them to the embedded dot products
         if self.num_scalars > 0:
-            eq1to2_in_dim = self.num_scalars + self.input_encoder.rank1_out_dim*self.input_encoder.rank1_in_dim
+            eq1to2_in_dim = self.num_scalars + self.input_encoder.rank1_dim_multiplier*self.input_encoder.rank1_in_dim
             eq2to2_out_dim = num_channels_scalar if self.rank2_dim > 0 else embedding_dim
             self.eq1to2 = Eq1to2(eq1to2_in_dim, eq2to2_out_dim, activate_agg=activate_agg_in, activate_lin=activate_lin_in, activation = activation, average_nobj=average_nobj, config=config_out, factorize=False, device = device, dtype = dtype)
 

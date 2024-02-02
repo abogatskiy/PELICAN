@@ -51,11 +51,6 @@ class PELICANClassifier(nn.Module):
             self.dropout_layer = nn.Dropout(drop_rate)
             self.dropout_layer_out = nn.Dropout(drop_rate_out)
 
-        if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
-            embedding_dim = self.num_channels_m[0][0]
-        else:
-            embedding_dim = self.num_channels_2to2[0]
-
         self.ginvariants = GInvariants(stabilizer=stabilizer, irc_safe=irc_safe)
         self.rank1_dim = self.ginvariants.rank1_dim
         self.rank2_dim = self.ginvariants.rank2_dim
@@ -67,22 +62,28 @@ class PELICANClassifier(nn.Module):
         else:
             self.num_scalars = 0
 
+        if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
+            embedding_dim = self.num_channels_m[0][0]
+        else:
+            embedding_dim = self.num_channels_2to2[0]
+
+        rank2_dim_multiplier  =1
         if self.num_scalars > 0 or self.rank1_dim > 0: 
             if self.rank2_dim > 0:
                 assert embedding_dim > num_channels_scalar, f"num_channels_m[0][0] has to be at least {num_channels_scalar + 1} because you enabled --add_beams or --read-pid but got {embedding_dim}"
-                embedding_dim -= num_channels_scalar
+                rank2_dim_multiplier = (embedding_dim - num_channels_scalar)//self.rank2_dim
         
         if irc_safe:
             self.softmask = SoftMask(device=device,dtype=dtype)
 
         # The input stack applies an encoding function
         rank1_width_multiplier = 1 # each scalar will produce this many channels
-        self.input_encoder = InputEncoder(rank1_width_multiplier, embedding_dim, rank1_in_dim = self.rank1_dim, rank2_in_dim=self.rank2_dim, device = device, dtype = dtype)
+        self.input_encoder = InputEncoder(rank1_width_multiplier, rank2_dim_multiplier, rank1_in_dim = self.rank1_dim, rank2_in_dim=self.rank2_dim, device = device, dtype = dtype)
         
         # If there are scalars (like beam labels or PIDs) we promote them using an equivariant 1->2 layer and then concatenate them to the embedded dot products
         if self.num_scalars > 0:
-            eq1to2_in_dim = self.num_scalars + self.input_encoder.rank1_out_dim*self.input_encoder.rank1_in_dim
-            eq2to2_out_dim = num_channels_scalar if self.rank2_dim > 0 else embedding_dim
+            eq1to2_in_dim = self.num_scalars + self.input_encoder.rank1_dim_multiplier*self.input_encoder.rank1_in_dim
+            eq2to2_out_dim = (embedding_dim - self.rank2_dim * rank2_dim_multiplier) if self.rank2_dim > 0 else embedding_dim
             self.eq1to2 = Eq1to2(eq1to2_in_dim, eq2to2_out_dim, activate_agg=activate_agg_in, activate_lin=activate_lin_in, activation = activation, average_nobj=average_nobj, config=config_out, factorize=False, device = device, dtype = dtype)
 
         # This is the main part of the network -- a sequence of permutation-equivariant 2->2 blocks
