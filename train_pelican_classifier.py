@@ -88,7 +88,7 @@ def main():
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass, read_pid=args.read_pid)
     
     # Whether testing set evaluation should be distributed
-    distributed_test=True
+    distributed_test=False
     if distributed:
         samplers = {'train': DistributedSampler(datasets['train'], shuffle=args.shuffle),
                     'valid': DistributedSampler(datasets['valid'], shuffle=False),
@@ -147,8 +147,7 @@ def main():
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics,
                       minibatch_metrics, minibatch_metrics_string, optimizer, scheduler,
-                      restart_epochs, args.summarize_csv, args.summarize, device_id, device, dtype,
-                      warmup_epochs=args.warmup, cooldown_epochs=args.cooldown)
+                      restart_epochs, device_id, device, dtype)
     
     if not args.task.startswith('eval'):
         # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.

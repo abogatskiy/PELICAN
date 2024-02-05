@@ -13,8 +13,7 @@ class Trainer:
     Class to train network. Includes checkpoints, optimizer, scheduler,
     """
     def __init__(self, args, dataloaders, model, loss_fn, metrics_fn, minibatch_metrics_fn, minibatch_metrics_string_fn, 
-                 optimizer, scheduler, restart_epochs, summarize_csv, summarize, device_id, device, dtype,
-                 warmup_epochs=4, cooldown_epochs=3):
+                 optimizer, scheduler, restart_epochs, device_id, device, dtype):
         np.set_printoptions(precision=5)
         self.args = args
         self.dataloaders = dataloaders
@@ -24,12 +23,12 @@ class Trainer:
         self.minibatch_metrics_fn = minibatch_metrics_fn
         self.minibatch_metrics_string_fn = minibatch_metrics_string_fn
         self.optimizer = optimizer
-        self.scheduler = self._wrap_scheduler(scheduler, warmup_epochs, cooldown_epochs)
+        self.scheduler = self._wrap_scheduler(scheduler)
         self.restart_epochs = restart_epochs
 
-        self.summarize_csv = summarize_csv
-        self.summarize = summarize
-        if summarize:
+        self.summarize_csv =args.summarize_csv
+        self.summarize = args.summarize
+        if args.summarize:
             from torch.utils.tensorboard import SummaryWriter
             self.writer = SummaryWriter(log_dir=args.logdir+args.prefix)
 
@@ -42,26 +41,23 @@ class Trainer:
         self.device = device
         self.dtype = dtype
 
-    def _wrap_scheduler(self, scheduler, warmup_epochs, cooldown_epochs):
-        if self.args.num_epoch < warmup_epochs:
+    def _wrap_scheduler(self, scheduler):
+        if self.args.num_epoch < self.args.warmup:
             return scheduler
-        if warmup_epochs > 0:
-            scheduler = GradualWarmupScheduler(self.optimizer, multiplier=1, warmup_epochs=len(self.dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
-        if cooldown_epochs > 0:
+        if self.args.warmup > 0:
+            scheduler = GradualWarmupScheduler(self.optimizer, 1, len(self.dataloaders['train'])*self.args.warmup, after_scheduler=scheduler)
+        if self.args.cooldown > 0:
             if self.args.lr_decay_type == 'warm':
-                cooldown_epochs = int(self.args.num_epoch/11)
-                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(self.dataloaders['train'])
-                cooldown_length = cooldown_epochs*len(self.dataloaders['train'])
+                coodlown_start = (self.args.num_epoch - self.args.warmup - self.args.cooldown)*len(self.dataloaders['train'])
+                cooldown_length = self.args.cooldown*len(self.dataloaders['train'])
                 scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
             elif self.args.lr_decay_type == 'flat':
-                cooldown_epochs = int(self.args.num_epoch/3)
-                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(self.dataloaders['train'])
-                cooldown_length = cooldown_epochs*len(self.dataloaders['train'])
+                coodlown_start = (self.args.num_epoch - self.args.warmup - self.args.cooldown)*len(self.dataloaders['train'])
+                cooldown_length = self.args.cooldown*len(self.dataloaders['train'])
                 scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
             elif self.args.lr_decay_type == 'cos':
-                cooldown_epochs = 3
-                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(self.dataloaders['train'])
-                cooldown_length = cooldown_epochs*len(self.dataloaders['train'])
+                coodlown_start = (self.args.num_epoch - self.args.warmup - self.args.cooldown)*len(self.dataloaders['train'])
+                cooldown_length = self.args.cooldown*len(self.dataloaders['train'])
                 scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
         return scheduler
 
@@ -107,7 +103,7 @@ class Trainer:
     def load_state(self, checkfile):
         logger.info('Loading from checkpoint!')
 
-        checkpoint = torch.load(checkfile, map_location=torch.device(self.device))
+        checkpoint = torch.load(checkfile, map_location=self.device)
         self.model.load_state_dict(checkpoint['model_state'])
         if self.optimizer is not None:
             self.optimizer.load_state_dict(checkpoint['optimizer_state'])
@@ -133,11 +129,14 @@ class Trainer:
         if not self.args.save:
             logger.info('No model saved! Cannot give final status.')
             return
-
-        # Evaluate final model (at end of training)
+        
+        # make sure main process has finished writing to disk before proceeding
+        if self.device_id >= 0:
+            torch.distributed.barrier()
+        # Evaluate final model
         if final:
             # Load checkpoint model to make predictions
-            checkpoint = torch.load(self.args.checkfile, map_location=torch.device(self.device))
+            checkpoint = torch.load(self.args.checkfile, map_location=self.device)
             final_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['model_state'])
             logger.info(f'Getting predictions for final model {self.args.checkfile} (epoch {final_epoch}).')
@@ -151,7 +150,7 @@ class Trainer:
         # Evaluate best model as determined by validation error
         if best:
             # Load best model to make predictions
-            checkpoint = torch.load(self.args.bestfile, map_location=torch.device(self.device))
+            checkpoint = torch.load(self.args.bestfile, map_location=self.device)
             best_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['model_state'])
             if (not final) or (final and not best_epoch == final_epoch):
