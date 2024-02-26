@@ -66,6 +66,8 @@ def fix_args(args):
         # args.num_channels_m[0][0] = args.num_channels_2to2[0] # delete this line if not using Residual connections
     if args.target == 'None':
         args.target = None
+    if args.stabilizer!='so13' and args.add_beams:
+        logger.warn('WARNING: You might want to disable add_beams when using a reduced stabilizer.')
 
     return args
 

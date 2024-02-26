@@ -184,6 +184,9 @@ def setup_argparse():
     # Model options
     parser.add_argument('--stabilizer', type=str, default='so13', metavar='N',
                         help='Stabilizer to which the symmetry is to be reduced (so13 | so3 | so12 | se2 | so2 | R | 1). (default: so13)')
+    parser.add_argument('--method', type=str, default='spurions', metavar='N',
+                        help="""Method for breaking down the symmetry -- either by adding spurion particles, 
+                        or by adding input quantities that aren\'t just dot products (spurions | input). (default: so13)""")
     
     parser.add_argument('--num-classes', type=int, default=2, metavar='N',
                         help='For PELICANClassifier ONLY: Number of output classes for classification models. (default: 2)')

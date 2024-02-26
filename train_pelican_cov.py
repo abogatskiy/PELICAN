@@ -105,7 +105,7 @@ def main():
 
     # Initialize model
     model = PELICANRegression(args.rank1_width_multiplier, args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out,
-                              num_targets=args.num_targets, stabilizer=args.stabilizer, 
+                              num_targets=args.num_targets, stabilizer=args.stabilizer, method = args.method,
                               activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                               activation=args.activation, add_beams=args.add_beams, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
                               factorize=args.factorize, masked=args.masked,
@@ -140,8 +140,7 @@ def main():
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics,
                       minibatch_metrics, minibatch_metrics_string, optimizer, scheduler,
-                      restart_epochs, args.summarize_csv, args.summarize, device_id, device, dtype,
-                      warmup_epochs=args.warmup, cooldown_epochs=args.cooldown)
+                      restart_epochs, device_id, device, dtype)
 
     if not args.task.startswith('eval'):
         # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.

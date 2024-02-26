@@ -4,15 +4,16 @@ import torch.nn as nn
 import logging
 
 from .lorentz_metric import CATree, SDMultiplicity
-from ..layers import BasicMLP, Net2to2, Eq1to2, Eq2to0, MessageNet, InputEncoder, SoftMask, GInvariants
+from ..layers import BasicMLP, Net2to2, Eq1to2, Eq2to0, MessageNet, InputEncoder, GInvariants, MyLinear
 from ..trainer import init_weights
+logger = logging.getLogger(__name__)
 
 class PELICANClassifier(nn.Module):
     """
     Permutation Invariant, Lorentz Invariant/Covariant Aggregator Network
     """
-    def __init__(self, rank1_width_multiplier, num_channels_scalar, num_channels_m, num_channels_2to2, num_channels_out, num_channels_m_out, 
-                 stabilizer='so13', num_classes=2,
+    def __init__(self, rank1_dim_multiplier, num_channels_scalar, num_channels_m, num_channels_2to2, num_channels_out, num_channels_m_out, 
+                 stabilizer='so13', method='input', num_classes=2,
                  activate_agg_in=False, activate_lin_in=True,
                  activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, read_pid=False, config='s', config_out='s', average_nobj=49, factorize=False, masked=True,
                  activate_agg_out=True, activate_lin_out=False, mlp_out=True,
@@ -27,13 +28,14 @@ class PELICANClassifier(nn.Module):
         num_channels_out = expand_var_list(num_channels_out)
 
         self.device, self.dtype = device, dtype
-        self.rank1_width_multiplier = rank1_width_multiplier
+        self.rank1_width_multiplier = rank1_dim_multiplier
         self.num_channels_scalar = num_channels_scalar
         self.num_channels_m = num_channels_m
         self.num_channels_2to2 = num_channels_2to2
         self.num_channels_m_out = num_channels_m_out
         self.num_channels_out = num_channels_out
         self.stabilizer = stabilizer
+        self.method = method
         self.num_classes = num_classes
         self.batchnorm = batchnorm
         self.dropout = dropout
@@ -51,7 +53,10 @@ class PELICANClassifier(nn.Module):
             self.dropout_layer = nn.Dropout(drop_rate)
             self.dropout_layer_out = nn.Dropout(drop_rate_out)
 
-        self.ginvariants = GInvariants(stabilizer=stabilizer, irc_safe=irc_safe)
+        if method == 'spurions':
+            self.ginvariants = GInvariants(stabilizer='so13', irc_safe=irc_safe)
+        else:
+            self.ginvariants = GInvariants(stabilizer=stabilizer, irc_safe=irc_safe)
         self.rank1_dim = self.ginvariants.rank1_dim
         self.rank2_dim = self.ginvariants.rank2_dim
 
@@ -67,32 +72,56 @@ class PELICANClassifier(nn.Module):
         else:
             embedding_dim = self.num_channels_2to2[0]
 
-        rank2_dim_multiplier  =1
+        # rank2_dim_multiplier  =1
         if self.num_scalars > 0 or self.rank1_dim > 0: 
             if self.rank2_dim > 0:
                 assert embedding_dim > num_channels_scalar, f"num_channels_m[0][0] has to be at least {num_channels_scalar + 1} because you enabled --add_beams or --read-pid but got {embedding_dim}"
-                rank2_dim_multiplier = (embedding_dim - num_channels_scalar)//self.rank2_dim
+                # rank2_dim_multiplier = (embedding_dim - num_channels_scalar)//self.rank2_dim
+                embedding_dim = embedding_dim - num_channels_scalar
         
-        if irc_safe:
-            self.softmask = SoftMask(device=device,dtype=dtype)
-
         # The input stack applies an encoding function
-        rank1_width_multiplier = 1 # each scalar will produce this many channels
-        self.input_encoder = InputEncoder(rank1_width_multiplier, rank2_dim_multiplier, rank1_in_dim = self.rank1_dim, rank2_in_dim=self.rank2_dim, device = device, dtype = dtype)
+        rank1_dim_multiplier = 1 # each scalar will produce this many channels
+
+        if stabilizer == 'so13' or method == 'spurions':
+            weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype)
+        elif stabilizer == '1':
+            weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype) - torch.tensor([[0,2,2,2]], device=device, dtype=dtype)
+        elif stabilizer in ['so3','so12','se12']:
+            weights = torch.zeros((embedding_dim, self.rank2_dim), device=device, dtype=dtype) + torch.tensor([[0,1]], device=device, dtype=dtype)
+        elif stabilizer in ['so2','R']:
+            weights = torch.zeros((embedding_dim, self.rank2_dim), device=device, dtype=dtype) + torch.tensor([[0,0,1]], device=device, dtype=dtype)
+        elif stabilizer == '11':
+            weights = torch.zeros((embedding_dim, self.rank2_dim), device=device, dtype=dtype) + torch.tensor([[0,0,0,0,1]], device=device, dtype=dtype)
+        
+        self.linear = MyLinear(self.rank2_dim, embedding_dim, weights, device=device, dtype=dtype)
+
+        mode = 'angle' if self.irc_safe else 'slog'
+        self.input_encoder = InputEncoder(rank1_dim_multiplier, embedding_dim, 
+                                          rank1_in_dim = self.rank1_dim, rank2_in_dim=self.rank2_dim, 
+                                          mode=mode, device = device, dtype = dtype)
         
         # If there are scalars (like beam labels or PIDs) we promote them using an equivariant 1->2 layer and then concatenate them to the embedded dot products
         if self.num_scalars > 0:
-            eq1to2_in_dim = self.num_scalars + self.input_encoder.rank1_dim_multiplier*self.input_encoder.rank1_in_dim
-            eq2to2_out_dim = (embedding_dim - self.rank2_dim * rank2_dim_multiplier) if self.rank2_dim > 0 else embedding_dim
-            self.eq1to2 = Eq1to2(eq1to2_in_dim, eq2to2_out_dim, activate_agg=activate_agg_in, activate_lin=activate_lin_in, activation = activation, average_nobj=average_nobj, config=config_out, factorize=False, device = device, dtype = dtype)
+            eq1to2_in_dim = self.num_scalars + rank1_dim_multiplier*self.rank1_dim
+            # eq2to2_out_dim = (embedding_dim - self.rank2_dim * rank2_dim_multiplier) if self.rank2_dim > 0 else embedding_dim
+            self.eq1to2 = Eq1to2(eq1to2_in_dim, num_channels_scalar, 
+                                 activate_agg=activate_agg_in, activate_lin=activate_lin_in, 
+                                 activation = activation, average_nobj=average_nobj, 
+                                 config=config_out, factorize=False, device = device, dtype = dtype)
 
         # This is the main part of the network -- a sequence of permutation-equivariant 2->2 blocks
         # Each 2->2 block consists of a component-wise messaging layer that mixes channels, followed by the equivariant aggegration over particle indices
-        self.net2to2 = Net2to2(num_channels_2to2 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, config=config, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
+        self.net2to2 = Net2to2(num_channels_2to2 + [num_channels_m_out[0]], num_channels_m, 
+                               activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, 
+                               dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, config=config, 
+                               average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
         
         # The final equivariant block is 2->1 and is defined here manually as a messaging layer followed by the 2->1 aggregation layer
-        self.msg_2to0 = MessageNet(num_channels_m_out, activation=activation, batchnorm=batchnorm, device=device, dtype=dtype)       
-        self.agg_2to0 = Eq2to0(num_channels_m_out[-1], num_channels_out[0] if mlp_out else num_classes, activate_agg=activate_agg_out, activate_lin=activate_lin_out, activation = activation, config=config_out, factorize=False, average_nobj=average_nobj, device = device, dtype = dtype)
+        self.msg_2to0 = MessageNet(num_channels_m_out, activation=activation, 
+                                   batchnorm=batchnorm, device=device, dtype=dtype)       
+        self.agg_2to0 = Eq2to0(num_channels_m_out[-1], num_channels_out[0] if mlp_out else num_classes, 
+                               activate_agg=activate_agg_out, activate_lin=activate_lin_out, activation = activation, 
+                               config=config_out, factorize=False, average_nobj=average_nobj, device = device, dtype = dtype)
         
         # We have produced a permutation-invariant feature vector, and now we apply an MLP with 2 output channels to it to get the final classification weights
         if mlp_out:
@@ -123,24 +152,11 @@ class PELICANClassifier(nn.Module):
 
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.
         # In the C-safe case, this is still fine because inputs depends only on relative angles
-        rank1_inputs, rank2_inputs = self.input_encoder(rank1_inputs, dot_products, rank1_mask=particle_mask.unsqueeze(-1) ,rank2_mask=edge_mask.unsqueeze(-1), mode='angle' if self.irc_safe else 'log')
+        dot_products = self.linear(dot_products)
+        rank1_inputs, rank2_inputs = self.input_encoder(rank1_inputs, dot_products, 
+                                                        rank1_mask=particle_mask.unsqueeze(-1) ,rank2_mask=edge_mask.unsqueeze(-1))
 
-        # First concatenate particle scalar inputs with rank 1 momentum features (if any)
-        if self.num_scalars > 0:
-            if rank1_inputs is None:
-                rank1_inputs = particle_scalars
-            else:
-                rank1_inputs = torch.cat([particle_scalars, rank1_inputs], dim=-1)
-        # Now promore all rank 1 data to rank 2 using Eq1to2
-        if rank1_inputs is not None:
-            rank2_particle_scalars = self.eq1to2(rank1_inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, irc_weight = irc_weight if self.irc_safe else None)
-        # Concatenate all rank 2 data together
-        if rank2_inputs is None:
-            inputs = rank2_particle_scalars
-        elif rank2_particle_scalars is None:
-            inputs = rank2_inputs
-        else:
-            inputs = torch.cat([rank2_inputs, rank2_particle_scalars], dim=-1)
+        inputs = self.apply_eq1to2(particle_scalars, rank1_inputs, rank2_inputs, edge_mask, nobj, irc_weight)
 
         # Apply the sequence of PELICAN equivariant 2->2 blocks with the IRC weighting.
         act1 = self.net2to2(inputs, mask = edge_mask.unsqueeze(-1), nobj = nobj,
@@ -160,12 +176,16 @@ class PELICANClassifier(nn.Module):
         else:
             prediction = act3
 
-        if torch.isnan(prediction).any():
-            logging.info(f"inputs: {torch.isnan(inputs).any()}")
-            logging.info(f"act1: {torch.isnan(act1).any()}")
-            logging.info(f"act2: {torch.isnan(act2).any()}")
-            logging.info(f"prediction: {torch.isnan(prediction).any()}")
-        assert not torch.isnan(prediction).any(), "There are NaN entries in the output! Evaluation terminated."
+        check_nan = torch.isnan(prediction).any()
+        if check_nan:
+            logging.info(torch.isnan(act1).sum(1,2,3))
+            logging.info(f"inputs has NaNs: {torch.isnan(inputs).any()}")
+            logging.info(f"rank1_inputs: {torch.isnan(rank1_inputs).any()}")
+            logging.info(f"rank2_inputs: {torch.isnan(rank2_inputs).any()}")
+            logging.info(f"act1 has NaNs: {torch.isnan(act1).any()}")
+            logging.info(f"act2 has NaNs: {torch.isnan(act2).any()}")
+            logging.info(f"prediction has NaNs: {check_nan}")
+        assert not check_nan, "There are NaN entries in the output! Evaluation terminated."
 
         if covariance_test:
             return {'predict': prediction, 'inputs': inputs, 'act1': act1, 'act2': act2, 'act3': act3}
@@ -189,14 +209,16 @@ class PELICANClassifier(nn.Module):
             Mask used for batching data.
         edge_mask: :obj:`torch.Tensor`
             Mask used for batching data.
-        particle_ps: :obj:`torch.Tensor`
+        event_momenta: :obj:`torch.Tensor`
             4-momenta of the particles
         """
         device, dtype = self.device, self.dtype
 
-        particle_ps = data['Pmu'].to(device, dtype)
+        if self.method == "spurions":
+            data = self.add_spurions(data)
 
-        data['Pmu'].requires_grad_(True)
+        event_momenta = data['Pmu'].to(device, dtype)
+        # event_momenta.requires_grad_(True)
         particle_mask = data['particle_mask'].to(device, torch.bool)
         edge_mask = data['edge_mask'].to(device, torch.bool)
 
@@ -204,7 +226,60 @@ class PELICANClassifier(nn.Module):
             scalars = data['scalars'].to(device, dtype)
         else:
             scalars = None
-        return scalars, particle_mask, edge_mask, particle_ps
+        return scalars, particle_mask, edge_mask, event_momenta
+    
+    def add_spurions(self, data):
+        stabilizer = self.stabilizer
+        if stabilizer == 'so13':
+            return data
+        device, dtype = data['Pmu'].device, data['Pmu'].dtype
+        batch_size = len(data['Nobj'])
+        if stabilizer == 'so3':
+            spurions = torch.tensor([[[1,0,0,0]]], dtype=dtype, device=device)
+        elif stabilizer == 'so12':
+            spurions = torch.tensor([[[0,0,0,1]]], dtype=dtype, device=device)
+        elif stabilizer == 'se2':
+            spurions = torch.tensor([[[1,0,0,-1]]], dtype=dtype, device=device)
+        elif stabilizer == 'so2':
+            spurions = torch.tensor([[[1,0,0,0],[0,0,0,1]]], dtype=dtype, device=device)
+        elif stabilizer == 'R':
+            spurions = torch.tensor([[[0,1,0,0],[0,0,1,0]]], dtype=dtype, device=device)
+        elif stabilizer in ['1','11']:
+            spurions = torch.tensor([[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]], dtype=dtype, device=device)
+        spurions = spurions.expand((batch_size, -1, -1))
+
+        particle_mask = torch.cat((torch.ones(batch_size,spurions.shape[1]).bool().to(device=device), data['particle_mask']),dim=-1)
+        edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
+        
+        data['Pmu'] = torch.cat([spurions, data['Pmu']], 1)
+        data['particle_mask'] = particle_mask
+        data['edge_mask'] = edge_mask
+        if 'scalars' in data.keys():
+            data['scalars'] = torch.cat([torch.zeros((batch_size, spurions.shape[1], data['scalars'].shape[2]), device=device, dtype=data['scalars'].dtype), data['scalars']])
+        
+        return data
+    
+    def apply_eq1to2(self, particle_scalars, rank1_inputs, rank2_inputs, edge_mask, nobj, irc_weight):
+        # First concatenate particle scalar inputs with rank 1 momentum features (if any)
+        if self.num_scalars > 0:
+            if rank1_inputs is None:
+                rank1_inputs = particle_scalars
+            else:
+                rank1_inputs = torch.cat([particle_scalars, rank1_inputs], dim=-1)
+        # Now promore all rank 1 data to rank 2 using Eq1to2
+        if rank1_inputs is not None:
+            rank2_particle_scalars = self.eq1to2(rank1_inputs, mask=edge_mask.unsqueeze(-1), nobj=nobj, irc_weight = irc_weight if self.irc_safe else None)
+        else:
+            rank2_particle_scalars = None
+        # Concatenate all rank 2 data together
+        if rank2_inputs is None:
+            inputs = rank2_particle_scalars
+        elif rank2_particle_scalars is None:
+            inputs = rank2_inputs
+        else:
+            inputs = torch.cat([rank2_inputs, rank2_particle_scalars], dim=-1)
+        return inputs
+
 
 def expand_var_list(var):
     if type(var) is list:

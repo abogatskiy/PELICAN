@@ -158,34 +158,29 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
     data = {key: batch_stack([event[key] for event in data], nobj=nobj) for key in common_keys}
     device = data['Pmu'].device
     dtype = data['Pmu'].dtype
-    zero = torch.tensor(0.)
-    # to_keep = batch['Nobj'].to(torch.uint8)
     s = data['Pmu'].shape
-    particle_mask = torch.cat((torch.ones(s[0],2).bool().to(device=device), data['Pmu'][...,0] != 0.),dim=-1)
 
     # p3s = data['Pmu'][:,:,1:4]
     # Es = data['Pmu'][:,:,[0]]
     # p3s = F.normalize(p3s, dim=-1) * Es
     # data['Pmu'] = torch.cat([Es,p3s],dim=-1)
 
-    edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
-
     if read_pid:
         assert 'pdgid' in data.keys(), "Need the key pdgid in your data before using read_pid"
         
     if add_beams:
         p = 1
-        beams = torch.tensor([[[sqrt(p**2+beam_mass**2),0,0,p], [sqrt(p**2+beam_mass**2),0,0,-p]]], dtype=data['Pmu'].dtype, device=data['Pmu'].device).expand(s[0], 2, 4)
+        beams = torch.tensor([[[sqrt(p**2+beam_mass**2),0,0,p], [sqrt(p**2+beam_mass**2),0,0,-p]]], dtype=dtype, device=device).expand(s[0], 2, 4)
         data['Pmu'] = torch.cat([beams, data['Pmu'] * scale], dim=1)
         data['Nobj'] = data['Nobj'] + 2
         if read_pid:
             num_classes=14
-            beams_pdg = torch.tensor([[2212, 2212]], dtype=torch.long, device=data['Pmu'].device).expand(s[0], 2)
+            beams_pdg = torch.tensor([[2212, 2212]], dtype=torch.long, device=device).expand(s[0], 2)
             data['pdgid'] = torch.cat([beams_pdg, data['pdgid'].to(dtype=torch.long)], dim=1)
         else:
             num_classes=2
-            data['pdgid'] = torch.cat([2212 * torch.ones(s[0], 2, dtype=torch.long, device=data['Pmu'].device),
-                                       torch.zeros(s[0], s[1], dtype=torch.long, device=data['Pmu'].device)], dim=1)
+            data['pdgid'] = torch.cat([2212 * torch.ones(s[0], 2, dtype=torch.long, device=device),
+                                       torch.zeros(s[0], s[1], dtype=torch.long, device=device)], dim=1)
     else:
         data['Pmu'] = data['Pmu'] * scale
 

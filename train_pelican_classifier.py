@@ -109,7 +109,7 @@ def main():
 
     # Initialize model
     model = PELICANClassifier(args.rank1_width_multiplier, args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out, 
-                              stabilizer=args.stabilizer, num_classes=args.num_classes,
+                              stabilizer=args.stabilizer, method = args.method, num_classes=args.num_classes,
                               activate_agg=args.activate_agg, activate_lin=args.activate_lin,
                               activation=args.activation, add_beams=args.add_beams, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
                               factorize=args.factorize, masked=args.masked,
