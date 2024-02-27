@@ -68,7 +68,8 @@ class MyLinear(nn.Module):
             self.reset_bias()
 
     def reset_weight(self) -> None:
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        nn.init.kaiming_normal_(self.weight, a=0.01, mode='fan_in', nonlinearity='leaky_relu')
+        # nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
 
     def reset_bias(self) -> None:
         if self.bias is not None:

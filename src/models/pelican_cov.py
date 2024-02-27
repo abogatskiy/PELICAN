@@ -249,7 +249,7 @@ class PELICANRegression(nn.Module):
         data['particle_mask'] = particle_mask
         data['edge_mask'] = edge_mask
         if 'scalars' in data.keys():
-            data['scalars'] = torch.cat([torch.zeros((batch_size, spurions.shape[1], data['scalars'].shape[2]), device=device, dtype=data['scalars'].dtype), data['scalars']])
+            data['scalars'] = torch.cat([torch.zeros((batch_size, spurions.shape[1], data['scalars'].shape[2]), device=device, dtype=data['scalars'].dtype), data['scalars']], dim=1)
         
         return data
 
