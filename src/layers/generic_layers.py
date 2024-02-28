@@ -50,7 +50,7 @@ class MyLinear(nn.Module):
     weight: torch.Tensor
 
     def __init__(self, in_features: int, out_features: int, weight = None, bias: bool = True,
-                 device=None, dtype=None) -> None:
+                 rand_bias=False, device=None, dtype=None) -> None:
         factory_kwargs = {'device': device, 'dtype': dtype}
         super().__init__()
         self.in_features = in_features
@@ -65,7 +65,10 @@ class MyLinear(nn.Module):
             self.reset_bias()
         else:
             self.weight = nn.Parameter(weight)
-            self.reset_bias()
+            if rand_bias:
+                self.reset_bias()
+            elif self.bias is not None:
+                nn.init.zeros_(self.bias)
 
     def reset_weight(self) -> None:
         nn.init.kaiming_normal_(self.weight, a=0.01, mode='fan_in', nonlinearity='leaky_relu')

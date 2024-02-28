@@ -60,7 +60,7 @@ class PELICANRegression(nn.Module):
 
         if read_pid:
             self.num_scalars = 14
-        elif add_beams:
+        elif add_beams or (method == 'spurions' and stabilizer!='so13'):
             self.num_scalars = 2
         else:
             self.num_scalars = 0
@@ -99,15 +99,6 @@ class PELICANRegression(nn.Module):
                                           rank1_in_dim = self.rank1_dim, rank2_in_dim=self.rank2_dim, 
                                           mode=mode, device = device, dtype = dtype)
         
-        # If there are scalars (like beam labels or PIDs) we promote them using an equivariant 1->2 layer and then concatenate them to the embedded dot products
-        if self.num_scalars > 0:
-            eq1to2_in_dim = self.num_scalars + rank1_dim_multiplier*self.rank1_dim
-            # eq2to2_out_dim = (embedding_dim - self.rank2_dim * rank2_dim_multiplier) if self.rank2_dim > 0 else embedding_dim
-            self.eq1to2 = Eq1to2(eq1to2_in_dim, num_channels_scalar, 
-                                 activate_agg=activate_agg_in, activate_lin=activate_lin_in, 
-                                 activation = activation, average_nobj=average_nobj, 
-                                 config=config_out, factorize=False, device = device, dtype = dtype)
-
         # This is the main part of the network -- a sequence of permutation-equivariant 2->2 blocks
         # Each 2->2 block consists of a component-wise messaging layer that mixes channels, followed by the equivariant aggegration over particle indices
         self.net2to2 = Net2to2(num_channels_2to2 + [num_channels_m_out[0]], num_channels_m, activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, config=config, average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
@@ -121,6 +112,16 @@ class PELICANRegression(nn.Module):
             self.mlp_out_1 = BasicMLP(self.num_channels_out + [num_targets], activation=activation, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
         self.apply(init_weights)
+
+        # If there are scalars (like beam labels or PIDs) we promote them using an equivariant 1->2 layer and then concatenate them to the embedded dot products
+        if self.num_scalars > 0:
+            eq1to2_in_dim = self.num_scalars + rank1_dim_multiplier*self.rank1_dim
+            # eq2to2_out_dim = (embedding_dim - self.rank2_dim * rank2_dim_multiplier) if self.rank2_dim > 0 else embedding_dim
+            self.eq1to2 = Eq1to2(eq1to2_in_dim, num_channels_scalar, 
+                                 activate_agg=activate_agg_in, activate_lin=activate_lin_in, 
+                                 activation = activation, average_nobj=average_nobj, 
+                                 config=config_out, factorize=False, device = device, dtype = dtype)
+            self.eq1to2.apply(init_weights)
 
         logging.info('_________________________\n')
         for n, p in self.named_parameters(): logging.info(f'{"Parameter: " + n:<80} {p.shape}')
@@ -242,16 +243,21 @@ class PELICANRegression(nn.Module):
             spurions = torch.tensor([[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]], dtype=dtype, device=device)
         spurions = spurions.expand((batch_size, -1, -1))
 
-        particle_mask = torch.cat((torch.ones(batch_size,spurions.shape[1]).bool().to(device=device), data['particle_mask']),dim=-1)
+        num_spurions = spurions.shape[1]
+        particle_mask = torch.cat((torch.ones(batch_size, num_spurions).bool().to(device=device), data['particle_mask']),dim=-1)
         edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
-        
+
         data['Pmu'] = torch.cat([spurions, data['Pmu']], 1)
         data['particle_mask'] = particle_mask
         data['edge_mask'] = edge_mask
         if 'scalars' in data.keys():
-            data['scalars'] = torch.cat([torch.zeros((batch_size, spurions.shape[1], data['scalars'].shape[2]), device=device, dtype=data['scalars'].dtype), data['scalars']], dim=1)
-        
+            data['scalars'] = torch.cat([torch.zeros((batch_size, num_spurions, data['scalars'].shape[2]), device=device, dtype=data['scalars'].dtype), data['scalars']], dim=1)
+        else:
+            labels = particle_mask.long()
+            labels[:, :num_spurions] = 0
+            data['scalars'] = onehot(labels, mask=particle_mask.unsqueeze(-1))
         return data
+
 
     def apply_eq1to2(self, particle_scalars, rank1_inputs, rank2_inputs, edge_mask, nobj, irc_weight):
         # First concatenate particle scalar inputs with rank 1 momentum features (if any)
@@ -280,3 +286,10 @@ def expand_var_list(var):
     else:
         raise ValueError('Incorrect type {}'.format(type(var)))
     return var_list
+
+def onehot(x, num_classes=2, mask=None):
+    x = torch.nn.functional.one_hot(x, num_classes=num_classes)
+    zero = torch.tensor(0, device=x.device, dtype=torch.long)
+    if mask is not None:
+        x = torch.where(mask, x, zero)
+    return x
