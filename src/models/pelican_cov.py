@@ -169,7 +169,6 @@ class PELICANRegression(nn.Module):
         prediction = (event_momenta.unsqueeze(-2) * PELICAN_weights.unsqueeze(-1)).sum(1) / self.scale
         prediction = prediction.squeeze(-2)
 
-
         check_nan = torch.isnan(prediction).any()
         if check_nan:
             logging.info(torch.isnan(act1).sum(1,2,3))
@@ -180,7 +179,6 @@ class PELICANRegression(nn.Module):
             logging.info(f"act2 has NaNs: {torch.isnan(act2).any()}")
             logging.info(f"prediction has NaNs: {check_nan}")
         assert not check_nan, "There are NaN entries in the output! Evaluation terminated."
-
 
         if covariance_test:
             return {'predict': prediction, 'weights': PELICAN_weights}, [inputs, act1, act2, act3]
@@ -253,8 +251,8 @@ class PELICANRegression(nn.Module):
         if 'scalars' in data.keys():
             data['scalars'] = torch.cat([torch.zeros((batch_size, num_spurions, data['scalars'].shape[2]), device=device, dtype=data['scalars'].dtype), data['scalars']], dim=1)
         else:
-            labels = particle_mask.long()
-            labels[:, :num_spurions] = 0
+            labels = 1 - particle_mask.long()
+            labels[:, :num_spurions] = 1
             data['scalars'] = onehot(labels, mask=particle_mask.unsqueeze(-1))
         return data
 
