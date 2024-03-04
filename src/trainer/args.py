@@ -154,10 +154,6 @@ def setup_argparse():
                         help='Number of validation samples to use. Set to -1 to use entire dataset. (default: -1)')
     parser.add_argument('--num-test', type=int, default=-1, metavar='N',
                         help='Number of test samples to use. Set to -1 to use entire dataset. (default: -1)')
-    parser.add_argument('--add-beams', action=argparse.BooleanOptionalAction, default=True,
-                        help='Append two proton beams of the form (m^2,0,0,+-1) to each event and add one-hot labels for them')
-    parser.add_argument('--beam-mass', type=float, default=0., metavar='N',
-                    help='Set mass m of the beams, so that E=sqrt(1 + m^2) (default = 1)')
     parser.add_argument('--read-pid', action=argparse.BooleanOptionalAction, default=False,
                         help='Read PIDs from the pdgid key in data and feed as one-hot labels')
     parser.add_argument('--force-download', action=argparse.BooleanOptionalAction, default=False,

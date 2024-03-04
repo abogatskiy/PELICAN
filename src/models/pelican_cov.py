@@ -13,7 +13,7 @@ class PELICANRegression(nn.Module):
     """
     def __init__(self,  rank1_width_multiplier, num_channels_scalar, num_channels_m, num_channels_2to2, num_channels_out, num_channels_m_out, num_targets,
                  stabilizer='so13',  method='spurions', activate_agg_in=False, activate_lin_in=True,
-                 activate_agg=False, activate_lin=True, activation='leakyrelu', add_beams=True, read_pid=False, config='s', config_out='s', average_nobj=20, factorize=True, masked=True,
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', read_pid=False, config='s', config_out='s', average_nobj=20, factorize=True, masked=True,
                  activate_agg_out=True, activate_lin_out=False, mlp_out=True,
                  scale=1, irc_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
                  device=torch.device('cpu'), dtype=None):
@@ -38,7 +38,6 @@ class PELICANRegression(nn.Module):
         self.batchnorm = batchnorm
         self.dropout = dropout
         self.scale = scale
-        self.add_beams = add_beams
         self.irc_safe = irc_safe
         self.mlp_out = mlp_out
         self.config = config
@@ -60,8 +59,8 @@ class PELICANRegression(nn.Module):
 
         if read_pid:
             self.num_scalars = 14
-        elif add_beams or (method == 'spurions' and stabilizer!='so13'):
-            self.num_scalars = 2
+        elif method == 'spurions' and stabilizer!='so13':
+            self.num_scalars = 1 + self.num_spurions()
         else:
             self.num_scalars = 0
             
@@ -74,7 +73,7 @@ class PELICANRegression(nn.Module):
         # rank2_dim_multiplier  =1
         if self.num_scalars > 0 or self.rank1_dim > 0: 
             if self.rank2_dim > 0:
-                assert embedding_dim > num_channels_scalar, f"num_channels_m[0][0] has to be at least {num_channels_scalar + 1} because you enabled --add_beams or --read-pid but got {embedding_dim}"
+                assert embedding_dim > num_channels_scalar, f"num_channels_m[0][0] has to be at least {num_channels_scalar + 1}, because you have particle scalars, but got {embedding_dim}"
                 # rank2_dim_multiplier = (embedding_dim - num_channels_scalar)//self.rank2_dim
                 embedding_dim = embedding_dim - num_channels_scalar
         
@@ -83,13 +82,13 @@ class PELICANRegression(nn.Module):
 
         if stabilizer == 'so13' or method == 'spurions':
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype)
-        elif stabilizer == '1':
+        elif stabilizer in ['1','1_0']:
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype) - torch.tensor([[0,2,2,2]], device=device, dtype=dtype)
         elif stabilizer in ['so3','so12','se12']:
             weights = torch.zeros((embedding_dim, self.rank2_dim), device=device, dtype=dtype) + torch.tensor([[0,1]], device=device, dtype=dtype)
-        elif stabilizer in ['so2','R']:
+        elif stabilizer in ['so2','so2_0','R']:
             weights = torch.zeros((embedding_dim, self.rank2_dim), device=device, dtype=dtype) + torch.tensor([[0,0,1]], device=device, dtype=dtype)
-        elif stabilizer == '11':
+        elif stabilizer in ['11','11_0']:
             weights = torch.zeros((embedding_dim, self.rank2_dim), device=device, dtype=dtype) + torch.tensor([[0,0,0,0,1]], device=device, dtype=dtype)
         
         self.linear = MyLinear(self.rank2_dim, embedding_dim, weights, device=device, dtype=dtype)
@@ -134,19 +133,19 @@ class PELICANRegression(nn.Module):
         """
         # Get and prepare the data
         particle_scalars, particle_mask, edge_mask, event_momenta = self.prepare_input(data)
-        rank1_inputs, dot_products, irc_weight = self.ginvariants(event_momenta)
+        rank1_inputs, rank2_inputs, irc_weight = self.ginvariants(event_momenta)
 
         # regular multiplicity
         nobj = particle_mask.sum(-1, keepdim=True)
 
         if self.irc_safe:
             if ('m' in self.config or 'M' in self.config) or ('m' in self.config_out or 'M' in self.config_out):
-                nobj = SDMultiplicity(CATree(dot_products, nobj, ycut=1000, eps=10e-8)).unsqueeze(-1).to(device=nobj.device)
+                nobj = SDMultiplicity(CATree(rank2_inputs, nobj, ycut=1000, eps=10e-8)).unsqueeze(-1).to(device=nobj.device)
         
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.
         # In the C-safe case, this is still fine because inputs depends only on relative angles
-        dot_products = self.linear(dot_products)
-        rank1_inputs, rank2_inputs = self.input_encoder(rank1_inputs, dot_products, 
+        rank2_inputs = self.linear(rank2_inputs)
+        rank1_inputs, rank2_inputs = self.input_encoder(rank1_inputs, rank2_inputs, 
                                                         rank1_mask=particle_mask.unsqueeze(-1) ,rank2_mask=edge_mask.unsqueeze(-1))
 
         inputs = self.apply_eq1to2(particle_scalars, rank1_inputs, rank2_inputs, edge_mask, nobj, irc_weight)
@@ -179,7 +178,6 @@ class PELICANRegression(nn.Module):
             logging.info(f"act2 has NaNs: {torch.isnan(act2).any()}")
             logging.info(f"prediction has NaNs: {check_nan}")
         assert not check_nan, "There are NaN entries in the output! Evaluation terminated."
-
         if covariance_test:
             return {'predict': prediction, 'weights': PELICAN_weights}, [inputs, act1, act2, act3]
         else:
@@ -221,6 +219,17 @@ class PELICANRegression(nn.Module):
             scalars = None
         return scalars, particle_mask, edge_mask, event_momenta
 
+    def num_spurions(self):
+        stabilizer = self.stabilizer
+        if stabilizer == 'so13':
+            return 0
+        elif stabilizer in ['so3','so12','se2']:
+            return 1
+        elif stabilizer in ['so2','so2_0','R']:
+            return 2
+        elif stabilizer in ['1','11','1_0','11_0']:
+            return 4
+
     def add_spurions(self, data):
         stabilizer = self.stabilizer
         if stabilizer == 'so13':
@@ -235,10 +244,14 @@ class PELICANRegression(nn.Module):
             spurions = torch.tensor([[[1,0,0,-1]]], dtype=dtype, device=device)
         elif stabilizer == 'so2':
             spurions = torch.tensor([[[1,0,0,0],[0,0,0,1]]], dtype=dtype, device=device)
+        elif stabilizer == 'so2_0':
+            spurions = torch.tensor([[[1,0,0,1],[1,0,0,-1]]], dtype=dtype, device=device)
         elif stabilizer == 'R':
             spurions = torch.tensor([[[0,1,0,0],[0,0,1,0]]], dtype=dtype, device=device)
         elif stabilizer in ['1','11']:
             spurions = torch.tensor([[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]], dtype=dtype, device=device)
+        elif stabilizer in ['1_0','11_0']:
+            spurions = torch.tensor([[[1,0,0,1],[1,1,0,0],[1,0,1,0],[1,0,0,-1]]], dtype=dtype, device=device)
         spurions = spurions.expand((batch_size, -1, -1))
 
         num_spurions = spurions.shape[1]
@@ -252,8 +265,8 @@ class PELICANRegression(nn.Module):
             data['scalars'] = torch.cat([torch.zeros((batch_size, num_spurions, data['scalars'].shape[2]), device=device, dtype=data['scalars'].dtype), data['scalars']], dim=1)
         else:
             labels = 1 - particle_mask.long()
-            labels[:, :num_spurions] = 1
-            data['scalars'] = onehot(labels, mask=particle_mask.unsqueeze(-1))
+            labels[:, :num_spurions] = torch.arange(1,num_spurions+1)
+            data['scalars'] = onehot(labels, num_classes=1+num_spurions, mask=particle_mask.unsqueeze(-1))
         return data
 
 

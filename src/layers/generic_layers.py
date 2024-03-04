@@ -292,8 +292,10 @@ class GInvariants(nn.Module):
     def __init__(self, stabilizer='so13', irc_safe=False):
         super().__init__()
 
-        dict_rank1 = {'so13': 0, 'so3': 0, 'so12': 0, 'se2': 0, 'so2': 0, 'R': 0, '1': 0, '11': 0}
-        dict_rank2 = {'so13': 1, 'so3': 2, 'so12': 2, 'se2': 2, 'so2': 3, 'R': 3, '1': 4, '11': 5}
+        dict_rank1 = {'so13': 0, 'so3': 0, 'so12': 0, 'se2': 0, 'so2':   0, 'R': 0, '1':   0, '11':   0,
+                                                                'so2_0': 0,         '1_0': 0, '11_0': 0}
+        dict_rank2 = {'so13': 1, 'so3': 2, 'so12': 2, 'se2': 2, 'so2':   3, 'R': 3, '1':   4, '11':   5,
+                                                                'so2_0': 3,         '1_0': 4, '11_0': 5}
 
         self.stabilizer = stabilizer
         self.irc_safe = irc_safe
@@ -301,11 +303,15 @@ class GInvariants(nn.Module):
         self.rank2_dim = dict_rank2[stabilizer]
 
     def forward(self, event_momenta):
-
+        dtype, device = event_momenta.dtype, event_momenta.device
         # event_momenta = event_momenta.unsqueeze(1)
         if self.stabilizer == '1':
             rank1 = None
             rank2 = event_momenta.unsqueeze(1)*event_momenta.unsqueeze(2)
+        elif self.stabilizer == '1_0':
+            rank1 = event_momenta @ torch.tensor([[1,0,0,1],[1,1,0,0],[1,0,1,0],[1,0,0,-1]],dtype=dtype,device=device).t()
+            rank2 = rank1.unsqueeze(1)*rank1.unsqueeze(2)
+            rank1 = None
         else:
             dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2)).unsqueeze(-1)
             if self.stabilizer=='so13':   # L_x, L_y, L_z, K_x, K_y, K_z
@@ -320,12 +326,16 @@ class GInvariants(nn.Module):
                 rank1 = event_momenta[...,[0]] - event_momenta[...,[-1]] #E - p_z
             elif self.stabilizer=='so2':  # L_z
                 rank1 = event_momenta[...,[0, 3]] # E, p_z
+            elif self.stabilizer=='so2_0':
+                rank1 = event_momenta[...,[0, 3]] @ torch.tensor([[1,1],[1,-1]],dtype=dtype,device=device)
                 # rank2 = dot2(event_momenta, event_momenta).unsqueeze(-1)            
             elif self.stabilizer=='R':    # K_z
                 rank1 = event_momenta[...,[1, 2]] # p_x, p_y
                 # rank2 = dot11(event_momenta, event_momenta).unsqueeze(-1)  
             elif self.stabilizer=='11':   # 0
                 rank1 = event_momenta
+            elif self.stabilizer=='11_0':   # 0
+                rank1 = event_momenta @ torch.tensor([[1,0,0,1],[1,1,0,0],[1,0,1,0],[1,0,0,-1]],dtype=dtype,device=device).t()
 
             if rank1 == None:
                 rank2 = dot_products
