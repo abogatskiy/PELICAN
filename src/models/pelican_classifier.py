@@ -83,7 +83,9 @@ class PELICANClassifier(nn.Module):
 
         if stabilizer == 'so13' or method == 'spurions':
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype)
-        elif stabilizer in ['1','1_0']:
+        elif stabilizer=='1':
+            weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype) - torch.tensor([[0,2,2,2]], device=device, dtype=dtype)
+        elif stabilizer=='1_0':
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype) - torch.tensor([[0,2,2,2]], device=device, dtype=dtype)
         elif stabilizer in ['so3','so12','se12']:
             weights = torch.zeros((embedding_dim, self.rank2_dim), device=device, dtype=dtype) + torch.tensor([[0,1]], device=device, dtype=dtype)
