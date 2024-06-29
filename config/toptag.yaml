@@ -1,0 +1,17 @@
+
+datadir: ../data/v0
+task: train
+nobj: 80
+nobj_avg: 49
+num_epoch: 35
+num_valid: 60000
+num_train: -1
+batch_size: 64
+
+stabilizer: so2
+method: spurions
+
+drop_rate: 0.025
+drop_rate_out: 0.025
+weight_decay: 0.005
+summarize: False

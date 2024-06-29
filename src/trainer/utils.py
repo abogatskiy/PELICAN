@@ -6,6 +6,9 @@ from .optimizers import DemonRanger
 import torch.distributed as dist
 import numpy as np
 import random
+import yaml
+from pathlib import Path
+from argparse import Namespace
 
 import os, sys
 from datetime import datetime
@@ -23,6 +26,13 @@ def init_argparse():
     from .args import setup_argparse
 
     parser = setup_argparse()
+    args = parser.parse_args()
+
+    if args.yaml is not None:
+        for file in args.yaml:
+            ydict = yaml.safe_load(Path(file).read_text())
+            parser.set_defaults(**ydict)
+
     args = parser.parse_args()
 
     return args
