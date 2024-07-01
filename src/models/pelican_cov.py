@@ -84,7 +84,7 @@ class PELICANRegression(nn.Module):
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype)
         elif stabilizer in ['1','1_0']:
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype) - torch.tensor([[0,2,2,2]], device=device, dtype=dtype)
-        elif stabilizer in ['so3','so12','se12']:
+        elif stabilizer in ['so3','so12','se2']:
             weights = torch.zeros((embedding_dim, self.rank2_dim), device=device, dtype=dtype) + torch.tensor([[0,1]], device=device, dtype=dtype)
         elif stabilizer in ['so2','so2_0','R']:
             weights = torch.zeros((embedding_dim, self.rank2_dim), device=device, dtype=dtype) + torch.tensor([[0,0,1]], device=device, dtype=dtype)
@@ -108,7 +108,8 @@ class PELICANRegression(nn.Module):
 
         # We have produced one feature vector per each of the N particles, and now we apply an MLP to each of those to get the final PELICAN weights
         if mlp_out:
-            self.mlp_out_1 = BasicMLP(self.num_channels_out + [num_targets], activation=activation, dropout = False, batchnorm = False, device=device, dtype=dtype)
+            self.mlp_out_1 = BasicMLP(self.num_channels_out + [num_targets*(1 if self.method=='spurions' else min(4,self.rank2_dim))], 
+                                      activation=activation, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
         self.apply(init_weights)
 
@@ -164,9 +165,9 @@ class PELICANRegression(nn.Module):
         # The output layer applies dropout and an MLP.
         if self.dropout:
             act3 = self.dropout_layer_out(act3)
-        PELICAN_weights =  self.mlp_out_1(act3, mask=particle_mask.unsqueeze(-1))
-        prediction = (event_momenta.unsqueeze(-2) * PELICAN_weights.unsqueeze(-1)).sum(1) / self.scale
-        prediction = prediction.squeeze(-2)
+        PELICAN_weights = self.mlp_out_1(act3, mask=particle_mask.unsqueeze(-1))
+        PELICAN_weights = PELICAN_weights.view(PELICAN_weights.shape[:2]+(self.num_targets,self.rank2_dim))
+        prediction = self.regression_prediction(event_momenta, PELICAN_weights)
 
         check_nan = torch.isnan(prediction).any()
         if check_nan:
@@ -182,6 +183,29 @@ class PELICANRegression(nn.Module):
             return {'predict': prediction, 'weights': PELICAN_weights}, [inputs, act1, act2, act3]
         else:
             return {'predict': prediction, 'weights': PELICAN_weights}
+
+    def regression_prediction(self, event_momenta, PELICAN_weights):
+        dtype, device = self.dtype, self.device
+        event_momenta = event_momenta.unsqueeze(-2)
+        if self.method == 'input':
+            if self.stabilizer=='so3':  # L_x, L_y, L_z
+                event_momenta = event_momenta * torch.tensor([[[[1,0,0,0],[0,1,1,1]]]])
+            elif self.stabilizer=='so12': # K_x, K_y, L_z
+                event_momenta = event_momenta * torch.tensor([[[[1,1,1,0],[0,0,0,1]]]])
+            elif self.stabilizer=='se2':  # L_z, K_x-L_y, K_y+L_x (stabilizer of [1,0,0,1] )
+                event_momenta = (event_momenta.unsqueeze(-2) @ 
+                                 torch.tensor([[[[[0,0,0,0],[0,0,0,0],[0,0,0,0],[1,0,0,1]],
+                                               [[1,0,0,-1],[0,1,0,0],[0,0,1,0],[-1,0,0,0]]]]],
+                                               dtype=dtype,device=device)).squeeze(-2)
+            elif self.stabilizer in ['so2','so2_0']:  # L_z
+                event_momenta = event_momenta * torch.tensor([[[[1,0,0,0],[0,1,1,0],[0,0,0,1]]]])
+            elif self.stabilizer=='R':    # K_z
+                event_momenta = event_momenta * torch.tensor([[[[1,0,0,1],[0,1,0,0],[0,0,1,0]]]])
+            elif self.stabilizer in ['11','11_0']:   # 0
+                event_momenta = event_momenta * torch.tensor([[[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]]])
+        prediction = (event_momenta.unsqueeze(-3) * PELICAN_weights.unsqueeze(-1)).sum((1,3)) / self.scale
+        prediction = prediction.squeeze(-2) # in case there is only one target vector, remove that dimension
+        return prediction
 
     def prepare_input(self, data):
         """

@@ -94,7 +94,7 @@ def batch_stack(props, edge_mat=False, nobj=None):
     elif props[0].dim() == 0:
         return torch.stack(props)
     elif not edge_mat:
-        props = [p[:nobj, ...] for p in props]
+        props = [p[:nobj, ...] for p in props] #TODO: this causes a bug if nobj<num_classes because it cuts off one-hots in data
         return torch.nn.utils.rnn.pad_sequence(props, batch_first=True, padding_value=0)
     else:
         max_particles = max([len(p) for p in props])

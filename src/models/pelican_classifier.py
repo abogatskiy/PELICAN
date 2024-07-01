@@ -87,7 +87,7 @@ class PELICANClassifier(nn.Module):
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype) - torch.tensor([[0,2,2,2]], device=device, dtype=dtype)
         elif stabilizer=='1_0':
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype) - torch.tensor([[0,2,2,2]], device=device, dtype=dtype)
-        elif stabilizer in ['so3','so12','se12']:
+        elif stabilizer in ['so3','so12','se2']:
             weights = torch.zeros((embedding_dim, self.rank2_dim), device=device, dtype=dtype) + torch.tensor([[0,1]], device=device, dtype=dtype)
         elif stabilizer in ['so2','so2_0','R']:
             weights = torch.zeros((embedding_dim, self.rank2_dim), device=device, dtype=dtype) + torch.tensor([[0,0,1]], device=device, dtype=dtype)
