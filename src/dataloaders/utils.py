@@ -51,7 +51,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
         if num_pts[split] == -1:
             num_pts_per_file[split] = [-1 for _ in range(nfiles[split])]
         else:
-            num_pts_per_file[split] = [int(np.ceil(num_pts[split]/nfiles[split])) for _ in range(nfiles[split])]
+            num_pts_per_file[split] = [int(np.floor(num_pts[split]/nfiles[split])) for _ in range(nfiles[split])]
             if nfiles[split]>0:
                 num_pts_per_file[split][-1] = int(np.maximum(num_pts[split] - np.sum(np.array(num_pts_per_file[split])[0:-1]),0))
     
@@ -72,7 +72,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data
-    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance, RAMdataset=RAMdataset) for idx, filename in enumerate(datasets[split])]) for split in splits if len(datasets[split])>0}
+    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance, RAMdataset=RAMdataset) for idx, filename in enumerate(datasets[split]) if num_pts_per_file[split][idx]!=0]) for split in splits if len(datasets[split])>0}
 
     # Now, update the number of training/test/validation sets in args
     if 'train' in torch_datasets.keys():

@@ -136,8 +136,6 @@ def init_file_paths(args):
         logger.warning('Prediction directory {} does not exist. Creating!'.format(predictdir))
         os.mkdir(predictdir)
 
-    args.dataset = args.dataset.lower()
-
     return args
 
 def logging_printout(args, trial=None):
@@ -146,7 +144,7 @@ def logging_printout(args, trial=None):
     logger.info('Initializing simulation based upon argument string:')
     logger.info(' '.join([arg for arg in sys.argv]))
     logger.info('Log, best, checkpoint, load files: {} {} {} {}'.format(args.logfile, args.bestfile, args.checkfile, args.loadfile))
-    logger.info('Dataset, learning target, datadir: {} {} {}'.format(args.dataset, args.target, args.datadir))
+    logger.info('Learning target, datadir: {} {}'.format(args.target, args.datadir))
     git_status = _git_version()
 
 

@@ -11,8 +11,10 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     auc_ovr = AUCScore(predict, targets)
     auc_macro = AUCScoreMacro(predict, targets)
     roc, eB03s, eS03s, eB05s, eS05s, tpr10s, fpr10s, tpr1s, fpr1s = ROC(predict, targets)
-    conf_matrix = confusion_matrix(targets.argmax(dim=1), predict.argmax(dim=1), normalize='true')
-    report = classification_report(targets.argmax(dim=1), predict.argmax(dim=1), target_names=[str(i) for i in range(num_classes)])
+    targets = targets.argmax(dim=1)
+    predict = predict.argmax(dim=1)
+    conf_matrix = confusion_matrix(targets, predict, normalize='true')
+    report = classification_report(targets, predict, target_names=[str(i) for i in range(num_classes)])
     metrics = {'loss': loss, 'accuracy': accuracy}
     metrics.update({f'AUC_macro': auc_macro})
     metrics.update({f'AUC | {c}': auc for c, auc in enumerate(auc_ovr)})

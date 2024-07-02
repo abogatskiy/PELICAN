@@ -271,6 +271,8 @@ class Trainer:
         return targets
 
     def train_epoch(self):
+        if self.device_id >= 0:
+            torch.distributed.barrier()
         dataloader = self.dataloaders['train']
 
         self.loss_val, self.alt_loss_val, self.batch_time = 0, 0, 0

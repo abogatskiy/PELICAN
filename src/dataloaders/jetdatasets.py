@@ -64,14 +64,14 @@ class JetDataset(Dataset):
             if RAMdataset:
                 logger.warn(f'Reading {self.num_pts} events from {filename} into RAM.')
                 if self.perm is None:
-                    self.data = {key: torch.from_numpy(val[:self.num_pts]) for key, val in f.items()}
+                    self.data = {key: torch.from_numpy(val[:self.num_pts]) for key, val in f.items() if len(val)==len_data}
                 else:
                     # this returns the permutation of range(num_pts) that unsorts sorted(self.perm), and subset=sorted(self.perm)
                     self.perm, subset = zip(*list(sorted(enumerate(self.perm), key=lambda x: x[1])))
                     # only load data[subset] into RAM 
-                    self.data = {key: torch.from_numpy(val[:])[list(subset)] for key, val in f.items()}
+                    # self.data = {key: torch.take(torch.from_numpy(val[:]),torch.tensor(subset)) for key, val in f.items()}
                     # this version will only ever read num_pts events into RAM, but will be slow because subset is not sequential
-                    # self.data = {key: torch.from_numpy(val[list(subset)]) for key, val in f.items()}
+                    self.data = {key: torch.from_numpy(val[list(subset)]) for key, val in f.items()}
             elif num_pts > 0 and num_pts < len_data:
                 logger.warn(f'Chose {num_pts} event indices from {filename}. Batches will be read directly from disk (might be slow!).')
 
