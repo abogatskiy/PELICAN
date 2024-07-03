@@ -166,7 +166,7 @@ class PELICANRegression(nn.Module):
         if self.dropout:
             act3 = self.dropout_layer_out(act3)
         PELICAN_weights = self.mlp_out_1(act3, mask=particle_mask.unsqueeze(-1))
-        PELICAN_weights = PELICAN_weights.view(PELICAN_weights.shape[:2]+(self.num_targets,self.rank2_dim))
+        PELICAN_weights = PELICAN_weights.view(PELICAN_weights.shape[:2]+(self.num_targets,min(4,self.rank2_dim),))
         prediction = self.regression_prediction(event_momenta, PELICAN_weights)
 
         check_nan = torch.isnan(prediction).any()
