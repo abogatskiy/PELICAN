@@ -3,14 +3,14 @@ import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve
 import itertools
 
-def metrics(predict, targets, loss_fn, prefix, logger=None):
+def metrics(predict, targets, loss_fn, prefix, logger=None, backg_class=-1):
     loss = torch.nn.CrossEntropyLoss()(predict, targets).item()
     predict = predict.softmax(dim=1)
     num_classes = predict.shape[-1]
     accuracy = Accuracy(predict, targets).item()
     auc_ovr = AUCScore(predict, targets)
     auc_macro = AUCScoreMacro(predict, targets)
-    roc, eB03s, eS03s, eB05s, eS05s, tpr10s, fpr10s, tpr1s, fpr1s = ROC(predict, targets)
+    roc, eB30s, eS30s, eB50s, eS50s, eB995s, eS995s, tpr10s, fpr10s, tpr1s, fpr1s = ROC(predict, targets, backg_class=backg_class)
     targets = targets.argmax(dim=1)
     predict = predict.argmax(dim=1)
     conf_matrix = confusion_matrix(targets, predict, normalize='true')
@@ -22,12 +22,15 @@ def metrics(predict, targets, loss_fn, prefix, logger=None):
     metrics.update({f'eB at eB=0.1 | {c}': fpr for c, fpr in enumerate(fpr10s)})
     metrics.update({f'eS at eB=0.01 | {c}': tpr for c, tpr in enumerate(tpr1s)})
     metrics.update({f'eB at eB=0.01 | {c}': fpr for c, fpr in enumerate(fpr1s)})
-    metrics.update({f'1/eB at eS=0.3 | {c}': 1/eB if eB>0 else 0 for c, eB in enumerate(eB03s)})
-    metrics.update({f'eS at eS=0.3 | {c}': eS for c, eS in enumerate(eS03s)})
-    metrics.update({f'1/eB at eS=0.5 | {c}': 1/eB if eB>0 else 0 for c, eB in enumerate(eB05s)})
-    metrics.update({f'eS at eS=0.5 | {c}': eS for c, eS in enumerate(eS05s)})
+    metrics.update({f'1/eB at eS=0.3 | {c}': 1/eB if eB>0 else 0 for c, eB in enumerate(eB30s)})
+    metrics.update({f'eS at eS=0.3 | {c}': eS for c, eS in enumerate(eS30s)})
+    metrics.update({f'1/eB at eS=0.5 | {c}': 1/eB if eB>0 else 0 for c, eB in enumerate(eB50s)})
+    metrics.update({f'eS at eS=0.5 | {c}': eS for c, eS in enumerate(eS50s)})
+    metrics.update({f'1/eB at eS=0.995 | {c}': 1/eB if eB>0 else 0 for c, eB in enumerate(eB995s)})
+    metrics.update({f'eS at eS=0.995 | {c}': eS for c, eS in enumerate(eS995s)})
+
     metrics.update({'conf': conf_matrix, 'report': report})
-    string = ' L: {:10.4f}, ACC: {:10.4f}, AUC: {}, AUCs: {},    eS: {} @ {:>4.2f},    eS: {} @ {:>4.2f},    1/eB: {} @ {:>4.2f},    1/eB: {} @ {:>4.2f},\nconf:\n{},\nreport:\n{}'.format(loss, accuracy, auc_macro, auc_ovr, tpr10s, 0.1, tpr1s, 0.01, [1/eB03 if eB03>0 else 0 for eB03 in eB03s], 0.3,  [1/eB05 if eB05>0 else 0 for eB05 in eB05s], 0.5, conf_matrix, report)
+    string = ' L: {:10.4f}, ACC: {:10.4f}, AUC: {}, AUCs: {},    eS: {} @ {:>4.2f},    eS: {} @ {:>4.2f},    1/eB: {} @ {:>4.2f},    1/eB: {} @ {:>4.2f},    1/eB: {} @ {:>4.3f},\nconf:\n{},\nreport:\n{}'.format(loss, accuracy, auc_macro, auc_ovr, tpr10s, 0.1, tpr1s, 0.01, [1/eB if eB>0 else 0 for eB in eB30s], 0.3,  [1/eB if eB>0 else 0 for eB in eB50s], 0.5, [1/eB if eB>0 else 0 for eB in eB995s], 0.995, conf_matrix, report)
     np.savetxt(prefix+'_ROC.csv', np.array(list(itertools.zip_longest(*roc,fillvalue=0.))), delimiter=',')
     # if logger:
     #     logger.info('ROC saved to file ' + prefix+'_ROC.csv' + '\n')
@@ -70,31 +73,37 @@ def AUCScoreMacro(predict, targets):
     return roc_auc_score(targets, predict, multi_class='ovo', average='macro')
 
 
-def ROC(predict, targets):
+def ROC(predict, targets, backg_class=-1):
     num_classes = targets.shape[-1]
     curves = ()
-    eB03s, eB05s, eS03s, eS05s   = [], [], [], []
+    eB30s, eB50s, eB995s, eS30s, eS50s, eS995s   = [], [], [], [], [], []
     tpr10s, fpr10s, tpr1s, fpr1s = [], [], [], []
     for c in range(num_classes):
         if torch.equal(targets[...,c], torch.ones_like(targets[...,c])) or torch.equal(targets[...,c], torch.zeros_like(targets[...,c])):
             curves = curves + (np.array([]),np.array([]),np.array([]))
-            [x.append(0.) for x in [eB03s, eB05s, eS03s, eS05s, tpr10s, fpr10s, tpr1s, fpr1s]]
+            [x.append(0.) for x in [eB30s, eB50s, eS30s, eS50s, tpr10s, fpr10s, tpr1s, fpr1s]]
         else:
-            curve = roc_curve(targets[...,c], predict[..., c])
-            eB03, eS03 = BR(curve, at_eS=0.3)
-            eB05, eS05 = BR(curve, at_eS=0.5)
+            if backg_class >= 0:
+                curve = roc_curve(targets[...,c], torch.stack([predict[...,backg_class], predict[..., c]],dim=-1).softmax(dim=-1)[...,1])
+            else:
+                curve = roc_curve(targets[...,c], predict[..., c])
+            eB30, eS30   = BR(curve, at_eS=0.3)
+            eB50, eS50   = BR(curve, at_eS=0.5)
+            eB995, eS995 = BR(curve, at_eS=0.995)
             curves = curves + curve
-            eB03s.append(eB03)
-            eB05s.append(eB05)
-            eS03s.append(eS03)
-            eS05s.append(eS05)
+            eB30s.append(eB30)
+            eB50s.append(eB50)
+            eB995s.append(eB995)
+            eS30s.append(eS30)
+            eS50s.append(eS50)
+            eS995s.append(eS995)
             fpr10, tpr10 = TPRatFPR(curve, at_eB=0.1)
             fpr1, tpr1 = TPRatFPR(curve, at_eB=0.01)
             fpr10s.append(fpr10)
             tpr10s.append(tpr10)
             fpr1s.append(fpr1)
             tpr1s.append(tpr1)
-    return curves, np.array(eB03s), np.array(eS03s), np.array(eB05s), np.array(eS05s), np.array(tpr10s), np.array(fpr10s), np.array(tpr1s), np.array(fpr1s)
+    return curves, np.array(eB30s), np.array(eS30s), np.array(eB50s), np.array(eS50s), np.array(eB995s), np.array(eS995s), np.array(tpr10s), np.array(fpr10s), np.array(tpr1s), np.array(fpr1s)
 
 def BR(curve, at_eS):
     # Given an ROC curve defined as (eB, eS) aka (FPR, TPR), return the point on it closest to the requested signal efficiency

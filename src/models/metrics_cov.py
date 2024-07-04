@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve
 from .lorentz_metric import normsq4, dot4
 
-def metrics(predict, targets, loss_fn, prefix, logger=None):
+def metrics(predict, targets, loss_fn, prefix, logger=None, **kwargs):
     """
     This generates metrics reported at the end of each epoch and during validation/testing, as well as the logstring printed to the logger.
     """    

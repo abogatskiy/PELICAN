@@ -17,7 +17,7 @@ class PELICANClassifier(nn.Module):
                  activate_agg_in=False, activate_lin_in=True,
                  activate_agg=False, activate_lin=True, activation='leakyrelu', read_pid=False, config='s', config_out='s', average_nobj=49, factorize=False, masked=True,
                  activate_agg_out=True, activate_lin_out=False, mlp_out=True,
-                 scale=1, irc_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
+                 scale=1, irc_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None, dataset='jc',
                  device=torch.device('cpu'), dtype=None):
         super().__init__()
 
@@ -47,6 +47,7 @@ class PELICANClassifier(nn.Module):
         self.average_nobj = average_nobj
         self.factorize = factorize
         self.masked = masked
+        self.dataset = dataset
 
         if dropout:
             self.dropout_layer = nn.Dropout(drop_rate)
@@ -59,12 +60,7 @@ class PELICANClassifier(nn.Module):
         self.rank1_dim = self.ginvariants.rank1_dim
         self.rank2_dim = self.ginvariants.rank2_dim
 
-        if read_pid:
-            self.num_scalars = 14
-        elif method == 'spurions' and stabilizer!='so13':
-            self.num_scalars = 1 + self.num_spurions()
-        else:
-            self.num_scalars = 0
+        self.num_scalars = 1 + self.num_spurions() + {'qg': 12, 'jc': 8, 'generic': 0}[dataset]
 
         if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
             embedding_dim = self.num_channels_m[0][0]
@@ -216,7 +212,11 @@ class PELICANClassifier(nn.Module):
         """
         device, dtype = self.device, self.dtype
 
-        if self.method == "spurions":
+        if self.dataset == "jc":
+            data = add_pid_jc(data)
+        elif self.datast == 'qg':
+            data = add_pid_qg(data)
+        if self.method == "spurions": # do this last because spurions need to know the shape of the scalar inputs
             data = self.add_spurions(data)
 
         event_momenta = data['Pmu'].to(device, dtype)
@@ -272,12 +272,14 @@ class PELICANClassifier(nn.Module):
         data['Pmu'] = torch.cat([spurions, data['Pmu']], 1)
         data['particle_mask'] = particle_mask
         data['edge_mask'] = edge_mask
+        labels = 1 - particle_mask.long()
+        labels[:, :num_spurions] = torch.arange(1,num_spurions+1)
+        spurion_label_onehot = onehot(labels, num_classes=1+num_spurions, mask=particle_mask.unsqueeze(-1))
         if 'scalars' in data.keys():
             data['scalars'] = torch.cat([torch.zeros((batch_size, num_spurions, data['scalars'].shape[2]), device=device, dtype=data['scalars'].dtype), data['scalars']], dim=1)
+            data['scalars'] = torch.cat([data['scalars'], spurion_label_onehot], dim=-1)
         else:
-            labels = 1 - particle_mask.long()
-            labels[:, :num_spurions] = torch.arange(1,num_spurions+1)
-            data['scalars'] = onehot(labels, num_classes=1+num_spurions, mask=particle_mask.unsqueeze(-1))
+            data['scalars'] = spurion_label_onehot
         return data
     
     def apply_eq1to2(self, particle_scalars, rank1_inputs, rank2_inputs, edge_mask, nobj, irc_weight):
@@ -300,7 +302,30 @@ class PELICANClassifier(nn.Module):
         else:
             inputs = torch.cat([rank2_inputs, rank2_particle_scalars], dim=-1)
         return inputs
+    
 
+def add_pid_jc(data, mask=None):
+    # One-hots for the JetClass dataset
+    charge_onehot = onehot(data['part_charge']+1,num_classes=3).long()
+    pid_onehot = torch.stack([data['part_isChargedHadron'], data['part_isElectron'], data['part_isMuon'], data['part_isNeutralHadron'], data['part_isPhoton']], dim=-1).long()
+    if 'scalars' in data.keys():
+        data['scalars'] = torch.cat([data['scalars'],charge_onehot,pid_onehot])
+    else:
+        data['scalars'] = torch.cat([charge_onehot,pid_onehot],dim=-1)
+    return data
+
+def add_pid_qg(data, mask=None):
+    #TODO: need to append qg_onehot(data['pdgid]) to data['scalars']
+    raise NotImplementedError
+
+def qg_onehot(x, mask=None):
+    # One-hot for the QG dataset
+    x = 0*(x==22) + 1*(x==211) + 2*(x==-211) + 3*(x==321) + 4*(x==-321) + 5*(x==130) + 6*(x==2112) + 7*(x==-2112) + 8*(x==2212) + 9*(x==-2212) + 10*(x==11) + 11*(x==-11) + 12*(x==13) + 13*(x==-13)
+    x = torch.nn.functional.one_hot(x, num_classes=14)
+    zero = torch.tensor(0, device=x.device, dtype=torch.long)
+    if mask is not None:
+        x = torch.where(mask, x, zero)
+    return x
 
 def expand_var_list(var):
     if type(var) is list:
