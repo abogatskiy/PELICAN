@@ -189,20 +189,20 @@ class PELICANRegression(nn.Module):
         event_momenta = event_momenta.unsqueeze(-2)
         if self.method == 'input':
             if self.stabilizer=='so3':  # L_x, L_y, L_z
-                event_momenta = event_momenta * torch.tensor([[[[1,0,0,0],[0,1,1,1]]]])
+                event_momenta = event_momenta * torch.tensor([[[[1,0,0,0],[0,1,1,1]]]],dtype=dtype,device=device)
             elif self.stabilizer=='so12': # K_x, K_y, L_z
-                event_momenta = event_momenta * torch.tensor([[[[1,1,1,0],[0,0,0,1]]]])
+                event_momenta = event_momenta * torch.tensor([[[[1,1,1,0],[0,0,0,1]]]],dtype=dtype,device=device)
             elif self.stabilizer=='se2':  # L_z, K_x-L_y, K_y+L_x (stabilizer of [1,0,0,1] )
                 event_momenta = (event_momenta.unsqueeze(-2) @ 
                                  torch.tensor([[[[[0,0,0,0],[0,0,0,0],[0,0,0,0],[1,0,0,1]],
                                                [[1,0,0,-1],[0,1,0,0],[0,0,1,0],[-1,0,0,0]]]]],
                                                dtype=dtype,device=device)).squeeze(-2)
             elif self.stabilizer in ['so2','so2_0']:  # L_z
-                event_momenta = event_momenta * torch.tensor([[[[1,0,0,0],[0,1,1,0],[0,0,0,1]]]])
+                event_momenta = event_momenta * torch.tensor([[[[1,0,0,0],[0,1,1,0],[0,0,0,1]]]],dtype=dtype,device=device)
             elif self.stabilizer=='R':    # K_z
-                event_momenta = event_momenta * torch.tensor([[[[1,0,0,1],[0,1,0,0],[0,0,1,0]]]])
+                event_momenta = event_momenta * torch.tensor([[[[1,0,0,1],[0,1,0,0],[0,0,1,0]]]],dtype=dtype,device=device)
             elif self.stabilizer in ['11','11_0']:   # 0
-                event_momenta = event_momenta * torch.tensor([[[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]]])
+                event_momenta = event_momenta * torch.tensor([[[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]]],dtype=dtype,device=device)
         prediction = (event_momenta.unsqueeze(-3) * PELICAN_weights.unsqueeze(-1)).sum((1,3)) / self.scale
         prediction = prediction.squeeze(-2) # in case there is only one target vector, remove that dimension
         return prediction

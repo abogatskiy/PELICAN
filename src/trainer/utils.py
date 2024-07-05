@@ -11,7 +11,7 @@ from pathlib import Path
 from argparse import Namespace
 
 import os, sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from math import inf, log, log2, exp, ceil
 
 
@@ -267,8 +267,8 @@ def init_cuda(args, device_id=-1):
             device = torch.device('cuda')
         else:
             torch.cuda.set_device(device_id)
-            dist.init_process_group(backend='nccl')
-            logger.info(f"Setting cuda device = {device_id}")            
+            dist.init_process_group(backend='nccl', timeout=timedelta(hours=12))
+            logger.info(f"Setting cuda device = {device_id}")
             device = torch.device(device_id)
     elif args.device in ['mps', 'm1']:
         logger.info('Initializing M1 Chip!')

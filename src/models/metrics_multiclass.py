@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve
 import itertools
 
-def metrics(predict, targets, loss_fn, prefix, logger=None, backg_class=-1):
+def metrics(predict, targets, loss_fn, prefix, logger=None, backg_class=8):
     loss = torch.nn.CrossEntropyLoss()(predict, targets).item()
     predict = predict.softmax(dim=1)
     num_classes = predict.shape[-1]

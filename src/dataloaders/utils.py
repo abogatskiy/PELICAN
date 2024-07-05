@@ -19,6 +19,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
     # set each file belongs to.
     splits = ['train', 'test', 'valid'] # We will consider all HDF5 files in datadir with one of these keywords in the filename
     randomize_subset = {'train': True, 'valid': True, 'test': False} # Shuffle only the training set
+    RAMdataset_splits = {'train': RAMdataset, 'valid': RAMdataset, 'test': RAMdataset} # always load validation set into RAM for speed (hopefully it's not too large)
     datafiles = {split:[] for split in splits}
 
     # now search datadir for h5 files and assign them to splits based on their filenames
@@ -72,7 +73,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data
-    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance, RAMdataset=RAMdataset) for idx, filename in enumerate(datasets[split]) if num_pts_per_file[split][idx]!=0]) for split in splits if len(datasets[split])>0}
+    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance, RAMdataset=RAMdataset_splits[split]) for idx, filename in enumerate(datasets[split]) if num_pts_per_file[split][idx]!=0]) for split in splits if len(datasets[split])>0}
 
     # Now, update the number of training/test/validation sets in args
     if 'train' in torch_datasets.keys():
