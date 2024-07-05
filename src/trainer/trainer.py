@@ -1,6 +1,7 @@
 import torch
 from .utils import all_gather, get_world_size
 import numpy as np
+from itertools import islice
 from .scheduler import GradualWarmupScheduler, GradualCooldownScheduler
 import os
 from datetime import datetime
@@ -33,7 +34,8 @@ class Trainer:
             self.writer = SummaryWriter(log_dir=args.logdir+args.prefix)
 
         self.epoch = 1
-        self.minibatch=0
+        self.minibatch = 0
+        self.minibatch_metrics = {}
         self.best_epoch = 0
         self.best_metrics = {'loss': inf}
 
@@ -71,6 +73,7 @@ class Trainer:
                      'scheduler_state': self.scheduler.state_dict(),
                      'epoch': self.epoch,
                      'minibatch': self.minibatch,
+                     'minibatch_metrics': self.minibatch_metrics,
                      'best_epoch': self.best_epoch,
                      'best_metrics': self.best_metrics}
 
@@ -93,9 +96,11 @@ class Trainer:
         elif os.path.exists(self.args.checkfile):
             logger.info('Loading previous model from checkpoint!')
             self.load_state(self.args.checkfile)
-            self.epoch += 1
-            # self.optimizer = init_optimizer(self.args, self.model)
-            # self.scheduler, self.restart_epochs = init_scheduler(self.args, self.optimizer)
+            if self.minibatch + 1  < len(self.dataloaders['train']):
+                self.minibatch += 1
+            else:
+                self.minibatch = 0
+                self.epoch += 1
         else:
             logger.info('No checkpoint included! Starting fresh training program.')
             return
@@ -111,6 +116,7 @@ class Trainer:
             self.scheduler.load_state_dict(checkpoint['scheduler_state'])
         self.epoch = checkpoint['epoch']
         self.minibatch = checkpoint['minibatch']        
+        self.minibatch_metrics = checkpoint['minibatch_metrics']
         self.best_epoch = checkpoint['best_epoch']
         self.best_metrics = checkpoint['best_metrics']
         del checkpoint
@@ -230,9 +236,12 @@ class Trainer:
             self.scheduler.step()
 
     def train(self, trial=None, metric_to_report='loss'):
-        epoch0 = self.epoch
-        for epoch in range(epoch0, self.args.num_epoch + 1):
+        start_epoch = self.epoch
+        start_minibatch = self.minibatch
+        for epoch in range(start_epoch, self.args.num_epoch + 1):
             self.epoch = epoch
+            if epoch > start_epoch:
+                start_minibatch = 0
             if get_world_size() > 1:
                 self.dataloaders['train'].batch_sampler.sampler.set_epoch(epoch)
             logger.info('STARTING Epoch {}'.format(epoch))
@@ -240,7 +249,7 @@ class Trainer:
             self._warm_restart(epoch)
             self._step_lr_epoch()
 
-            train_predict, train_targets, epoch_t = self.train_epoch()
+            train_predict, train_targets, epoch_t = self.train_epoch(start_minibatch)
             if self.device_id <= 0:
                 self._save_checkpoint()
                 train_metrics,_ = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
@@ -277,7 +286,7 @@ class Trainer:
         targets = data[self.args.target].to(self.device, target_type)
         return targets
 
-    def train_epoch(self):
+    def train_epoch(self, start_minibatch=0):
         if self.device_id >= 0:
             torch.distributed.barrier()
         dataloader = self.dataloaders['train']
@@ -287,8 +296,7 @@ class Trainer:
 
         self.model.train()
         epoch_t = datetime.now()
-
-        for batch_idx, data in enumerate(dataloader):
+        for batch_idx, data in islice(enumerate(dataloader), start_minibatch, None):
             self.minibatch = batch_idx
             batch_t = datetime.now()
             # Get targets and predictions
@@ -321,7 +329,7 @@ class Trainer:
         
         if self.device_id > 0:
             return None, None, epoch_t
-        
+
         all_predict = {key: torch.cat(val) for key, val in all_predict.items()}
         all_targets = torch.cat(all_targets)
 
