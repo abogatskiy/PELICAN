@@ -19,7 +19,6 @@ if which('nvidia-smi') is not None:
 import torch
 from torch.utils.data import DataLoader
 import torch.distributed as dist
-from torch.distributed.elastic.utils.data import ElasticDistributedSampler
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel
 
@@ -83,14 +82,17 @@ def main():
     # Initialize dataloder
     if args.fix_data:
         torch.manual_seed(165937750084982)
-    args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile, balance=(args.num_classes==2))
+    args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile, balance=(args.num_classes==2), RAMdataset=args.RAMdataset)
 
     # Construct PyTorch dataloaders from datasets
-    collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, add_beams=args.add_beams, beam_mass=args.beam_mass, read_pid=args.read_pid)
+    collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, read_pid=args.read_pid)
+    
+    # Whether testing set evaluation should be distributed
+    distributed_test=False
     if distributed:
         samplers = {'train': DistributedSampler(datasets['train'], shuffle=args.shuffle),
                     'valid': DistributedSampler(datasets['valid'], shuffle=False),
-                    'test': None}
+                    'test': DistributedSampler(datasets['test'], shuffle=False) if distributed_test else None}
     else:
         samplers = {split: None for split in datasets.keys()}
 
@@ -106,13 +108,14 @@ def main():
                    for split, dataset in datasets.items()}
 
     # Initialize model
-    model = PELICANClassifier(args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out, num_classes=args.num_classes,
-                      activate_agg=args.activate_agg, activate_lin=args.activate_lin,
-                      activation=args.activation, add_beams=args.add_beams, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
-                      factorize=args.factorize, masked=args.masked,
-                      activate_agg_out=args.activate_agg_out, activate_lin_out=args.activate_lin_out, mlp_out=args.mlp_out,
-                      scale=args.scale, irc_safe=args.irc_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
-                      device=device, dtype=dtype)
+    model = PELICANClassifier(args.rank1_width_multiplier, args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out, 
+                              stabilizer=args.stabilizer, method = args.method, num_classes=args.num_classes,
+                              activate_agg=args.activate_agg, activate_lin=args.activate_lin,
+                              activation=args.activation, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
+                              factorize=args.factorize, masked=args.masked,
+                              activate_agg_out=args.activate_agg_out, activate_lin_out=args.activate_lin_out, mlp_out=args.mlp_out,
+                              scale=args.scale, irc_safe=args.irc_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
+                              device=device, dtype=dtype)
     
     model.to(device)
 
@@ -142,7 +145,9 @@ def main():
         tests(model, dataloaders['train'], args, tests=['gpu','irc', 'permutation'])
 
     # Instantiate the training class
-    trainer = Trainer(args, dataloaders, model, loss_fn, metrics, minibatch_metrics, minibatch_metrics_string, optimizer, scheduler, restart_epochs, args.summarize_csv, args.summarize, device_id, device, dtype)
+    trainer = Trainer(args, dataloaders, model, loss_fn, metrics,
+                      minibatch_metrics, minibatch_metrics_string, optimizer, scheduler,
+                      restart_epochs, device_id, device, dtype)
     
     if not args.task.startswith('eval'):
         # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
@@ -154,10 +159,9 @@ def main():
         trainer.train()
 
     # Test predictions on best model and also last checkpointed model.
-    # Only one GPU will do this during DDP sessions so that the order 
-    # of batches is preserved in the output file.
-    if device_id <=0 :
-        trainer.evaluate(splits=['test'])
+    # If distributed==False, only one GPU will do this during DDP sessions 
+    # so that the order  of batches is preserved in the output file.
+    trainer.evaluate(splits=['test'], distributed=distributed and distributed_test)
     if distributed:
         dist.destroy_process_group()
 

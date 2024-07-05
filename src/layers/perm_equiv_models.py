@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .perm_equiv_layers import eops_1_to_2, eops_2_to_2, eops_2_to_1, eops_2_to_0 #, eset_ops_3_to_3, eset_ops_4_to_4, eset_ops_1_to_3, eops_1_to_2
-from .generic_layers import get_activation_fn, MessageNet, BasicMLP, SoftMask
+from .generic_layers import get_activation_fn, MessageNet
 from .masked_batchnorm import MaskedBatchNorm3d
 
 # class Eq1to1(nn.Module):

@@ -66,7 +66,7 @@ A=(test_cov-{a..z})
 
 
 
-CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=4 ../train_pelican_cov.py --datadir=../data/btW_7_d   --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --task=train --target=truth_Pmu_0 --num-epoch=1 --batch-size=128 --num-train=1000 --num-valid=30000 --nobj=60 --nobj-avg=35 --optim=adamw --lr-decay-type=warm --lr-init=0.0025 --lr-final=1e-6 --scale=1 --drop-rate=0.025 --drop-rate-out=0.025 --weight-decay=0.005 --reproducible --no-fix-data --config=M --config-out=M --no-test
+# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=4 ../train_pelican_cov.py --datadir=../data/btW_7_d   --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --task=train --target=truth_Pmu_0 --num-epoch=1 --batch-size=128 --num-train=1000 --num-valid=30000 --nobj=60 --nobj-avg=35 --optim=adamw --lr-decay-type=warm --lr-init=0.0025 --lr-final=1e-6 --scale=1 --drop-rate=0.025 --drop-rate-out=0.025 --weight-decay=0.005 --reproducible --no-fix-data --config=M --config-out=M --no-test
 # CUBLAS_WORKSPACE_CONFIG=:16:8 python3 ../train_pelican_cov.py --datadir=../data/btW_7   --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --task=train --target=contained_daughter_sum_Pmu --num-epoch=35 --batch-size=128 --num-train=-1 --num-valid=30000 --nobj=100 --nobj-avg=35 --optim=adamw --lr-decay-type=warm --lr-init=0.0025 --lr-final=1e-6 --scale=1 --drop-rate=0.025 --drop-rate-out=0.025 --weight-decay=0.005 --reproducible --no-fix-data --config=M --config-out=M --no-test
 
 

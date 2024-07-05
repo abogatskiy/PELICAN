@@ -1,15 +1,13 @@
-import torch
 import numpy as np
 
-import logging, os, h5py, glob
+import logging, glob
 import logging
 logger = logging.getLogger(__name__)
 
-from torch.utils.data import DataLoader
 from torch.utils.data import ConcatDataset
 from . import JetDataset
 
-def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, testfile='', balance=True):
+def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, testfile='', balance=True, RAMdataset=True):
     """
     Initialize datasets.
     """
@@ -20,11 +18,12 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
     # We will look for the keywords defined in splits to be be in the filenames, and will thus determine what
     # set each file belongs to.
     splits = ['train', 'test', 'valid'] # We will consider all HDF5 files in datadir with one of these keywords in the filename
-    shuffle = {'train': False, 'valid': False, 'test': False} # Shuffle only the training set
+    randomize_subset = {'train': True, 'valid': True, 'test': False} # Shuffle only the training set
+    RAMdataset_splits = {'train': RAMdataset, 'valid': RAMdataset, 'test': RAMdataset} # always load validation set into RAM for speed (hopefully it's not too large)
     datafiles = {split:[] for split in splits}
 
     # now search datadir for h5 files and assign them to splits based on their filenames
-    files = glob.glob(datadir + '/*.h5')
+    files = sorted(glob.glob(datadir + '/*.h5'))
     for split in splits:
         logger.info(f'Looking for {split} files in datadir:')
         for filename in files:
@@ -53,7 +52,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
         if num_pts[split] == -1:
             num_pts_per_file[split] = [-1 for _ in range(nfiles[split])]
         else:
-            num_pts_per_file[split] = [int(np.ceil(num_pts[split]/nfiles[split])) for _ in range(nfiles[split])]
+            num_pts_per_file[split] = [int(np.floor(num_pts[split]/nfiles[split])) for _ in range(nfiles[split])]
             if nfiles[split]>0:
                 num_pts_per_file[split][-1] = int(np.maximum(num_pts[split] - np.sum(np.array(num_pts_per_file[split])[0:-1]),0))
     
@@ -74,7 +73,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data
-    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], shuffle=shuffle[split], balance=balance) for idx, filename in enumerate(datasets[split])]) for split in splits if len(datasets[split])>0}
+    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance, RAMdataset=RAMdataset_splits[split]) for idx, filename in enumerate(datasets[split]) if num_pts_per_file[split][idx]!=0]) for split in splits if len(datasets[split])>0}
 
     # Now, update the number of training/test/validation sets in args
     if 'train' in torch_datasets.keys():

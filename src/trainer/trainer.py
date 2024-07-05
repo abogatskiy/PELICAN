@@ -1,16 +1,11 @@
 import torch
 from .utils import all_gather, get_world_size
-# from torch.utils.data import DataLoader
-# import torch.optim as optim
-# import torch.optim.lr_scheduler as sched
-
 import numpy as np
+from itertools import islice
 from .scheduler import GradualWarmupScheduler, GradualCooldownScheduler
-# from torchviz import make_dot
-
-import argparse, os, sys, pickle
+import os
 from datetime import datetime
-from math import sqrt, inf, ceil, exp
+from math import inf, ceil
 import logging
 logger = logging.getLogger(__name__)
 
@@ -19,7 +14,7 @@ class Trainer:
     Class to train network. Includes checkpoints, optimizer, scheduler,
     """
     def __init__(self, args, dataloaders, model, loss_fn, metrics_fn, minibatch_metrics_fn, minibatch_metrics_string_fn, 
-                 optimizer, scheduler, restart_epochs, summarize_csv, summarize, device_id, device, dtype):
+                 optimizer, scheduler, restart_epochs, device_id, device, dtype):
         np.set_printoptions(precision=5)
         self.args = args
         self.dataloaders = dataloaders
@@ -29,41 +24,44 @@ class Trainer:
         self.minibatch_metrics_fn = minibatch_metrics_fn
         self.minibatch_metrics_string_fn = minibatch_metrics_string_fn
         self.optimizer = optimizer
-        self.scheduler = scheduler
-        warmup_epochs = 4 #int(self.args.num_epoch/8)
-        if args.num_epoch > warmup_epochs:
-            if warmup_epochs > 0:
-                self.scheduler = GradualWarmupScheduler(optimizer, multiplier=1, warmup_epochs=len(dataloaders['train'])*warmup_epochs, after_scheduler=scheduler)
-            if args.lr_decay_type == 'warm':
-                cooldown_epochs = int(self.args.num_epoch/11)
-                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
-                cooldown_length = cooldown_epochs*len(dataloaders['train'])
-                self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
-            elif args.lr_decay_type == 'flat':
-                cooldown_epochs = int(self.args.num_epoch/3)
-                coodlown_start = (self.args.num_epoch - cooldown_epochs)*len(dataloaders['train'])
-                cooldown_length = cooldown_epochs*len(dataloaders['train'])
-                self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
-            elif args.lr_decay_type == 'cos':
-                cooldown_epochs = 3
-                coodlown_start = (self.args.num_epoch - warmup_epochs - cooldown_epochs)*len(dataloaders['train'])
-                cooldown_length = cooldown_epochs*len(dataloaders['train'])
-                self.scheduler = GradualCooldownScheduler(optimizer, args.lr_final, coodlown_start, cooldown_length, self.scheduler)
+        self.scheduler = self._wrap_scheduler(scheduler)
         self.restart_epochs = restart_epochs
 
-        self.summarize_csv = summarize_csv
-        self.summarize = summarize
-        if summarize:
+        self.summarize_csv =args.summarize_csv
+        self.summarize = args.summarize
+        if args.summarize:
             from torch.utils.tensorboard import SummaryWriter
             self.writer = SummaryWriter(log_dir=args.logdir+args.prefix)
 
         self.epoch = 1
+        self.minibatch = 0
+        self.minibatch_metrics = {}
         self.best_epoch = 0
         self.best_metrics = {'loss': inf}
 
         self.device_id = device_id
         self.device = device
         self.dtype = dtype
+
+    def _wrap_scheduler(self, scheduler):
+        if self.args.num_epoch < self.args.warmup:
+            return scheduler
+        if self.args.warmup > 0:
+            scheduler = GradualWarmupScheduler(self.optimizer, 1, len(self.dataloaders['train'])*self.args.warmup, after_scheduler=scheduler)
+        if self.args.cooldown > 0:
+            if self.args.lr_decay_type == 'warm':
+                coodlown_start = (self.args.num_epoch - self.args.warmup - self.args.cooldown)*len(self.dataloaders['train'])
+                cooldown_length = self.args.cooldown*len(self.dataloaders['train'])
+                scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
+            elif self.args.lr_decay_type == 'flat':
+                coodlown_start = (self.args.num_epoch - self.args.warmup - self.args.cooldown)*len(self.dataloaders['train'])
+                cooldown_length = self.args.cooldown*len(self.dataloaders['train'])
+                scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
+            elif self.args.lr_decay_type == 'cos':
+                coodlown_start = (self.args.num_epoch - self.args.warmup - self.args.cooldown)*len(self.dataloaders['train'])
+                cooldown_length = self.args.cooldown*len(self.dataloaders['train'])
+                scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
+        return scheduler
 
     def _save_checkpoint(self, valid_metrics=None):
         if not self.args.save:
@@ -74,6 +72,8 @@ class Trainer:
                      'optimizer_state': self.optimizer.state_dict(),
                      'scheduler_state': self.scheduler.state_dict(),
                      'epoch': self.epoch,
+                     'minibatch': self.minibatch,
+                     'minibatch_metrics': self.minibatch_metrics,
                      'best_epoch': self.best_epoch,
                      'best_metrics': self.best_metrics}
 
@@ -96,9 +96,11 @@ class Trainer:
         elif os.path.exists(self.args.checkfile):
             logger.info('Loading previous model from checkpoint!')
             self.load_state(self.args.checkfile)
-            self.epoch += 1
-            # self.optimizer = init_optimizer(self.args, self.model)
-            # self.scheduler, self.restart_epochs = init_scheduler(self.args, self.optimizer)
+            if self.minibatch + 1  < len(self.dataloaders['train']):
+                self.minibatch += 1
+            else:
+                self.minibatch = 0
+                self.epoch += 1
         else:
             logger.info('No checkpoint included! Starting fresh training program.')
             return
@@ -106,13 +108,15 @@ class Trainer:
     def load_state(self, checkfile):
         logger.info('Loading from checkpoint!')
 
-        checkpoint = torch.load(checkfile, map_location=torch.device(self.device))
+        checkpoint = torch.load(checkfile, map_location=self.device)
         self.model.load_state_dict(checkpoint['model_state'])
         if self.optimizer is not None:
             self.optimizer.load_state_dict(checkpoint['optimizer_state'])
         if self.scheduler is not None:
             self.scheduler.load_state_dict(checkpoint['scheduler_state'])
         self.epoch = checkpoint['epoch']
+        self.minibatch = checkpoint['minibatch']        
+        self.minibatch_metrics = checkpoint['minibatch_metrics']
         self.best_epoch = checkpoint['best_epoch']
         self.best_metrics = checkpoint['best_metrics']
         del checkpoint
@@ -131,11 +135,14 @@ class Trainer:
         if not self.args.save:
             logger.info('No model saved! Cannot give final status.')
             return
-
-        # Evaluate final model (at end of training)
+        
+        # make sure main process has finished writing to disk before proceeding
+        if self.device_id >= 0:
+            torch.distributed.barrier()
+        # Evaluate final model
         if final:
             # Load checkpoint model to make predictions
-            checkpoint = torch.load(self.args.checkfile, map_location=torch.device(self.device))
+            checkpoint = torch.load(self.args.checkfile, map_location=self.device)
             final_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['model_state'])
             logger.info(f'Getting predictions for final model {self.args.checkfile} (epoch {final_epoch}).')
@@ -145,11 +152,12 @@ class Trainer:
                 predict, targets = self.predict(set=split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                 if self.device_id <= 0:
                     best_metrics, logstring = self.log_predict(predict, targets, split, description='Final')
-
+                else:
+                    torch.distributed.barrier()
         # Evaluate best model as determined by validation error
         if best:
             # Load best model to make predictions
-            checkpoint = torch.load(self.args.bestfile, map_location=torch.device(self.device))
+            checkpoint = torch.load(self.args.bestfile, map_location=self.device)
             best_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['model_state'])
             if (not final) or (final and not best_epoch == final_epoch):
@@ -159,6 +167,9 @@ class Trainer:
                     predict, targets = self.predict(split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                     if self.device_id <= 0:
                         best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
+                    else:
+                        torch.distributed.barrier()
+
             elif best_epoch == final_epoch:
                 logger.info('BEST MODEL IS SAME AS FINAL')
                 if self.device_id <= 0:
@@ -225,9 +236,12 @@ class Trainer:
             self.scheduler.step()
 
     def train(self, trial=None, metric_to_report='loss'):
-        epoch0 = self.epoch
-        for epoch in range(epoch0, self.args.num_epoch + 1):
+        start_epoch = self.epoch
+        start_minibatch = self.minibatch
+        for epoch in range(start_epoch, self.args.num_epoch + 1):
             self.epoch = epoch
+            if epoch > start_epoch:
+                start_minibatch = 0
             if get_world_size() > 1:
                 self.dataloaders['train'].batch_sampler.sampler.set_epoch(epoch)
             logger.info('STARTING Epoch {}'.format(epoch))
@@ -235,15 +249,19 @@ class Trainer:
             self._warm_restart(epoch)
             self._step_lr_epoch()
 
-            train_predict, train_targets, epoch_t = self.train_epoch()
+            train_predict, train_targets, epoch_t = self.train_epoch(start_minibatch)
             if self.device_id <= 0:
-                train_metrics,_ = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
                 self._save_checkpoint()
+                train_metrics,_ = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
 
             valid_predict, valid_targets = self.predict(set='valid')
+
             if self.device_id <= 0:
+                self._save_checkpoint()
                 valid_metrics, _ = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
                 self._save_checkpoint(valid_metrics)
+            else: 
+                torch.distributed.barrier()
             
             if trial:
                 trial.set_user_attr("best_epoch", self.best_epoch)
@@ -268,7 +286,9 @@ class Trainer:
         targets = data[self.args.target].to(self.device, target_type)
         return targets
 
-    def train_epoch(self):
+    def train_epoch(self, start_minibatch=0):
+        if self.device_id >= 0:
+            torch.distributed.barrier()
         dataloader = self.dataloaders['train']
 
         self.loss_val, self.alt_loss_val, self.batch_time = 0, 0, 0
@@ -276,8 +296,8 @@ class Trainer:
 
         self.model.train()
         epoch_t = datetime.now()
-
-        for batch_idx, data in enumerate(dataloader):
+        for batch_idx, data in islice(enumerate(dataloader), start_minibatch, None):
+            self.minibatch = batch_idx
             batch_t = datetime.now()
             # Get targets and predictions
             targets = self._get_target(data)
@@ -302,11 +322,14 @@ class Trainer:
             if self.device_id <= 0:
                 all_targets.append(targets)
                 for key, val in predict.items(): all_predict.setdefault(key,[]).append(val)
-                self._log_minibatch(batch_idx, loss, targets, predict['predict'], batch_t, fwd_t, bwd_t, epoch_t)
+                if (self.args.save_every > 0) and (batch_idx + 1) % self.args.save_every == 0:
+                    self._save_checkpoint()
+                if (self.args.log_every > 0) and batch_idx % self.args.log_every == 0:
+                    self._log_minibatch(batch_idx, loss, targets, predict['predict'], batch_t, fwd_t, bwd_t, epoch_t)
         
         if self.device_id > 0:
             return None, None, epoch_t
-        
+
         all_predict = {key: torch.cat(val) for key, val in all_predict.items()}
         all_targets = torch.cat(all_targets)
 
@@ -320,9 +343,13 @@ class Trainer:
         start_time = datetime.now()
         logger.info('Starting testing on {} set: '.format(set))
 
-        if not distributed and self.device_id > 0:
-            return None, None
-
+        if not distributed:
+            if self.device_id > 0:
+                return None, None
+            gather = lambda x: x
+        else:
+            gather = all_gather
+        
         with torch.no_grad():
             for batch_idx, data in enumerate(dataloader):
                 if expand_data:
@@ -331,12 +358,10 @@ class Trainer:
                     data = ir_data(data)
                 if c_data is not None:
                     data = c_data(data)
-                if distributed:
-                    targets = all_gather(self._get_target(data))
-                    predict = {key: all_gather(val) for key, val in self.model(data).items()}
-                else:
-                    targets = self._get_target(data)  
-                    predict = {key: val for key, val in self.model(data).items()}
+                
+                targets = gather(self._get_target(data)).detach().cpu()
+                predict = self.model(data)
+                predict = {key: gather(val).detach().cpu() for key, val in predict.items()}
                 if self.device_id <= 0:
                     all_targets.append(targets)
                     for key, val in predict.items(): all_predict.setdefault(key, []).append(val)

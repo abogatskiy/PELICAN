@@ -1,5 +1,4 @@
 import torch
-import torch.nn.functional as F
 import numpy as np
 from math import sqrt
 
@@ -95,7 +94,7 @@ def batch_stack(props, edge_mat=False, nobj=None):
     elif props[0].dim() == 0:
         return torch.stack(props)
     elif not edge_mat:
-        props = [p[:nobj, ...] for p in props]
+        props = [p[:nobj, ...] for p in props] #TODO: this causes a bug if nobj<num_classes because it cuts off one-hots in data
         return torch.nn.utils.rnn.pad_sequence(props, batch_first=True, padding_value=0)
     else:
         max_particles = max([len(p) for p in props])
@@ -136,7 +135,7 @@ def drop_zeros(props, to_keep):
         return props[:, to_keep, ...]
 
 
-def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, beam_mass=1, read_pid=False):
+def collate_fn(data, scale=1., nobj=None, edge_features=[], beam_mass=1, read_pid=False):
     """
     Collation function that collates datapoints into the batch format
 
@@ -159,36 +158,32 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
     data = {key: batch_stack([event[key] for event in data], nobj=nobj) for key in common_keys}
     device = data['Pmu'].device
     dtype = data['Pmu'].dtype
-    zero = torch.tensor(0.)
-    # to_keep = batch['Nobj'].to(torch.uint8)
     s = data['Pmu'].shape
-    particle_mask = torch.cat((torch.ones(s[0],2).bool().to(device=device), data['Pmu'][...,0] != 0.),dim=-1)
 
+    # Option to de-mass constituents
     # p3s = data['Pmu'][:,:,1:4]
     # Es = data['Pmu'][:,:,[0]]
     # p3s = F.normalize(p3s, dim=-1) * Es
     # data['Pmu'] = torch.cat([Es,p3s],dim=-1)
 
-    edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
-
-    if read_pid:
-        assert 'pdgid' in data.keys(), "Need the key pdgid in your data before using read_pid"
+    # if read_pid:
+    #     assert 'pdgid' in data.keys(), "Need the key pdgid in your data before using read_pid"
         
-    if add_beams:
-        p = 1
-        beams = torch.tensor([[[sqrt(p**2+beam_mass**2),0,0,p], [sqrt(p**2+beam_mass**2),0,0,-p]]], dtype=data['Pmu'].dtype, device=data['Pmu'].device).expand(s[0], 2, 4)
-        data['Pmu'] = torch.cat([beams, data['Pmu'] * scale], dim=1)
-        data['Nobj'] = data['Nobj'] + 2
-        if read_pid:
-            num_classes=14
-            beams_pdg = torch.tensor([[2212, 2212]], dtype=torch.long, device=data['Pmu'].device).expand(s[0], 2)
-            data['pdgid'] = torch.cat([beams_pdg, data['pdgid'].to(dtype=torch.long)], dim=1)
-        else:
-            num_classes=2
-            data['pdgid'] = torch.cat([2212 * torch.ones(s[0], 2, dtype=torch.long, device=data['Pmu'].device),
-                                       torch.zeros(s[0], s[1], dtype=torch.long, device=data['Pmu'].device)], dim=1)
-    else:
-        data['Pmu'] = data['Pmu'] * scale
+    # if add_beams:
+    #     p = 1
+    #     beams = torch.tensor([[[sqrt(p**2+beam_mass**2),0,0,p], [sqrt(p**2+beam_mass**2),0,0,-p]]], dtype=dtype, device=device).expand(s[0], 2, 4)
+    #     data['Pmu'] = torch.cat([beams, data['Pmu'] * scale], dim=1)
+    #     data['Nobj'] = data['Nobj'] + 2
+    #     if read_pid:
+    #         num_classes=14
+    #         beams_pdg = torch.tensor([[2212, 2212]], dtype=torch.long, device=device).expand(s[0], 2)
+    #         data['pdgid'] = torch.cat([beams_pdg, data['pdgid'].to(dtype=torch.long)], dim=1)
+    #     else:
+    #         num_classes=2
+    #         data['pdgid'] = torch.cat([2212 * torch.ones(s[0], 2, dtype=torch.long, device=device),
+    #                                    torch.zeros(s[0], s[1], dtype=torch.long, device=device)], dim=1)
+    # else:
+    data['Pmu'] = data['Pmu'] * scale
 
     # labels = torch.cat((torch.ones(s[0], 2), torch.zeros(s[0], s[1])), dim=1)
     # labelsi = labels.unsqueeze(1).expand(s[0], s[1]+2, s[1]+2)
@@ -198,25 +193,14 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], add_beams=False, bea
     particle_mask = data['Pmu'][...,0] != 0.
     edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
 
-    if read_pid or add_beams:
-        if 'scalars' not in data.keys():
-            data['scalars'] = pdg_onehot(data['pdgid'], num_classes=num_classes, mask=particle_mask.unsqueeze(-1))
-        else:
-            data['scalars'] = torch.cat([data['scalars'], pdg_onehot(data['pdgid'], num_classes=num_classes, mask=particle_mask.unsqueeze(-1))], dim=-1)
+    # if read_pid or add_beams:
+    #     if 'scalars' not in data.keys():
+    #         data['scalars'] = pdg_onehot(data['pdgid'], num_classes=num_classes, mask=particle_mask.unsqueeze(-1))
+    #     else:
+    #         data['scalars'] = torch.cat([data['scalars'], pdg_onehot(data['pdgid'], num_classes=num_classes, mask=particle_mask.unsqueeze(-1))], dim=-1)
 
     data['particle_mask'] = particle_mask.bool()
     data['edge_mask'] = edge_mask.bool()
 
     return data
-
-def pdg_onehot(x, num_classes=14, mask=None):
-    if num_classes==14:
-        x = 0*(x==22) + 1*(x==211) + 2*(x==-211) + 3*(x==321) + 4*(x==-321) + 5*(x==130) + 6*(x==2112) + 7*(x==-2112) + 8*(x==2212) + 9*(x==-2212) + 10*(x==11) + 11*(x==-11) + 12*(x==13) + 13*(x==-13)
-    elif num_classes==2:
-        x = 0*(x!=2212) + 1*(x==2212)
-    x = torch.nn.functional.one_hot(x, num_classes=num_classes)
-    zero = torch.tensor(0, device=x.device, dtype=torch.long)
-    if mask is not None:
-        x = torch.where(mask, x, zero)
     
-    return x

@@ -6,9 +6,12 @@ from .optimizers import DemonRanger
 import torch.distributed as dist
 import numpy as np
 import random
+import yaml
+from pathlib import Path
+from argparse import Namespace
 
 import os, sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from math import inf, log, log2, exp, ceil
 
 
@@ -23,6 +26,13 @@ def init_argparse():
     from .args import setup_argparse
 
     parser = setup_argparse()
+    args = parser.parse_args()
+
+    if args.yaml is not None:
+        for file in args.yaml:
+            ydict = yaml.safe_load(Path(file).read_text())
+            parser.set_defaults(**ydict)
+
     args = parser.parse_args()
 
     return args
@@ -126,8 +136,6 @@ def init_file_paths(args):
         logger.warning('Prediction directory {} does not exist. Creating!'.format(predictdir))
         os.mkdir(predictdir)
 
-    args.dataset = args.dataset.lower()
-
     return args
 
 def logging_printout(args, trial=None):
@@ -136,7 +144,7 @@ def logging_printout(args, trial=None):
     logger.info('Initializing simulation based upon argument string:')
     logger.info(' '.join([arg for arg in sys.argv]))
     logger.info('Log, best, checkpoint, load files: {} {} {} {}'.format(args.logfile, args.bestfile, args.checkfile, args.loadfile))
-    logger.info('Dataset, learning target, datadir: {} {} {}'.format(args.dataset, args.target, args.datadir))
+    logger.info('Learning target, datadir: {} {}'.format(args.target, args.datadir))
     git_status = _git_version()
 
 
@@ -204,7 +212,7 @@ def init_scheduler(args, optimizer):
     else:
         lr_decay = min(args.lr_decay, args.num_epoch)
         
-    minibatch_per_epoch = ceil(args.num_train / args.batch_size)
+    minibatch_per_epoch = ceil(args.num_train / args.batch_size / get_world_size())
     if args.lr_minibatch:
         lr_decay = lr_decay*minibatch_per_epoch
 
@@ -259,8 +267,8 @@ def init_cuda(args, device_id=-1):
             device = torch.device('cuda')
         else:
             torch.cuda.set_device(device_id)
-            dist.init_process_group(backend='nccl')
-            logger.info(f"Setting cuda device = {device_id}")            
+            dist.init_process_group(backend='nccl', timeout=timedelta(hours=12))
+            logger.info(f"Setting cuda device = {device_id}")
             device = torch.device(device_id)
     elif args.device in ['mps', 'm1']:
         logger.info('Initializing M1 Chip!')
@@ -295,6 +303,7 @@ def all_gather(tensor):
     """
     All gathers the provided tensor from all processes across machines
     and concatenates along the 0-th dimension into one.
+    If only one process, returns the input.
     """
 
     world_size = get_world_size()
@@ -313,7 +322,6 @@ def get_world_size():
         return 1
     if not dist.is_initialized():
         return 1
-    print(f'world_size {dist.get_world_size()}')
     return dist.get_world_size()
 
 def synchronize():

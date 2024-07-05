@@ -6,7 +6,9 @@ from math import inf
 
 def setup_argparse():
 
-    parser = argparse.ArgumentParser(description='LGN network options')
+    parser = argparse.ArgumentParser(description='PELICAN network options')
+
+    parser.add_argument('--yaml', type=str, default=None, action='append')
 
     parser.add_argument('--host', default='worker1172')
     parser.add_argument('--password', default='asoetuh')
@@ -22,15 +24,21 @@ def setup_argparse():
                         help='Train or evaluate model. (train | eval)')
 
     # Optimizer options
-    parser.add_argument('--num-epoch', type=int, default=80, metavar='N',
-                        help='number of epochs to train (default: 10)')
+    parser.add_argument('--num-epoch', type=int, default=35, metavar='N',
+                        help='number of epochs to train (default: 35)')
+    parser.add_argument('--warmup', type=int, default=4, metavar='N',
+                        help='Number of epochs of linear LR warmup (default: 4)')
+    parser.add_argument('--cooldown', type=int, default=3, metavar='N',
+                        help='Number of epochs of exponential LR cooldown (default: 3)')
     parser.add_argument('--batch-size', '-bs', type=int, default=16, metavar='N',
-                        help='Mini-batch size (default: 10)')
-    parser.add_argument('--batch-group-size', '-bgs', type=int, default=1, metavar='N',
-                        help='Mini-batch size (default: 10)')    
+                        help='Mini-batch size (default: 16)')
+    parser.add_argument('--save-every', type=int, default=0, metavar='N',
+                        help='Save checkpoint during training every save_every minibatches (default: 0)')
+    parser.add_argument('--log-every', type=int, default=1, metavar='N',
+                        help='Print logstrings every log_every minibatches (0 for no minibatch logging) (default: 1)')
 
     parser.add_argument('--lr-init', type=float, default=0.0025, metavar='N',
-                        help='Initial learning rate (default: 0.005)')
+                        help='Initial learning rate (default: 0.0025)')
     parser.add_argument('--lr-final', type=float, default=1e-5, metavar='N',
                         help='Final (held) learning rate (default: 1e-5)')
     parser.add_argument('--lr-decay', type=int, default=-1, metavar='N',
@@ -54,6 +62,8 @@ def setup_argparse():
                         help='Use CSV files to log validation and testing metrics. (test | all | none)')
 
     # Dataloader and randomness options
+    parser.add_argument('--RAMdataset', action=argparse.BooleanOptionalAction, default=True,
+                        help='Load datasets into RAM before training.')
     parser.add_argument('--shuffle', action=argparse.BooleanOptionalAction, default=True,
                         help='Shuffle minibatches.')
     parser.add_argument('--seed', type=int, default=-1, metavar='N',
@@ -146,10 +156,6 @@ def setup_argparse():
                         help='Number of validation samples to use. Set to -1 to use entire dataset. (default: -1)')
     parser.add_argument('--num-test', type=int, default=-1, metavar='N',
                         help='Number of test samples to use. Set to -1 to use entire dataset. (default: -1)')
-    parser.add_argument('--add-beams', action=argparse.BooleanOptionalAction, default=True,
-                        help='Append two proton beams of the form (m^2,0,0,+-1) to each event and add one-hot labels for them')
-    parser.add_argument('--beam-mass', type=float, default=0., metavar='N',
-                    help='Set mass m of the beams, so that E=sqrt(1 + m^2) (default = 1)')
     parser.add_argument('--read-pid', action=argparse.BooleanOptionalAction, default=False,
                         help='Read PIDs from the pdgid key in data and feed as one-hot labels')
     parser.add_argument('--force-download', action=argparse.BooleanOptionalAction, default=False,
@@ -174,13 +180,21 @@ def setup_argparse():
                         help='Set number of workers in dataloader. (Default: 0)')
 
     # Model options
+    parser.add_argument('--stabilizer', type=str, default='so2', metavar='N',
+                        help='Stabilizer to which the symmetry is to be reduced (so13 | so3 | so12 | se2 | so2 | R | 1). (default: so2)')
+    parser.add_argument('--method', type=str, default='spurions', metavar='N',
+                        help="""Method for breaking down the symmetry -- either by adding spurion particles, 
+                        or by adding input quantities that aren\'t just dot products (spurions | input). (default: spurions)""")
+    
     parser.add_argument('--num-classes', type=int, default=2, metavar='N',
                         help='For PELICANClassifier ONLY: Number of output classes for classification models. (default: 2)')
     
+    parser.add_argument('--rank1-width-multiplier', type=int, metavar='N',
+                        help='Number of embedding channels per each rank 1 momentum feature',
+                        default = 2
+                        )
     parser.add_argument('--num-channels-scalar', type=int, metavar='N',
-                        help='Number of output channels in the Eq1to2 embedding block for scalars. Not for PELICANNano.',
-                        # default = 25
-                        # default = 60
+                        help='Number of output channels in the Eq1to2 embedding block for scalars',
                         default = 10
                         )
     parser.add_argument('--num-channels-m', nargs='*', type=int, metavar='N',
@@ -215,7 +229,7 @@ def setup_argparse():
                                 # default = [132, 78]
                         )
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
-                    help='Include an output MLP (default = True). Not for PELICANNano.')
+                    help='Include an output MLP (default = True)')
     parser.add_argument('--num-channels-out', nargs='*', type=int, 
                         # default=[16], 
                         # default=[25], 

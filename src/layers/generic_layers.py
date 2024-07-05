@@ -1,7 +1,94 @@
 import torch
+import math
 import torch.nn as nn
 from .masked_batchnorm import MaskedBatchNorm1d, MaskedBatchNorm2d
 from .masked_instancenorm import MaskedInstanceNorm2d, MaskedInstanceNorm3d
+# from ..models.lorentz_metric import dot4, dot3, dot2, dot12, dot11
+
+
+
+class MyLinear(nn.Module):
+    r"""Applies a linear transformation to the incoming data: :math:`y = xA^T + b`
+
+    This module supports :ref:`TensorFloat32<tf32_on_ampere>`.
+
+    On certain ROCm devices, when using float16 inputs this module will use :ref:`different precision<fp16_on_mi200>` for backward.
+
+    Args:
+        in_features: size of each input sample
+        out_features: size of each output sample
+        bias: If set to ``False``, the layer will not learn an additive bias.
+            Default: ``True``
+
+    Shape:
+        - Input: :math:`(*, H_{in})` where :math:`*` means any number of
+          dimensions including none and :math:`H_{in} = \text{in\_features}`.
+        - Output: :math:`(*, H_{out})` where all but the last dimension
+          are the same shape as the input and :math:`H_{out} = \text{out\_features}`.
+
+    Attributes:
+        weight: the learnable weights of the module of shape
+            :math:`(\text{out\_features}, \text{in\_features})`. The values are
+            initialized from :math:`\mathcal{U}(-\sqrt{k}, \sqrt{k})`, where
+            :math:`k = \frac{1}{\text{in\_features}}`
+        bias:   the learnable bias of the module of shape :math:`(\text{out\_features})`.
+                If :attr:`bias` is ``True``, the values are initialized from
+                :math:`\mathcal{U}(-\sqrt{k}, \sqrt{k})` where
+                :math:`k = \frac{1}{\text{in\_features}}`
+
+    Examples::
+
+        >>> m = nn.Linear(20, 30)
+        >>> input = torch.randn(128, 20)
+        >>> output = m(input)
+        >>> print(output.size())
+        torch.Size([128, 30])
+    """
+    __constants__ = ['in_features', 'out_features']
+    in_features: int
+    out_features: int
+    weight: torch.Tensor
+
+    def __init__(self, in_features: int, out_features: int, weight = None, bias: bool = True,
+                 rand_bias=False, device=None, dtype=None) -> None:
+        factory_kwargs = {'device': device, 'dtype': dtype}
+        super().__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        if bias:
+            self.bias = nn.Parameter(torch.empty(out_features, **factory_kwargs))
+        else:
+            self.register_parameter('bias', None)
+        if weight is None:
+            self.weight = nn.Parameter(torch.empty((out_features, in_features), **factory_kwargs))
+            self.reset_weight()
+            self.reset_bias()
+        else:
+            self.weight = nn.Parameter(weight)
+            if rand_bias:
+                self.reset_bias()
+            elif self.bias is not None:
+                nn.init.zeros_(self.bias)
+
+    def reset_weight(self) -> None:
+        nn.init.kaiming_normal_(self.weight, a=0.01, mode='fan_in', nonlinearity='leaky_relu')
+        # nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+
+    def reset_bias(self) -> None:
+        if self.bias is not None:
+            fan_in, fan_out = nn.init._calculate_fan_in_and_fan_out(self.weight)
+            bound = 1 / math.sqrt(fan_out) if fan_out > 0 else 0
+            nn.init.uniform_(self.bias, -bound, bound)
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        return torch.nn.functional.linear(input, self.weight, self.bias)
+
+    def extra_repr(self) -> str:
+        return 'in_features={}, out_features={}, bias={}'.format(
+            self.in_features, self.out_features, self.bias is not None
+        )
+
+
 class BasicMLP(nn.Module):
     """
     Multilayer perceptron used in various locations.  Operates only on the last axis of the data.
@@ -76,7 +163,7 @@ class MessageNet(nn.Module):
     If num_channels has length 2, this becomes a linear layer.
     """
 
-    def __init__(self, num_channels, depth=2, activation='leakyrelu', ir_safe=False, batchnorm = None, masked=True, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, depth=1, activation='leakyrelu', ir_safe=False, batchnorm = None, masked=True, device=torch.device('cpu'), dtype=torch.float):
         super().__init__()
 
         self.num_channels = num_channels
@@ -160,37 +247,115 @@ class MessageNet(nn.Module):
 
 
 class InputEncoder(nn.Module):
-    def __init__(self, out_dim, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, rank1_dim_multiplier, rank2_dim_multiplier, rank1_in_dim = 0, rank2_in_dim = 1, mode = 'log', device=torch.device('cpu'), dtype=torch.float):
         super().__init__()
 
-        self.to(device=device, dtype=dtype)
-        self.alphas = nn.Parameter(torch.linspace(0.05, 0.5, out_dim, device=device, dtype=dtype).view(1, 1, 1, out_dim))
+        self.rank1_in_dim = rank1_in_dim
+        self.rank2_in_dim = rank2_in_dim
+        self.rank1_dim_multiplier = rank1_dim_multiplier if rank1_in_dim else 0
+        self.rank2_dim_multiplier = rank2_dim_multiplier if rank2_in_dim else 0
+        self.mode = mode
+        if rank1_in_dim > 0:
+            self.rank1_alphas = nn.Parameter(torch.linspace(0.05, 0.5, rank1_dim_multiplier, device=device, dtype=dtype).unsqueeze(-1).repeat((1, rank1_in_dim)).t())
+        if rank2_in_dim > 0:
+            # rank2_dim is never higher than 1 for us, so these alphas are defined with that in mind
+            # self.rank2_alphas = nn.Parameter(torch.linspace(0.05, 0.5, rank2_dim_multiplier, device=device, dtype=dtype).unsqueeze(-1).repeat((1, rank2_in_dim)).t())
+            self.rank2_alphas = nn.Parameter(torch.linspace(0.05, 0.5, rank2_dim_multiplier, device=device, dtype=dtype))
         # self.alphas = nn.Parameter(0.5 * torch.rand(1, 1, 1, out_dim, device=device, dtype=dtype))
         # self.betas = nn.Parameter(torch.randn(1, 1, 1, out_dim, device=device, dtype=dtype))
         self.zero = torch.tensor(0, device=device, dtype=dtype)
 
-    def forward(self, x, mask=None, mode='log'):
+    def forward(self, rank1_inputs, dot_products, rank1_mask=None, rank2_mask=None):        
+        if self.rank1_in_dim > 0:
+            s = rank1_inputs.shape[:-1]
+            l = len(s)
+            rank1_alphas = self.rank1_alphas.view([1,]*l+[self.rank1_in_dim, self.rank1_dim_multiplier])
+            rank1_out = fn(rank1_inputs.unsqueeze(-1), rank1_alphas, self.mode).reshape(s+(self.rank1_in_dim*self.rank1_dim_multiplier,))
+        else:
+            rank1_out = None
+        if self.rank2_in_dim > 0: 
+            s = dot_products.shape[:-1]
+            l = len(s)
+            # rank2_alphas = self.rank2_alphas.view([1,]*l+[self.rank2_in_dim, self.rank2_dim_multiplier])
+            rank2_alphas = self.rank2_alphas.view([1,]*l+[self.rank2_dim_multiplier])
+            rank2_out = fn(dot_products, rank2_alphas, self.mode)
+        else:
+            rank2_out = None
 
-        # x = x.unsqueeze(-1)
-        # x = (1. + x).abs().pow(1e-6 + self.alphas) - 1.
-        # x = ((self.betas.abs() + x).abs().pow(1e-6 + self.alphas ** 2) - self.betas.abs().pow(1e-6 + self.alphas ** 2)) / (1e-6 + self.alphas ** 2) #288
-        # x = x * (x < (100 * self.betas.exp())) 
-        # x = (1e-2 + x).abs().log()/2  # Add a logarithmic rescaling function before MLP to soften the heavy tails in inputs
+        if rank1_mask is not None and self.rank1_in_dim > 0:
+            rank1_out = torch.where(rank1_mask, rank1_out, self.zero)
+        if rank2_mask is not None and self.rank2_in_dim > 0: 
+            rank2_out = torch.where(rank2_mask, rank2_out, self.zero)
+        return rank1_out, rank2_out
+        
+class GInvariants(nn.Module):
+    def __init__(self, stabilizer='so13', irc_safe=False):
+        super().__init__()
 
-        if mode=='log':
-            x = ((1 + x).abs().pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
+        dict_rank1 = {'so13': 0, 'so3': 0, 'so12': 0, 'se2': 0, 'so2':   0, 'R': 0, '1':   0, '11':   0,
+                                                                'so2_0': 0,         '1_0': 0, '11_0': 0}
+        dict_rank2 = {'so13': 1, 'so3': 2, 'so12': 2, 'se2': 2, 'so2':   3, 'R': 3, '1':   4, '11':   5,
+                                                                'so2_0': 3,         '1_0': 4, '11_0': 5}
 
-        if mode=='angle':
-            x = ((1e-5 + x.abs()).pow(1e-6 + self.alphas ** 2) - 1) / (1e-6 + self.alphas ** 2)
+        self.stabilizer = stabilizer
+        self.irc_safe = irc_safe
+        self.rank1_dim = dict_rank1[stabilizer]
+        self.rank2_dim = dict_rank2[stabilizer]
 
-        if mode=='arcsinh':
-            x = (x * 2 * self.alphas).arcsinh() / (1e-6 + self.alphas.abs())
+    def forward(self, event_momenta):
+        dtype, device = event_momenta.dtype, event_momenta.device
+        # event_momenta = event_momenta.unsqueeze(1)
+        if self.stabilizer == '1':
+            rank1 = None
+            rank2 = event_momenta.unsqueeze(1)*event_momenta.unsqueeze(2)
+        elif self.stabilizer == '1_0':
+            rank1 = event_momenta @ torch.tensor([[1,0,0,1],[1,-1,0,0],[1,0,-1,0],[1,0,0,-1]],dtype=dtype,device=device).t()/200
+            rank2 = rank1.unsqueeze(1)*rank1.unsqueeze(2)
+            rank1 = None
+        else:
+            dot_products = dot4(event_momenta.unsqueeze(1), event_momenta.unsqueeze(2)).unsqueeze(-1)
+            if self.stabilizer=='so13':   # L_x, L_y, L_z, K_x, K_y, K_z
+                rank1 = None
+            elif self.stabilizer=='so3':  # L_x, L_y, L_z
+                rank1 = event_momenta[...,[0]]/200 # Energy
+                # rank2 = dot3(event_momenta, event_momenta).unsqueeze(-1)
+            elif self.stabilizer=='so12': # K_x, K_y, L_z
+                rank1 = event_momenta[...,[-1]]/200 #p_z
+                # rank2 = dot12(event_momenta, event_momenta).unsqueeze(-1)
+            elif self.stabilizer=='se2':  # L_z, K_x-L_y, K_y+L_x
+                rank1 = (event_momenta[...,[0]] - event_momenta[...,[-1]])/200 #E - p_z
+            elif self.stabilizer=='so2':  # L_z
+                rank1 = (event_momenta[...,[0, 3]])/200 # E, p_z
+            elif self.stabilizer=='so2_0':# L_z
+                rank1 = (event_momenta[...,[0, 3]]/200) @ torch.tensor([[1,1],[1,-1]],dtype=dtype,device=device) # E ± p_z
+                # rank2 = dot2(event_momenta, event_momenta).unsqueeze(-1)            
+            elif self.stabilizer=='R':    # K_z
+                rank1 = (event_momenta[...,[1, 2]]/200) # p_x, p_y
+                # rank2 = dot11(event_momenta, event_momenta).unsqueeze(-1)  
+            elif self.stabilizer=='11':   # 0
+                rank1 = event_momenta/200
+            elif self.stabilizer=='11_0':   # 0
+                rank1 = (event_momenta/200) @ torch.tensor([[1,0,0,1],[1,1,0,0],[1,0,1,0],[1,0,0,-1]],dtype=dtype,device=device).t()
 
-        if mask is not None:
-            x = torch.where(mask, x, self.zero)
+            if rank1 == None:
+                rank2 = dot_products
+            else:
+                rank2 = torch.cat([rank1.unsqueeze(1)*rank1.unsqueeze(2), dot_products], dim=-1)
 
-        return x
+        irc_weight = None
+        # TODO: make irc_safe option work with rank1 inputs
+        if self.irc_safe:
+            if self.rank1_dim > 0:
+                raise NotImplementedError
+            # Define the C-safe weight proportional to fractional constituent energy in jet frame (Lorentz-invariant and adds up to 1)
+            irc_weight = self.softmask(dot_products.squeeze(-1), mode='c')
+            # Replace input dot products with 2*(1-cos(theta_ij)) where theta is the pairwise angle in jet frame (assuming massless particles)
+            eps = 1e-12
+            energies = ((dot_products.sum(1).unsqueeze(1) * dot_products.sum(1).unsqueeze(2)) / dot_products.sum((1, 2), keepdim=True)).unsqueeze(-1)
+            inputs1 = rank2.clone()
+            rank2 = 2 * inputs1 / (eps + energies)  # 2*(1-cos(theta_ij)) in massless case
 
+        return rank1, rank2, irc_weight
 
 class SoftMask(nn.Module):
     """
@@ -302,3 +467,43 @@ class SiLU(nn.Module):
         Forward pass of the function.
         '''
         return silu(input) # simply apply already implemented SiLU
+    
+
+
+def dot4(p1, p2):
+    # Quick hack to calculate the dot products of the four-vectors
+    # The last dimension of the input gets eaten up
+    # Broadcasts over other dimensions
+    prod = p1 * p2
+    return 2 * prod[..., 0] - prod.sum(dim=-1)
+
+def dot3(p1, p2):
+    # Dot product of the spatial parts
+    prod = p1[...,1:] * p2[...,1:]
+    return prod.sum(dim=-1)
+
+def dot2(p1, p2):
+    # Dot product of the xy parts (pT)
+    prod = p1[...,1:3] * p2[...,1:3]
+    return prod.sum(dim=-1)
+
+def dot12(p1, p2):
+    # 2+1 invariant dot product
+    prod = p1[...,:3] * p2[...,:3]
+    return 2 * prod[..., 0] - prod.sum(dim=-1)
+
+def dot11(p1, p2):
+    # 1+1 invariant dot product
+    prod = p1[...,[0,-1]] * p2[...,[0,-1]]
+    return 2 * prod[..., 0] - prod.sum(dim=-1)
+
+def fn(x, alphas, mode):
+    if mode=='log':
+        x = ((1 + x).abs().pow(1e-6 + alphas ** 2) - 1) / (1e-6 + alphas ** 2)
+    elif mode=='slog':
+        x = ((1 + x.abs()).pow(1e-6 + alphas ** 2) - 1) / (1e-6 + alphas ** 2) * x.sign()
+    elif mode=='angle':
+        x = ((1e-5 + x.abs()).pow(1e-6 + alphas ** 2) - 1) / (1e-6 + alphas ** 2)
+    elif mode=='arcsinh':
+        x = (x * 2 * alphas).arcsinh() / (1e-6 + alphas.abs())
+    return x
