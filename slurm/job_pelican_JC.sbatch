@@ -38,11 +38,11 @@ nvidia-smi
 
 CONDA_PATH=$(conda info | grep -i 'base environment' | awk '{print $4}')
 source $CONDA_PATH/etc/profile.d/conda.sh
-conda activate py310
+conda activate py312
 # A=(jc_0-{a..z}) --prefix="${A[$SLURM_ARRAY_TASK_ID]}"
 
-CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --yaml=../config/jc.yaml --yaml=../config/48k.yaml --num-channels-scalar=10 --cuda --log-every=1000 --save-every=5000 --alpha=5 --stabilizer=so2 --method=spurions --prefix=jc_2-a --no-RAMdataset --datadir=${data_path}/JetClass --load
+CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --yaml=../config/48k.yaml --yaml=../config/jc.yaml --cuda --log-every=1000 --save-every=1000 --alpha=5 --stabilizer=so2 --method=spurions --prefix=jc_2-a --no-RAMdataset --datadir=${data_path}/JetClass --load
 
-# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --yaml=../config/jc.yaml --yaml=../config/208k.yaml --num-channels-scalar=20 --cuda --log-every=1000 --save-every=5000 --alpha=5 --stabilizer=so2 --method=spurions --prefix=jc_3-b --no-RAMdataset --datadir=${data_path}/JetClass --load
+# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --yaml=../config/208k.yaml --yaml=../config/jc.yaml --cuda --log-every=1000 --save-every=1000 --alpha=5 --stabilizer=so2 --method=spurions --prefix=jc_3-b --no-RAMdataset --datadir=${data_path}/JetClass --load
 
-# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --datadir=${data_path}/JetClass --yaml=../config/jc.yaml --yaml=../config/48k.yaml --num-channels-scalar=20 --cuda --log-every=1 --save-every=-1 --alpha=5 --stabilizer=so2 --method=spurions --no-RAMdataset --num-train=1024 --prefix=jc_test
+# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --datadir=../data/JetClass --yaml=../config/jc.yaml --yaml=../config/48k.yaml --num-channels-scalar=20 --cuda --log-every=1 --save-every=-1 --alpha=5 --stabilizer=so2 --method=spurions --no-RAMdataset --num-train=1024 --num-valid=1024 --num-epoch=5 --prefix=jc_test --num-test=10000

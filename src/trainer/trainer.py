@@ -138,6 +138,8 @@ class Trainer:
         
         # make sure main process has finished writing to disk before proceeding
         torch.distributed.barrier()
+        if distributed:
+            logger.warning('Using distributed evaluation for the testing dataset (args.distribute_eval). Order of samples may not be preserved in the predict file.')
         # Evaluate final model
         if final:
             # Load checkpoint model to make predictions
@@ -251,7 +253,7 @@ class Trainer:
                 self._save_checkpoint()
                 train_metrics,_ = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
 
-            valid_predict, valid_targets = self.predict(set='valid')
+            valid_predict, valid_targets = self.predict(set='valid', distributed=True)
 
             if self.device_id <= 0:
                 self._save_checkpoint()

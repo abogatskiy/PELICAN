@@ -18,8 +18,8 @@ nvidia-smi
 
 CONDA_PATH=$(conda info | grep -i 'base environment' | awk '{print $4}')
 source $CONDA_PATH/etc/profile.d/conda.sh
-conda activate py310
+conda activate py312
 # A=(jc_0-{a..z}) --prefix="${A[$SLURM_ARRAY_TASK_ID]}"
 
 # Top-tagging dataset
-CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=4 ../train_pelican_classifier.py --yaml=../config/jc.yaml --yaml=../config/208k.yaml --num-channels-scalar=20 --cuda --log-every=1000 --save-every=5000 --alpha=5 --stabilizer=so2 --method=spurions --prefix=jc_3-a --RAMdataset 
+CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=4 ../train_pelican_classifier.py --yaml=../config/jc.yaml --yaml=../config/48k.yaml --cuda --log-every=1000 --save-every=1000 --alpha=5 --stabilizer=so2 --method=spurions --prefix=jc_3-a --RAMdataset 

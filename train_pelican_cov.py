@@ -85,10 +85,11 @@ def main():
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj)
+    distribute_eval=args.distribute_eval
     if distributed:
         samplers = {'train': DistributedSampler(datasets['train'], shuffle=args.shuffle),
                     'valid': DistributedSampler(datasets['valid'], shuffle=False),
-                    'test': None}
+                    'test': DistributedSampler(datasets['test'], shuffle=False) if distribute_eval else None}
     else:
         samplers = {split: None for split in datasets.keys()}
 
@@ -152,7 +153,7 @@ def main():
         trainer.train()
 
     # Test predictions on best model and/or also last checkpointed model.
-    trainer.evaluate(splits=['test'], final=False)
+    trainer.evaluate(splits=['test'], distributed=distributed and distribute_eval)
     if args.test:
         args.predict = False
         trainer.summarize_csv = False
