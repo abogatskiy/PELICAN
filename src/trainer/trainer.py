@@ -243,11 +243,10 @@ class Trainer:
                 start_minibatch = 0
             if get_world_size() > 1:
                 self.dataloaders['train'].batch_sampler.sampler.set_epoch(epoch)
-            logger.info('STARTING Epoch {}'.format(epoch))
+            logger.info(f'STARTING Epoch {epoch} from minibatch {start_minibatch+1}')
 
             self._warm_restart(epoch)
             self._step_lr_epoch()
-
             train_predict, train_targets, epoch_t = self.train_epoch(start_minibatch)
             if self.device_id <= 0:
                 self._save_checkpoint()
@@ -269,7 +268,7 @@ class Trainer:
                     import optuna
                     raise optuna.exceptions.TrialPruned()
 
-            logger.info('FINISHED Epoch {}\n_________________________\n'.format(epoch))
+            logger.info(f'FINISHED Epoch {epoch}\n_________________________\n')
             
         if self.summarize: self.writer.close()
 
@@ -292,7 +291,16 @@ class Trainer:
 
         self.model.train()
         epoch_t = datetime.now()
-        for batch_idx, data in islice(enumerate(dataloader), start_minibatch, None):
+        if start_minibatch > 0:
+            dataloader.dataset.fast_skip = True
+            data_slice = islice(enumerate(dataloader), start_minibatch - 1, None)
+            logger.info(f'Iterating dataloader to get to minibatch {start_minibatch}')
+            _, _ = next(data_slice)
+            logger.info('Ready to start the training loop')
+            dataloader.dataset.fast_skip = False
+        else:
+            data_slice = enumerate(dataloader)
+        for batch_idx, data in data_slice:
             self.minibatch = batch_idx
             batch_t = datetime.now()
             # Get targets and predictions
