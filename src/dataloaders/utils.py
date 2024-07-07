@@ -95,5 +95,5 @@ class ConcatDatasetChild(ConcatDataset):
     
     def __getitem__(self, idx):
         if self.fast_skip:
-            return {'Pmu': torch.zeros((1,4))}
+            return None
         return ConcatDataset.__getitem__(self, idx)

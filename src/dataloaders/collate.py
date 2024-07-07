@@ -153,6 +153,9 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], beam_mass=1, read_pi
     batch : dict of Pytorch tensors
         The collated data.
     """
+    if data[0] is None:
+        return None
+    
     common_keys = data[0].keys()
     # common_keys = set.intersection(*[set(d.keys()) for d in data]) # Uncomment if different data files have different sets of keys
     data = {key: batch_stack([event[key] for event in data], nobj=nobj) for key in common_keys}
