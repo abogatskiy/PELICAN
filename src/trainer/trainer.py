@@ -1,5 +1,5 @@
 import torch
-from .utils import all_gather, get_world_size
+from .utils import all_gather, synchronize, get_world_size
 import numpy as np
 from itertools import islice
 from .scheduler import GradualWarmupScheduler, GradualCooldownScheduler
@@ -137,7 +137,7 @@ class Trainer:
             return
         
         # make sure main process has finished writing to disk before proceeding
-        torch.distributed.barrier()
+        synchronize()
         if distributed:
             logger.warning('Using distributed evaluation for the testing dataset (args.distribute_eval). Order of samples may not be preserved in the predict file.')
         # Evaluate final model
@@ -153,7 +153,7 @@ class Trainer:
                 predict, targets = self.predict(set=split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                 if self.device_id <= 0:
                     best_metrics, logstring = self.log_predict(predict, targets, split, description='Final')
-                torch.distributed.barrier()
+                synchronize()
         # Evaluate best model as determined by validation error
         if best:
             # Load best model to make predictions
@@ -167,7 +167,7 @@ class Trainer:
                     predict, targets = self.predict(split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                     if self.device_id <= 0:
                         best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
-                    torch.distributed.barrier()
+                    synchronize()
 
             elif best_epoch == final_epoch:
                 logger.info('BEST MODEL IS SAME AS FINAL')
@@ -258,7 +258,7 @@ class Trainer:
                 self._save_checkpoint()
                 valid_metrics, _ = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
                 self._save_checkpoint(valid_metrics)
-            torch.distributed.barrier()
+            synchronize()
             
             if trial:
                 trial.set_user_attr("best_epoch", self.best_epoch)
@@ -294,7 +294,7 @@ class Trainer:
         if start_minibatch > 0:
             dataloader.dataset.fast_skip = True
             data_slice = islice(enumerate(dataloader), start_minibatch - 1, None)
-            logger.info(f'Iterating dataloader to get to minibatch {start_minibatch}')
+            logger.info(f'Iterating dataloader to get to minibatch {start_minibatch + 1}')
             _, _ = next(data_slice)
             logger.info('Ready to start the training loop')
             dataloader.dataset.fast_skip = False
