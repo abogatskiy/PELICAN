@@ -79,9 +79,10 @@ def main():
         world_size = dist.get_world_size()
         logger.info(f'World size {world_size}')
 
-    # Initialize dataloder
+    # Fix a seed for dataloading (useful when num_train!=-1 and one wants the same training data across runs)
     if args.fix_data:
         torch.manual_seed(165937750084982)
+    # Initialize dataloder
     args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile, balance=(args.num_classes==2), RAMdataset=args.RAMdataset)
 
     # Construct PyTorch dataloaders from datasets
