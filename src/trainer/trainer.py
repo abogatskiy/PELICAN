@@ -137,8 +137,9 @@ class Trainer:
             return
         
         # make sure main process has finished writing to disk before proceeding
-        if self.device_id >= 0:
-            torch.distributed.barrier()
+        torch.distributed.barrier()
+        if distributed:
+            logger.warning('Using distributed evaluation for the testing dataset (args.distribute_eval). Order of samples may not be preserved in the predict file.')
         # Evaluate final model
         if final:
             # Load checkpoint model to make predictions
@@ -152,8 +153,7 @@ class Trainer:
                 predict, targets = self.predict(set=split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                 if self.device_id <= 0:
                     best_metrics, logstring = self.log_predict(predict, targets, split, description='Final')
-                else:
-                    torch.distributed.barrier()
+                torch.distributed.barrier()
         # Evaluate best model as determined by validation error
         if best:
             # Load best model to make predictions
@@ -167,8 +167,7 @@ class Trainer:
                     predict, targets = self.predict(split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                     if self.device_id <= 0:
                         best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
-                    else:
-                        torch.distributed.barrier()
+                    torch.distributed.barrier()
 
             elif best_epoch == final_epoch:
                 logger.info('BEST MODEL IS SAME AS FINAL')
@@ -254,14 +253,13 @@ class Trainer:
                 self._save_checkpoint()
                 train_metrics,_ = self.log_predict(train_predict, train_targets, 'train', epoch=epoch, epoch_t=epoch_t)
 
-            valid_predict, valid_targets = self.predict(set='valid')
+            valid_predict, valid_targets = self.predict(set='valid', distributed=True)
 
             if self.device_id <= 0:
                 self._save_checkpoint()
                 valid_metrics, _ = self.log_predict(valid_predict, valid_targets, 'valid', epoch=epoch)
                 self._save_checkpoint(valid_metrics)
-            else: 
-                torch.distributed.barrier()
+            torch.distributed.barrier()
             
             if trial:
                 trial.set_user_attr("best_epoch", self.best_epoch)
@@ -287,8 +285,6 @@ class Trainer:
         return targets
 
     def train_epoch(self, start_minibatch=0):
-        if self.device_id >= 0:
-            torch.distributed.barrier()
         dataloader = self.dataloaders['train']
 
         self.loss_val, self.alt_loss_val, self.batch_time = 0, 0, 0

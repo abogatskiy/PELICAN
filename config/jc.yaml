@@ -18,6 +18,7 @@ cooldown: 0
 config: M
 config_out: M
 
+num_channels_scalar: 20
 stabilizer: so2
 method: spurions
 
@@ -29,3 +30,4 @@ summarize: False
 log_every: 1000
 save_every: 5000
 RAMdataset: False
+distribute_eval: True

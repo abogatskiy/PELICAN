@@ -267,7 +267,8 @@ def init_cuda(args, device_id=-1):
             device = torch.device('cuda')
         else:
             torch.cuda.set_device(device_id)
-            dist.init_process_group(backend='nccl', timeout=timedelta(hours=12))
+            logger.warning('NCCL timeout is set to 2 hours to allow for single-GPU evaluation during multi-GPU sessions. To enable multi-GPU evaluation, set distributed=True in trainer.evaluate()')
+            dist.init_process_group(backend='nccl', timeout=timedelta(hours=2))
             logger.info(f"Setting cuda device = {device_id}")
             device = torch.device(device_id)
     elif args.device in ['mps', 'm1']:

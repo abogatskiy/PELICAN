@@ -88,11 +88,11 @@ def main():
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, read_pid=args.read_pid)
     
     # Whether testing set evaluation should be distributed
-    distributed_test=False
+    distribute_eval=args.distribute_eval
     if distributed:
         samplers = {'train': DistributedSampler(datasets['train'], shuffle=args.shuffle),
                     'valid': DistributedSampler(datasets['valid'], shuffle=False),
-                    'test': DistributedSampler(datasets['test'], shuffle=False) if distributed_test else None}
+                    'test': DistributedSampler(datasets['test'], shuffle=False) if distribute_eval else None}
     else:
         samplers = {split: None for split in datasets.keys()}
 
@@ -161,7 +161,7 @@ def main():
     # Test predictions on best model and also last checkpointed model.
     # If distributed==False, only one GPU will do this during DDP sessions 
     # so that the order  of batches is preserved in the output file.
-    trainer.evaluate(splits=['test'], distributed=distributed and distributed_test)
+    trainer.evaluate(splits=['test'], distributed=distributed and distribute_eval)
     if distributed:
         dist.destroy_process_group()
 

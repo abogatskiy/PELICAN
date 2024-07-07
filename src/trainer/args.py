@@ -175,9 +175,10 @@ def setup_argparse():
     parser.add_argument('--double', dest='dtype', action='store_const', const='double',
                         help='Use doubles.')
     parser.set_defaults(dtype='float')
-
     parser.add_argument('--num-workers', type=int, default=0,
                         help='Set number of workers in dataloader. (Default: 0)')
+    parser.add_argument('--distribute-eval', action=argparse.BooleanOptionalAction, default=False, help='Distribute final testing (evaluation) among all GPUs. (default: False)')
+
 
     # Model options
     parser.add_argument('--stabilizer', type=str, default='so2', metavar='N',
