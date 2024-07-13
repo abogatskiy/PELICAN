@@ -140,6 +140,10 @@ class Trainer:
         synchronize()
         if distributed:
             logger.warning('Using distributed evaluation for the testing dataset (args.distribute_eval). Order of samples may not be preserved in the predict file.')
+        elif self.device_id > 0:
+            logger.info(f'Evaluating only on device 0. Quitting on device {self.device_id}\n')
+            return
+
         # Evaluate final model
         if final:
             # Load checkpoint model to make predictions
@@ -296,7 +300,7 @@ class Trainer:
             data_slice = islice(enumerate(dataloader), start_minibatch - 1, None)
             logger.info(f'Iterating dataloader to get to minibatch {start_minibatch + 1}')
             _, _ = next(data_slice)
-            logger.info('Ready to start the training loop')
+            logger.info('Starting the training loop')
             dataloader.dataset.fast_skip = False
         else:
             data_slice = enumerate(dataloader)
