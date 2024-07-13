@@ -306,10 +306,11 @@ class GInvariants(nn.Module):
         dtype, device = event_momenta.dtype, event_momenta.device
         # event_momenta = event_momenta.unsqueeze(1)
         if self.stabilizer == '1':
+            rank1 = event_momenta
+            rank2 = rank1.unsqueeze(1)*rank1.unsqueeze(2)
             rank1 = None
-            rank2 = event_momenta.unsqueeze(1)*event_momenta.unsqueeze(2)
         elif self.stabilizer == '1_0':
-            rank1 = event_momenta @ torch.tensor([[1,0,0,1],[1,-1,0,0],[1,0,-1,0],[1,0,0,-1]],dtype=dtype,device=device).t()/200
+            rank1 = event_momenta @ torch.tensor([[1,0,0,1],[1,-1,0,0],[1,0,-1,0],[1,0,0,-1]],dtype=dtype,device=device).t()
             rank2 = rank1.unsqueeze(1)*rank1.unsqueeze(2)
             rank1 = None
         else:
@@ -317,25 +318,25 @@ class GInvariants(nn.Module):
             if self.stabilizer=='so13':   # L_x, L_y, L_z, K_x, K_y, K_z
                 rank1 = None
             elif self.stabilizer=='so3':  # L_x, L_y, L_z
-                rank1 = event_momenta[...,[0]]/200 # Energy
+                rank1 = event_momenta[...,[0]] # Energy
                 # rank2 = dot3(event_momenta, event_momenta).unsqueeze(-1)
             elif self.stabilizer=='so12': # K_x, K_y, L_z
-                rank1 = event_momenta[...,[-1]]/200 #p_z
+                rank1 = event_momenta[...,[-1]] #p_z
                 # rank2 = dot12(event_momenta, event_momenta).unsqueeze(-1)
             elif self.stabilizer=='se2':  # L_z, K_x-L_y, K_y+L_x
-                rank1 = (event_momenta[...,[0]] - event_momenta[...,[-1]])/200 #E - p_z
+                rank1 = (event_momenta[...,[0]] - event_momenta[...,[-1]]) #E - p_z
             elif self.stabilizer=='so2':  # L_z
-                rank1 = (event_momenta[...,[0, 3]])/200 # E, p_z
+                rank1 = (event_momenta[...,[0, 3]]) # E, p_z
             elif self.stabilizer=='so2_0':# L_z
-                rank1 = (event_momenta[...,[0, 3]]/200) @ torch.tensor([[1,1],[1,-1]],dtype=dtype,device=device) # E ± p_z
+                rank1 = (event_momenta[...,[0, 3]]) @ torch.tensor([[1,1],[1,-1]],dtype=dtype,device=device) # E ± p_z
                 # rank2 = dot2(event_momenta, event_momenta).unsqueeze(-1)            
             elif self.stabilizer=='R':    # K_z
-                rank1 = (event_momenta[...,[1, 2]]/200) # p_x, p_y
+                rank1 = (event_momenta[...,[1, 2]]) # p_x, p_y
                 # rank2 = dot11(event_momenta, event_momenta).unsqueeze(-1)  
             elif self.stabilizer=='11':   # 0
-                rank1 = event_momenta/200
+                rank1 = event_momenta
             elif self.stabilizer=='11_0':   # 0
-                rank1 = (event_momenta/200) @ torch.tensor([[1,0,0,1],[1,1,0,0],[1,0,1,0],[1,0,0,-1]],dtype=dtype,device=device).t()
+                rank1 = (event_momenta) @ torch.tensor([[1,0,0,1],[1,1,0,0],[1,0,1,0],[1,0,0,-1]],dtype=dtype,device=device).t()
 
             if rank1 == None:
                 rank2 = dot_products
