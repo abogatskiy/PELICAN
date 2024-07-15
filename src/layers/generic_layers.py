@@ -343,16 +343,15 @@ class GInvariants(nn.Module):
             else:
                 rank2 = torch.cat([rank1.unsqueeze(1)*rank1.unsqueeze(2), dot_products], dim=-1)
 
-        irc_weight = None
         # TODO: make irc_safe option work with rank1 inputs
         if self.irc_safe:
             if self.rank1_dim > 0:
                 raise NotImplementedError
             # Define the C-safe weight proportional to fractional constituent energy in jet frame (Lorentz-invariant and adds up to 1)
-            irc_weight = self.softmask(dot_products.squeeze(-1), mode='c')
             # Replace input dot products with 2*(1-cos(theta_ij)) where theta is the pairwise angle in jet frame (assuming massless particles)
             eps = 1e-12
-            energies = ((dot_products.sum(1).unsqueeze(1) * dot_products.sum(1).unsqueeze(2)) / dot_products.sum((1, 2), keepdim=True)).unsqueeze(-1)
+            irc_weight = dot_products.sum(1).squeeze(-1) / dot_products.sum((1,2))
+            energies = ((dot_products.sum(1).unsqueeze(1) * dot_products.sum(1).unsqueeze(2)) / dot_products.sum((1, 2), keepdim=True))
             inputs1 = rank2.clone()
             rank2 = 2 * inputs1 / (eps + energies)  # 2*(1-cos(theta_ij)) in massless case
 
