@@ -271,8 +271,8 @@ def init_cuda(args, device_id=-1):
             dist.init_process_group(backend='nccl', timeout=timedelta(hours=2))
             logger.info(f"Setting cuda device = {device_id}")
             device = torch.device(device_id)
-    elif args.device in ['mps', 'm1']:
-        logger.info('Initializing M1 Chip!')
+    elif args.device in ['mps']:
+        logger.info('Initializing Apple Neural Engine!')
         device = torch.device('mps')
     else:
         logger.info('Initializing CPU!')
