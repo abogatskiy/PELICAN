@@ -39,7 +39,7 @@ def init_argparse():
 
 def init_logger(args, device_id=-1):
     if args.logfile and device_id <= 0:
-        handlers = [logging.FileHandler(args.logfile, mode='a' if args.load else 'w'), logging.StreamHandler()]
+        handlers = [logging.FileHandler(args.logfile, mode='a' if (args.load or args.task.startswith('eval')) else 'w'), logging.StreamHandler()]
     else:
         handlers = [logging.StreamHandler()]
 
