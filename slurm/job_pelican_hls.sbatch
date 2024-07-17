@@ -14,8 +14,6 @@
 # Print the task id.
 echo "My SLURM_ARRAY_TASK_ID: " $SLURM_ARRAY_TASK_ID
 
-# python3 ~/ceph/NBodyJetNets/NetworkDesign/scripts/train_lgn.py --datadir=./data/sample_data/v0 --batch-size=50 --ir-safe=True
-
 nvidia-smi
 
 CONDA_PATH=$(conda info | grep -i 'base environment' | awk '{print $4}')

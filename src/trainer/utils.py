@@ -337,4 +337,5 @@ def synchronize():
     world_size = dist.get_world_size()
     if world_size == 1:
         return
+    logger.info('Waiting for other processes to reach a barrier.')
     dist.barrier()

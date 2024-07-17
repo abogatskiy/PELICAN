@@ -151,9 +151,11 @@ def main():
                       restart_epochs, device_id, device, dtype)
     
     if not args.task.startswith('eval'):
-        # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
+        # Load from checkpoint file (if one exists)
         trainer.load_checkpoint()
-        # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
+        # Restore random seed
+        args = set_seed(args, device_id)
+        # This makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless) by banning certain non-deterministic operations
         if args.reproducible:
             os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
         # Train model.
