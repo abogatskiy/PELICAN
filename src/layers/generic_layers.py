@@ -344,6 +344,7 @@ class GInvariants(nn.Module):
                 rank2 = torch.cat([rank1.unsqueeze(1)*rank1.unsqueeze(2), dot_products], dim=-1)
 
         # TODO: make irc_safe option work with rank1 inputs
+        irc_weight = None
         if self.irc_safe:
             if self.rank1_dim > 0:
                 raise NotImplementedError
