@@ -27,7 +27,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
     for split in splits:
         logger.info(f'Looking for {split} files in datadir:')
         for filename in files:
-            if (split in filename):
+            if (split in filename.rsplit("/",1)[-1]):
                 datafiles[split].append(filename)
                 logger.info(filename)
 
