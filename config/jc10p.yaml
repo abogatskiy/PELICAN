@@ -1,0 +1,35 @@
+
+datadir: ../data/JetClass
+task: train
+target: signal_type
+num_classes: 10
+nobj: 80
+nobj_avg: 49
+batch_size: 128
+num_workers: 0
+
+num_valid: 600000
+num_train: 10000000
+num_test: -1
+lr_decay_type: warm
+warmup: 2
+cooldown: 2
+num_epoch: 32
+config: M
+config_out: M
+
+num_channels_scalar: 30
+stabilizer: so2
+method: spurions
+
+lr_init: 0.001
+lr_final: 1e-6
+drop_rate: 0.01
+drop_rate_out: 0.01
+weight_decay: 0.0
+summarize: False
+
+log_every: 100
+save_every: 100
+RAMdataset: False
+distribute_eval: True

@@ -84,7 +84,9 @@ def ROC(predict, targets, backg_class=-1):
             [x.append(0.) for x in [eB30s, eB50s, eS30s, eS50s, tpr10s, fpr10s, tpr1s, fpr1s]]
         else:
             if backg_class >= 0:
-                curve = roc_curve(targets[...,c], torch.stack([predict[...,backg_class], predict[..., c]],dim=-1).softmax(dim=-1)[...,1])
+                eps = 1e-12
+                scores = predict[..., c]/(eps + predict[..., c] + predict[..., backg_class])
+                curve = roc_curve(targets[..., c], scores)
             else:
                 curve = roc_curve(targets[...,c], predict[..., c])
             eB30, eS30   = BR(curve, at_eS=0.3)

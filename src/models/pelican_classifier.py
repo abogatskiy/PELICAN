@@ -53,7 +53,7 @@ class PELICANClassifier(nn.Module):
             self.dropout_layer = nn.Dropout(drop_rate)
             self.dropout_layer_out = nn.Dropout(drop_rate_out)
 
-        if method == 'spurions':
+        if method.startswith('s'):
             self.ginvariants = GInvariants(stabilizer='so13', irc_safe=irc_safe)
         else:
             self.ginvariants = GInvariants(stabilizer=stabilizer, irc_safe=irc_safe)
@@ -77,7 +77,7 @@ class PELICANClassifier(nn.Module):
         # The input stack applies an encoding function
         rank1_dim_multiplier = 1 # each scalar will produce this many channels
 
-        if stabilizer == 'so13' or method == 'spurions':
+        if stabilizer == 'so13' or method.startswith('s'):
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype)
         elif stabilizer=='1':
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype) - torch.tensor([[0,2,2,2]], device=device, dtype=dtype)
@@ -216,7 +216,7 @@ class PELICANClassifier(nn.Module):
             data = add_pid_jc(data)
         elif self.datast == 'qg':
             data = add_pid_qg(data)
-        if self.method == "spurions": # do this last because spurions need to know the shape of the scalar inputs
+        if self.method.startswith('s'): # do this last because spurions need to know the shape of the scalar inputs
             data = self.add_spurions(data)
 
         event_momenta = data['Pmu'].to(device, dtype)
