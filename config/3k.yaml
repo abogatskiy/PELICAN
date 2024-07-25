@@ -1,0 +1,25 @@
+
+num_channels_scalar: 7
+
+num_channels_m:
+  - 
+    - 11
+  - 
+    - 11
+  - 
+    - 11
+  - 
+    - 11
+  - 
+    - 11
+num_channels_2to2: 
+  - 7
+  - 7
+  - 7
+  - 7
+  - 7
+num_channels_m_out:
+  - 11
+  - 7
+num_channels_out: 
+  - 11

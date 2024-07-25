@@ -8,13 +8,13 @@ nobj_avg: 49
 batch_size: 128
 num_workers: 0
 
-num_valid: -1
-num_train: -1
+num_valid: 600000
+num_train: 10000000
 num_test: -1
-lr_decay_type: cos
-warmup: 0
-cooldown: 0
-num_epoch: 5
+lr_decay_type: warm
+warmup: 2
+cooldown: 2
+num_epoch: 32
 config: M
 config_out: M
 
@@ -29,7 +29,7 @@ drop_rate_out: 0.01
 weight_decay: 0.0
 summarize: False
 
-log_every: 1000
-save_every: 1000
+log_every: 100
+save_every: 100
 RAMdataset: False
 distribute_eval: True
