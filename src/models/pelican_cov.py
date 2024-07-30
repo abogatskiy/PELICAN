@@ -13,10 +13,10 @@ class PELICANRegression(nn.Module):
     """
     def __init__(self,  rank1_width_multiplier, num_channels_scalar, num_channels_m, num_channels_2to2, num_channels_out, num_channels_m_out, num_targets,
                  stabilizer='so13',  method='spurions', activate_agg_in=False, activate_lin_in=True,
-                 activate_agg=False, activate_lin=True, activation='leakyrelu', read_pid=False, config='s', config_out='s', average_nobj=20, factorize=True, masked=True,
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', config='s', config_out='s', average_nobj=20, factorize=True, masked=True,
                  activate_agg_out=True, activate_lin_out=False, mlp_out=True,
-                 scale=1, irc_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
-                 device=torch.device('cpu'), dtype=None):
+                 scale=1, irc_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,  
+                 dataset='', device=torch.device('cpu'), dtype=None):
         super().__init__()
 
         logging.info('Initializing network!')
@@ -45,6 +45,7 @@ class PELICANRegression(nn.Module):
         self.average_nobj = average_nobj
         self.factorize = factorize
         self.masked = masked
+        self.dataset = dataset
 
         if dropout:
             self.dropout_layer = nn.Dropout(drop_rate)
@@ -57,13 +58,7 @@ class PELICANRegression(nn.Module):
         self.rank1_dim = self.ginvariants.rank1_dim
         self.rank2_dim = self.ginvariants.rank2_dim
 
-        if read_pid:
-            self.num_scalars = 14
-        elif method.startswith('s') and stabilizer!='so13':
-            self.num_scalars = 1 + self.num_spurions()
-        else:
-            self.num_scalars = 0
-            
+        self.num_scalars = 1 + self.num_spurions() + {'qg': 12, 'jc': 12, '': 0}[dataset]
 
         if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
             embedding_dim = self.num_channels_m[0][0]

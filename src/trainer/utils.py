@@ -76,7 +76,9 @@ def fix_args(args):
         # args.num_channels_m[0][0] = args.num_channels_2to2[0] # delete this line if not using Residual connections
     if args.target == 'None':
         args.target = None
-
+    if args.warmup + args.cooldown >= args.num_epoch:
+        logger.warn(f'num_epoch ({args.num_epoch}) must be strictly greater than warmup + cooldown ({args.warmup + args.cooldown}). Increasing num_epoch to {args.warmup + args.cooldown + 1}.')
+        args.num_epoch = args.warmup + args.cooldown + 1
     return args
 
 def set_seed(args, device_id):
