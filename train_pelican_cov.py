@@ -108,11 +108,11 @@ def main():
     model = PELICANRegression(args.rank1_width_multiplier, args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out,
                               num_targets=args.num_targets, stabilizer=args.stabilizer, method = args.method,
                               activate_agg=args.activate_agg, activate_lin=args.activate_lin,
-                              activation=args.activation, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
+                              activation=args.activation, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
                               factorize=args.factorize, masked=args.masked,
                               activate_agg_out=args.activate_agg_out, activate_lin_out=args.activate_lin_out, mlp_out=args.mlp_out,
                               scale=args.scale, irc_safe=args.irc_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
-                              device=device, dtype=dtype)
+                              dataset=args.dataset, device=device, dtype=dtype)
     
     model.to(device)
 
@@ -144,9 +144,11 @@ def main():
                       restart_epochs, device_id, device, dtype)
 
     if not args.task.startswith('eval'):
-        # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
+        # Load from checkpoint file (if one exists)
         trainer.load_checkpoint()
-        # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
+        # Restore random seed
+        args = set_seed(args, device_id)
+        # This makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless) by banning certain non-deterministic operations
         if args.reproducible:
             os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
         # Train model.

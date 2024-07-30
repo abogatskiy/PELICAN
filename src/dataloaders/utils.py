@@ -1,5 +1,5 @@
 import numpy as np
-
+import torch
 import logging, glob
 import logging
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
     for split in splits:
         logger.info(f'Looking for {split} files in datadir:')
         for filename in files:
-            if (split in filename):
+            if (split in filename.rsplit("/",1)[-1]):
                 datafiles[split].append(filename)
                 logger.info(filename)
 
@@ -73,7 +73,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data
-    torch_datasets = {split: ConcatDataset([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance, RAMdataset=RAMdataset_splits[split]) for idx, filename in enumerate(datasets[split]) if num_pts_per_file[split][idx]!=0]) for split in splits if len(datasets[split])>0}
+    torch_datasets = {split: ConcatDatasetChild([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance, RAMdataset=RAMdataset_splits[split]) for idx, filename in enumerate(datasets[split]) if num_pts_per_file[split][idx]!=0]) for split in splits if len(datasets[split])>0}
 
     # Now, update the number of training/test/validation sets in args
     if 'train' in torch_datasets.keys():
@@ -84,3 +84,16 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
         args.num_valid = torch_datasets['valid'].cumulative_sizes[-1]
 
     return args, torch_datasets
+
+
+
+class ConcatDatasetChild(ConcatDataset):
+    # Dummy class to allow one to quickly iterate through the dataset without actually reading any real data
+    def __init__(self, list):
+        ConcatDataset.__init__(self, list)
+        self.fast_skip=False
+    
+    def __getitem__(self, idx):
+        if self.fast_skip:
+            return None
+        return ConcatDataset.__getitem__(self, idx)

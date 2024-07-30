@@ -79,13 +79,14 @@ def main():
         world_size = dist.get_world_size()
         logger.info(f'World size {world_size}')
 
-    # Initialize dataloder
+    # Fix a seed for dataloading (useful when num_train!=-1 and one wants the same training data across runs)
     if args.fix_data:
         torch.manual_seed(165937750084982)
+    # Initialize dataloder
     args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile, balance=(args.num_classes==2), RAMdataset=args.RAMdataset)
 
     # Construct PyTorch dataloaders from datasets
-    collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj, read_pid=args.read_pid)
+    collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj)
     
     # Whether testing set evaluation should be distributed
     distribute_eval=args.distribute_eval
@@ -111,11 +112,11 @@ def main():
     model = PELICANClassifier(args.rank1_width_multiplier, args.num_channels_scalar, args.num_channels_m, args.num_channels_2to2, args.num_channels_out, args.num_channels_m_out, 
                               stabilizer=args.stabilizer, method = args.method, num_classes=args.num_classes,
                               activate_agg=args.activate_agg, activate_lin=args.activate_lin,
-                              activation=args.activation, read_pid=args.read_pid, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
+                              activation=args.activation, config=args.config, config_out=args.config_out, average_nobj=args.nobj_avg,
                               factorize=args.factorize, masked=args.masked,
                               activate_agg_out=args.activate_agg_out, activate_lin_out=args.activate_lin_out, mlp_out=args.mlp_out,
                               scale=args.scale, irc_safe=args.irc_safe, dropout = args.dropout, drop_rate=args.drop_rate, drop_rate_out=args.drop_rate_out, batchnorm=args.batchnorm,
-                              device=device, dtype=dtype)
+                              dataset=args.dataset, device=device, dtype=dtype)
     
     model.to(device)
 
@@ -150,9 +151,11 @@ def main():
                       restart_epochs, device_id, device, dtype)
     
     if not args.task.startswith('eval'):
-        # Load from checkpoint file. If no checkpoint file exists, automatically does nothing.
+        # Load from checkpoint file (if one exists)
         trainer.load_checkpoint()
-        # Set a CUDA variale that makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless)
+        # Restore random seed
+        args = set_seed(args, device_id)
+        # This makes the results exactly reproducible on a GPU (on CPU they're reproducible regardless) by banning certain non-deterministic operations
         if args.reproducible:
             os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
         # Train model.

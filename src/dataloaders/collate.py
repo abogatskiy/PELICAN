@@ -135,7 +135,7 @@ def drop_zeros(props, to_keep):
         return props[:, to_keep, ...]
 
 
-def collate_fn(data, scale=1., nobj=None, edge_features=[], beam_mass=1, read_pid=False):
+def collate_fn(data, scale=1., nobj=None, edge_features=[], beam_mass=1):
     """
     Collation function that collates datapoints into the batch format
 
@@ -153,6 +153,9 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], beam_mass=1, read_pi
     batch : dict of Pytorch tensors
         The collated data.
     """
+    if data[0] is None:
+        return None
+    
     common_keys = data[0].keys()
     # common_keys = set.intersection(*[set(d.keys()) for d in data]) # Uncomment if different data files have different sets of keys
     data = {key: batch_stack([event[key] for event in data], nobj=nobj) for key in common_keys}
@@ -166,38 +169,10 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], beam_mass=1, read_pi
     # p3s = F.normalize(p3s, dim=-1) * Es
     # data['Pmu'] = torch.cat([Es,p3s],dim=-1)
 
-    # if read_pid:
-    #     assert 'pdgid' in data.keys(), "Need the key pdgid in your data before using read_pid"
-        
-    # if add_beams:
-    #     p = 1
-    #     beams = torch.tensor([[[sqrt(p**2+beam_mass**2),0,0,p], [sqrt(p**2+beam_mass**2),0,0,-p]]], dtype=dtype, device=device).expand(s[0], 2, 4)
-    #     data['Pmu'] = torch.cat([beams, data['Pmu'] * scale], dim=1)
-    #     data['Nobj'] = data['Nobj'] + 2
-    #     if read_pid:
-    #         num_classes=14
-    #         beams_pdg = torch.tensor([[2212, 2212]], dtype=torch.long, device=device).expand(s[0], 2)
-    #         data['pdgid'] = torch.cat([beams_pdg, data['pdgid'].to(dtype=torch.long)], dim=1)
-    #     else:
-    #         num_classes=2
-    #         data['pdgid'] = torch.cat([2212 * torch.ones(s[0], 2, dtype=torch.long, device=device),
-    #                                    torch.zeros(s[0], s[1], dtype=torch.long, device=device)], dim=1)
-    # else:
     data['Pmu'] = data['Pmu'] * scale
-
-    # labels = torch.cat((torch.ones(s[0], 2), torch.zeros(s[0], s[1])), dim=1)
-    # labelsi = labels.unsqueeze(1).expand(s[0], s[1]+2, s[1]+2)
-    # labelsj = labels.unsqueeze(2).expand(s[0], s[1]+2, s[1]+2)
-    # labels = torch.where(edge_mask.unsqueeze(-1), torch.stack([labelsi, labelsj], dim=-1), zero)
 
     particle_mask = data['Pmu'][...,0] != 0.
     edge_mask = particle_mask.unsqueeze(1) * particle_mask.unsqueeze(2)
-
-    # if read_pid or add_beams:
-    #     if 'scalars' not in data.keys():
-    #         data['scalars'] = pdg_onehot(data['pdgid'], num_classes=num_classes, mask=particle_mask.unsqueeze(-1))
-    #     else:
-    #         data['scalars'] = torch.cat([data['scalars'], pdg_onehot(data['pdgid'], num_classes=num_classes, mask=particle_mask.unsqueeze(-1))], dim=-1)
 
     data['particle_mask'] = particle_mask.bool()
     data['edge_mask'] = edge_mask.bool()

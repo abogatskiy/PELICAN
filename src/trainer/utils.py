@@ -39,7 +39,7 @@ def init_argparse():
 
 def init_logger(args, device_id=-1):
     if args.logfile and device_id <= 0:
-        handlers = [logging.FileHandler(args.logfile, mode='a' if args.load else 'w'), logging.StreamHandler()]
+        handlers = [logging.FileHandler(args.logfile, mode='a' if (args.load or args.task.startswith('eval')) else 'w'), logging.StreamHandler()]
     else:
         handlers = [logging.StreamHandler()]
 
@@ -76,7 +76,9 @@ def fix_args(args):
         # args.num_channels_m[0][0] = args.num_channels_2to2[0] # delete this line if not using Residual connections
     if args.target == 'None':
         args.target = None
-
+    if args.warmup + args.cooldown >= args.num_epoch:
+        logger.warn(f'num_epoch ({args.num_epoch}) must be strictly greater than warmup + cooldown ({args.warmup + args.cooldown}). Increasing num_epoch to {args.warmup + args.cooldown + 1}.')
+        args.num_epoch = args.warmup + args.cooldown + 1
     return args
 
 def set_seed(args, device_id):
@@ -271,8 +273,8 @@ def init_cuda(args, device_id=-1):
             dist.init_process_group(backend='nccl', timeout=timedelta(hours=2))
             logger.info(f"Setting cuda device = {device_id}")
             device = torch.device(device_id)
-    elif args.device in ['mps', 'm1']:
-        logger.info('Initializing M1 Chip!')
+    elif args.device in ['mps']:
+        logger.info('Initializing Apple Neural Engine!')
         device = torch.device('mps')
     else:
         logger.info('Initializing CPU!')
@@ -337,4 +339,5 @@ def synchronize():
     world_size = dist.get_world_size()
     if world_size == 1:
         return
+    logger.info('Waiting for other processes to reach a barrier.')
     dist.barrier()

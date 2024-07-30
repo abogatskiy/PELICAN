@@ -67,7 +67,7 @@ class JetDataset(Dataset):
                     self.data = {key: torch.from_numpy(val[:self.num_pts]) for key, val in f.items() if len(val)==len_data}
                 else:
                     # this returns the permutation of range(num_pts) that unsorts sorted(self.perm), and subset=sorted(self.perm)
-                    self.perm, subset = zip(*list(sorted(enumerate(self.perm), key=lambda x: x[1])))
+                    self.perm, subset = zip(*list(sorted(enumerate(self.perm), key=lambda x: x[1])[:self.num_pts]))
                     # only load data[subset] into RAM 
                     self.data = {key: torch.from_numpy(val[:])[torch.tensor(subset)] for key, val in f.items()}
                     # this version will only ever read num_pts events into RAM, but will be slow because subset is not sequential

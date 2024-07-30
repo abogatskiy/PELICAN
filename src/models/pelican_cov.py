@@ -13,10 +13,10 @@ class PELICANRegression(nn.Module):
     """
     def __init__(self,  rank1_width_multiplier, num_channels_scalar, num_channels_m, num_channels_2to2, num_channels_out, num_channels_m_out, num_targets,
                  stabilizer='so13',  method='spurions', activate_agg_in=False, activate_lin_in=True,
-                 activate_agg=False, activate_lin=True, activation='leakyrelu', read_pid=False, config='s', config_out='s', average_nobj=20, factorize=True, masked=True,
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', config='s', config_out='s', average_nobj=20, factorize=True, masked=True,
                  activate_agg_out=True, activate_lin_out=False, mlp_out=True,
-                 scale=1, irc_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,
-                 device=torch.device('cpu'), dtype=None):
+                 scale=1, irc_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,  
+                 dataset='', device=torch.device('cpu'), dtype=None):
         super().__init__()
 
         logging.info('Initializing network!')
@@ -45,25 +45,20 @@ class PELICANRegression(nn.Module):
         self.average_nobj = average_nobj
         self.factorize = factorize
         self.masked = masked
+        self.dataset = dataset
 
         if dropout:
             self.dropout_layer = nn.Dropout(drop_rate)
             self.dropout_layer_out = nn.Dropout(drop_rate_out)
 
-        if method == 'spurions':
+        if method.startswith('s'):
             self.ginvariants = GInvariants(stabilizer='so13', irc_safe=irc_safe)
         else:
             self.ginvariants = GInvariants(stabilizer=stabilizer, irc_safe=irc_safe)
         self.rank1_dim = self.ginvariants.rank1_dim
         self.rank2_dim = self.ginvariants.rank2_dim
 
-        if read_pid:
-            self.num_scalars = 14
-        elif method == 'spurions' and stabilizer!='so13':
-            self.num_scalars = 1 + self.num_spurions()
-        else:
-            self.num_scalars = 0
-            
+        self.num_scalars = 1 + self.num_spurions() + {'qg': 12, 'jc': 12, '': 0}[dataset]
 
         if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
             embedding_dim = self.num_channels_m[0][0]
@@ -80,7 +75,7 @@ class PELICANRegression(nn.Module):
         # The input stack applies an encoding function
         rank1_dim_multiplier = 1 # each scalar will produce this many channels
 
-        if stabilizer == 'so13' or method == 'spurions':
+        if stabilizer == 'so13' or method.startswith('s'):
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype)
         elif stabilizer in ['1','1_0']:
             weights = torch.ones((embedding_dim, self.rank2_dim), device=device, dtype=dtype) - torch.tensor([[0,2,2,2]], device=device, dtype=dtype)
@@ -108,7 +103,7 @@ class PELICANRegression(nn.Module):
 
         # We have produced one feature vector per each of the N particles, and now we apply an MLP to each of those to get the final PELICAN weights
         if mlp_out:
-            self.mlp_out_1 = BasicMLP(self.num_channels_out + [num_targets*(1 if self.method=='spurions' else min(4,self.rank2_dim))], 
+            self.mlp_out_1 = BasicMLP(self.num_channels_out + [num_targets*(1 if self.method.startswith('s') else min(4,self.rank2_dim))], 
                                       activation=activation, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
         self.apply(init_weights)
@@ -187,7 +182,7 @@ class PELICANRegression(nn.Module):
     def regression_prediction(self, event_momenta, PELICAN_weights):
         dtype, device = self.dtype, self.device
         event_momenta = event_momenta.unsqueeze(-2)
-        if self.method == 'input':
+        if self.method.startswith('i'):
             if self.stabilizer=='so3':  # L_x, L_y, L_z
                 event_momenta = event_momenta * torch.tensor([[[[1,0,0,0],[0,1,1,1]]]],dtype=dtype,device=device)
             elif self.stabilizer=='so12': # K_x, K_y, L_z
@@ -229,7 +224,7 @@ class PELICANRegression(nn.Module):
         """
         device, dtype = self.device, self.dtype
 
-        if self.method == "spurions":
+        if self.method.startswith('s'):
             data = self.add_spurions(data)
 
         event_momenta = data['Pmu'].to(device, dtype)

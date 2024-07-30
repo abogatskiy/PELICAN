@@ -306,10 +306,11 @@ class GInvariants(nn.Module):
         dtype, device = event_momenta.dtype, event_momenta.device
         # event_momenta = event_momenta.unsqueeze(1)
         if self.stabilizer == '1':
+            rank1 = event_momenta
+            rank2 = rank1.unsqueeze(1)*rank1.unsqueeze(2)
             rank1 = None
-            rank2 = event_momenta.unsqueeze(1)*event_momenta.unsqueeze(2)
         elif self.stabilizer == '1_0':
-            rank1 = event_momenta @ torch.tensor([[1,0,0,1],[1,-1,0,0],[1,0,-1,0],[1,0,0,-1]],dtype=dtype,device=device).t()/200
+            rank1 = event_momenta @ torch.tensor([[1,0,0,1],[1,-1,0,0],[1,0,-1,0],[1,0,0,-1]],dtype=dtype,device=device).t()
             rank2 = rank1.unsqueeze(1)*rank1.unsqueeze(2)
             rank1 = None
         else:
@@ -317,41 +318,41 @@ class GInvariants(nn.Module):
             if self.stabilizer=='so13':   # L_x, L_y, L_z, K_x, K_y, K_z
                 rank1 = None
             elif self.stabilizer=='so3':  # L_x, L_y, L_z
-                rank1 = event_momenta[...,[0]]/200 # Energy
+                rank1 = event_momenta[...,[0]] # Energy
                 # rank2 = dot3(event_momenta, event_momenta).unsqueeze(-1)
             elif self.stabilizer=='so12': # K_x, K_y, L_z
-                rank1 = event_momenta[...,[-1]]/200 #p_z
+                rank1 = event_momenta[...,[-1]] #p_z
                 # rank2 = dot12(event_momenta, event_momenta).unsqueeze(-1)
             elif self.stabilizer=='se2':  # L_z, K_x-L_y, K_y+L_x
-                rank1 = (event_momenta[...,[0]] - event_momenta[...,[-1]])/200 #E - p_z
+                rank1 = (event_momenta[...,[0]] - event_momenta[...,[-1]]) #E - p_z
             elif self.stabilizer=='so2':  # L_z
-                rank1 = (event_momenta[...,[0, 3]])/200 # E, p_z
+                rank1 = (event_momenta[...,[0, 3]]) # E, p_z
             elif self.stabilizer=='so2_0':# L_z
-                rank1 = (event_momenta[...,[0, 3]]/200) @ torch.tensor([[1,1],[1,-1]],dtype=dtype,device=device) # E ± p_z
+                rank1 = (event_momenta[...,[0, 3]]) @ torch.tensor([[1,1],[1,-1]],dtype=dtype,device=device) # E ± p_z
                 # rank2 = dot2(event_momenta, event_momenta).unsqueeze(-1)            
             elif self.stabilizer=='R':    # K_z
-                rank1 = (event_momenta[...,[1, 2]]/200) # p_x, p_y
+                rank1 = (event_momenta[...,[1, 2]]) # p_x, p_y
                 # rank2 = dot11(event_momenta, event_momenta).unsqueeze(-1)  
             elif self.stabilizer=='11':   # 0
-                rank1 = event_momenta/200
+                rank1 = event_momenta
             elif self.stabilizer=='11_0':   # 0
-                rank1 = (event_momenta/200) @ torch.tensor([[1,0,0,1],[1,1,0,0],[1,0,1,0],[1,0,0,-1]],dtype=dtype,device=device).t()
+                rank1 = (event_momenta) @ torch.tensor([[1,0,0,1],[1,1,0,0],[1,0,1,0],[1,0,0,-1]],dtype=dtype,device=device).t()
 
             if rank1 == None:
                 rank2 = dot_products
             else:
                 rank2 = torch.cat([rank1.unsqueeze(1)*rank1.unsqueeze(2), dot_products], dim=-1)
 
-        irc_weight = None
         # TODO: make irc_safe option work with rank1 inputs
+        irc_weight = None
         if self.irc_safe:
             if self.rank1_dim > 0:
                 raise NotImplementedError
             # Define the C-safe weight proportional to fractional constituent energy in jet frame (Lorentz-invariant and adds up to 1)
-            irc_weight = self.softmask(dot_products.squeeze(-1), mode='c')
             # Replace input dot products with 2*(1-cos(theta_ij)) where theta is the pairwise angle in jet frame (assuming massless particles)
             eps = 1e-12
-            energies = ((dot_products.sum(1).unsqueeze(1) * dot_products.sum(1).unsqueeze(2)) / dot_products.sum((1, 2), keepdim=True)).unsqueeze(-1)
+            irc_weight = dot_products.sum(1).squeeze(-1) / dot_products.sum((1,2))
+            energies = ((dot_products.sum(1).unsqueeze(1) * dot_products.sum(1).unsqueeze(2)) / dot_products.sum((1, 2), keepdim=True))
             inputs1 = rank2.clone()
             rank2 = 2 * inputs1 / (eps + energies)  # 2*(1-cos(theta_ij)) in massless case
 
