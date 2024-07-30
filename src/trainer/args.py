@@ -139,8 +139,8 @@ def setup_argparse():
                         help='Directory to look up data from. (default: data/)')
 
     # Dataset options
-    parser.add_argument('--dataset', type=str, default='jet',
-                        help='Data set. (Default: jet)')
+    parser.add_argument('--dataset', type=str, default='',
+                        help='Data set. (Default: \'\')')
     parser.add_argument('--target', type=str, default='is_signal',
                         help='The name of the key that contains the training targets. (default: is_signal)')
     parser.add_argument('--num-targets', type=int, default=1, metavar='N',

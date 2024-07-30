@@ -15,7 +15,7 @@ class PELICANClassifier(nn.Module):
     def __init__(self, rank1_dim_multiplier, num_channels_scalar, num_channels_m, num_channels_2to2, num_channels_out, num_channels_m_out, 
                  stabilizer='so13', method='input', num_classes=2,
                  activate_agg_in=False, activate_lin_in=True,
-                 activate_agg=False, activate_lin=True, activation='leakyrelu', read_pid=False, config='s', config_out='s', average_nobj=49, factorize=False, masked=True,
+                 activate_agg=False, activate_lin=True, activation='leakyrelu', config='s', config_out='s', average_nobj=49, factorize=False, masked=True,
                  activate_agg_out=True, activate_lin_out=False, mlp_out=True,
                  scale=1, irc_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None, dataset='',
                  device=torch.device('cpu'), dtype=None):
@@ -60,7 +60,7 @@ class PELICANClassifier(nn.Module):
         self.rank1_dim = self.ginvariants.rank1_dim
         self.rank2_dim = self.ginvariants.rank2_dim
 
-        self.num_scalars = 1 + self.num_spurions() + {'qg': 12, 'jc': 12, 'generic': 0}[dataset]
+        self.num_scalars = 1 + self.num_spurions() + {'qg': 12, 'jc': 12, '': 0}[dataset]
 
         if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
             embedding_dim = self.num_channels_m[0][0]
@@ -214,7 +214,7 @@ class PELICANClassifier(nn.Module):
 
         if self.dataset == "jc":
             data = add_pid_jc(data)
-        elif self.datast == 'qg':
+        elif self.dataset == 'qg':
             data = add_pid_qg(data)
         if self.method.startswith('s'): # do this last because spurions need to know the shape of the scalar inputs
             data = self.add_spurions(data)
