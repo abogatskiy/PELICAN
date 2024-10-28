@@ -60,7 +60,9 @@ class PELICANClassifier(nn.Module):
         self.rank1_dim = self.ginvariants.rank1_dim
         self.rank2_dim = self.ginvariants.rank2_dim
 
-        self.num_scalars = 1 + self.num_spurions() + {'qg': 12, 'jc': 12, '': 0}[dataset]
+        self.num_scalars = {'qg': 12, 'jc': 12, '': 0}[dataset]
+        if self.method.startswith('s'):
+            self.num_scalars += 1 + self.num_spurions()
 
         if (len(num_channels_m) > 0) and (len(num_channels_m[0]) > 0):
             embedding_dim = self.num_channels_m[0][0]
@@ -103,7 +105,7 @@ class PELICANClassifier(nn.Module):
                                activate_agg=activate_agg, activate_lin=activate_lin, activation = activation, 
                                dropout=dropout, drop_rate=drop_rate, batchnorm = batchnorm, config=config, 
                                average_nobj=average_nobj, factorize=factorize, masked=masked, device = device, dtype = dtype)
-        
+
         # The final equivariant block is 2->1 and is defined here manually as a messaging layer followed by the 2->1 aggregation layer
         self.msg_2to0 = MessageNet(num_channels_m_out, activation=activation, 
                                    batchnorm=batchnorm, device=device, dtype=dtype)       
@@ -231,6 +233,8 @@ class PELICANClassifier(nn.Module):
         return scalars, particle_mask, edge_mask, event_momenta
     
     def num_spurions(self):
+        if self.method.startswith('i'):
+            return 0
         stabilizer = self.stabilizer
         if stabilizer == 'so13':
             return 0

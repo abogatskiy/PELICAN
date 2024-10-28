@@ -5,6 +5,8 @@
 
 arXiv link: https://arxiv.org/abs/2211.00454
 
+arXiv link: https://arxiv.org/abs/2211.00454
+
 ## Description
 
 PELICAN is a network that takes 4-momentum inputs (e.g. jet constituents) and uses Lorentz-invariant features and permutation-equivariant layers to solve tasks such as classification and momentum regression in an exactly Lorentz-covariant way. Embedding the symmetries into the architecture drastically reduces the model size while still delivering state-of-the-art performance. Moreover, by using only physically/geometrically meaningful mathematical operations, PELICAN can provide viable physics models as opposed to black-box ML approaches that do not respect fundamental symmetries. Finally, equivariance massively improves sample efficiency (and generalizability from low amounts of training data). This repository contains two main top-level scripts, one for classification, and one for 4-momentum regression (currently outputting just one 4-vector prediction). These can be executed directly with no installation. The data folder contains a small sample dataset consisting of 50% top quark jets and 50% background jets (with the key `is_signal` identifying which is which).
@@ -67,6 +69,10 @@ For training on some custom datasets, such as Quark-Gluon and JetClass, there is
 
 
 ## Authors
+
+Alexander Bogatskiy, Flatiron Institute
+
+Jan T. Offermann, University of Chicago 
 
 Alexander Bogatskiy, Flatiron Institute
 
