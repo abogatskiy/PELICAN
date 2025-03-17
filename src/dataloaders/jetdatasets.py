@@ -22,7 +22,7 @@ class JetDataset(Dataset):
                 self.num_pts = len_data
             else:
                 if num_pts > len_data:
-                    logging.warn('Desired number of points ({}) is greater than the number of data points ({}) available in the dataset!'.format(num_pts, len(filename['Nobj'])))
+                    logging.warn('Desired number of points ({}) is greater than the number of data points ({}) available in the dataset!'.format(num_pts, len(f['Nobj'])))
                     self.num_pts = len_data
                 else:
                     self.num_pts = num_pts
