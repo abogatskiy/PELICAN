@@ -24,7 +24,10 @@ class Trainer:
         self.minibatch_metrics_fn = minibatch_metrics_fn
         self.minibatch_metrics_string_fn = minibatch_metrics_string_fn
         self.optimizer = optimizer
-        self.scheduler = self._wrap_scheduler(scheduler)
+        if optimizer is None:
+            self.scheduler = None
+        else:
+            self.scheduler = self._wrap_scheduler(scheduler)
         self.restart_epochs = restart_epochs
 
         self.summarize_csv =args.summarize_csv
