@@ -81,7 +81,11 @@ def main():
     # Initialize dataloder
     if args.fix_data:
         torch.manual_seed(165937750084982)
-    args, datasets = initialize_datasets(args, args.datadir, num_pts=None, testfile=args.testfile, RAMdataset=args.RAMdataset)
+    if args.task.startswith('eval'):
+        splits = ['test']
+    else:
+        splits = ['train', 'test', 'valid']
+    args, datasets = initialize_datasets(args, args.datadir, splits, num_pts=None, testfile=args.testfile, balance=(args.num_classes==2), RAMdataset=args.RAMdataset)
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj)

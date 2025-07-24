@@ -7,9 +7,10 @@ logger = logging.getLogger(__name__)
 from torch.utils.data import ConcatDataset
 from . import JetDataset
 
-def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, testfile='', balance=True, RAMdataset=True):
+def initialize_datasets(args, datadir='../../data/sample_data', splits = ['train', 'test', 'valid'], num_pts=None, testfile='', balance=True, RAMdataset=True):
     """
     Initialize datasets.
+    splits: We will consider all HDF5 files in datadir with one of these keywords in the filename
     """
 
     ### ------ 1: Get the file names ------ ###
@@ -17,7 +18,6 @@ def initialize_datasets(args, datadir='../../data/sample_data', num_pts=None, te
     # There may be many data files, in some cases the test/train/validate sets may themselves be split across files.
     # We will look for the keywords defined in splits to be be in the filenames, and will thus determine what
     # set each file belongs to.
-    splits = ['train', 'test', 'valid'] # We will consider all HDF5 files in datadir with one of these keywords in the filename
     randomize_subset = {'train': True, 'valid': True, 'test': False} # Shuffle only the training set
     RAMdataset_splits = {'train': RAMdataset, 'valid': RAMdataset, 'test': RAMdataset} # always load validation set into RAM for speed (hopefully it's not too large)
     datafiles = {split:[] for split in splits}
