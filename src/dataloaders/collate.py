@@ -94,7 +94,7 @@ def batch_stack(props, edge_mat=False, nobj=None):
     elif props[0].dim() == 0:
         return torch.stack(props)
     elif not edge_mat:
-        props = [p[:nobj, ...] for p in props] #TODO: this causes a bug if nobj<num_classes because it cuts off one-hots in data
+        props = [p[:nobj, ...] for p in props]
         return torch.nn.utils.rnn.pad_sequence(props, batch_first=True, padding_value=0)
     else:
         max_particles = max([len(p) for p in props])
@@ -158,7 +158,10 @@ def collate_fn(data, scale=1., nobj=None, edge_features=[], beam_mass=1):
     
     common_keys = data[0].keys()
     # common_keys = set.intersection(*[set(d.keys()) for d in data]) # Uncomment if different data files have different sets of keys
-    data = {key: batch_stack([event[key] for event in data], nobj=nobj) for key in common_keys}
+    # Only per-particle arrays (first axis as long as the event's Pmu) are truncated to nobj, not per-event ones like targets
+    num_particles = [len(event['Pmu']) for event in data]
+    is_per_particle = lambda key: all(torch.is_tensor(event[key]) and event[key].dim() > 0 and len(event[key]) == n for event, n in zip(data, num_particles))
+    data = {key: batch_stack([event[key] for event in data], nobj=nobj if is_per_particle(key) else None) for key in common_keys}
     device = data['Pmu'].device
     dtype = data['Pmu'].dtype
     s = data['Pmu'].shape
