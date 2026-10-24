@@ -45,13 +45,7 @@ def eops_1_to_1(inputs, normalize=False):
     op2 = sums.expand(-1, -1, dim)
     return torch.stack([op1, op2], dim=2)
 
-def eops_1_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None):
-    '''
-    inputs: B x N x C tensor (event, particle, channel)
-    '''
-    inputs = inputs.permute(0, 2, 1)
-    B, C, N = inputs.shape
-
+def get_aggregation_fn(aggregation, nobj, nobj_avg):
     if aggregation == 'mean':
         aggregation_fn = masked_mean
     elif aggregation == 'max':
@@ -63,11 +57,29 @@ def eops_1_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None)
     elif aggregation == 'sum':
         aggregation_fn = masked_sum
         nobj = nobj_avg
+    return aggregation_fn, nobj
+
+def eops_1_to_2_aggregates(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None):
+    '''
+    inputs: B x C x N tensor (already permuted)
+    Returns the aggregate B x C x 1 that eops_1_to_2 broadcasts into its basis operations.
+    '''
+    aggregation_fn, nobj = get_aggregation_fn(aggregation, nobj, nobj_avg)
 
     if weight is not None:
         sum_all = aggregation_fn(inputs * weight.unsqueeze(1), nobj, dim=2, keepdims=True) # B x C x 1
     else:
         sum_all = aggregation_fn(inputs, nobj, dim=2, keepdims=True) # B x C x 1
+    return sum_all
+
+def eops_1_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None):
+    '''
+    inputs: B x N x C tensor (event, particle, channel)
+    '''
+    inputs = inputs.permute(0, 2, 1)
+    B, C, N = inputs.shape
+
+    sum_all = eops_1_to_2_aggregates(inputs, nobj, nobj_avg, aggregation, weight) # B x C x 1
 
     op1 = torch.diag_embed(inputs)
     op2 = inputs.unsqueeze(2).expand(-1, -1, N, -1)
@@ -75,6 +87,28 @@ def eops_1_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None)
     op4 = torch.diag_embed(sum_all.expand(-1, -1, N))
     op5 = sum_all.unsqueeze(3).expand(-1, -1, N, N)
     return torch.stack([op1, op2, op3, op4, op5], dim=2)
+
+def eops_1_to_2_mix(inputs, coefs, nobj=None, nobj_avg=49, aggregation='mean', weight=None, mult=None):
+    '''
+    Equivalent to torch.einsum('dsb,ndbij->nijs', coefs, eops_1_to_2(inputs, ...) * mult), without materializing the basis.
+    inputs: B x N x C, coefs: C x S x 5, mult: None or B x C x 5 multiplier of each basis operation.
+    Returns: B x N x N x S
+    '''
+    inputs = inputs.permute(0, 2, 1)
+    sum_all = eops_1_to_2_aggregates(inputs, nobj, nobj_avg, aggregation, weight) # B x C x 1
+
+    # ops 1, 2, 3 are x placed on the diagonal, at [i,j] = x[j], at [i,j] = x[i]; ops 4, 5 are sum_all on the diagonal and everywhere
+    vecs = inputs.unsqueeze(2).expand(-1, -1, 3, -1) # B x C x 3 x N
+    consts = sum_all.expand(-1, -1, 2) # B x C x 2
+    if mult is not None:
+        vecs = vecs * mult[:, :, :3, None]
+        consts = consts * mult[:, :, 3:]
+    vecs = torch.einsum('bdkn,dsk->bkns', vecs, coefs[:, :, :3]) # B x 3 x N x S
+    consts = torch.einsum('bdk,dsk->bks', consts, coefs[:, :, 3:]) # B x 2 x S
+
+    output = (vecs[:, 2] + consts[:, 1].unsqueeze(1)).unsqueeze(2) + vecs[:, 1].unsqueeze(1)
+    output.diagonal(dim1=1, dim2=2).add_((vecs[:, 0] + consts[:, 0].unsqueeze(1)).transpose(1, 2))
+    return output
 
 def eops_2_to_0(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None):
     inputs = inputs.permute(0, 3, 1, 2)
@@ -193,22 +227,13 @@ def eops_2_to_1(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None)
 #     return torch.stack(ops[1:], dim=2)
 
 
-def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None, skip_order_zero=False, folklore=False):
-    inputs = inputs.permute(0, 3, 1, 2)
-    B, C, N, N = inputs.shape
-
+def eops_2_to_2_aggregates(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None, folklore=False):
+    '''
+    inputs: B x C x N x N tensor (already permuted)
+    Returns the tensors that eops_2_to_2 broadcasts into its basis operations.
+    '''
     diag_part = torch.diagonal(inputs, dim1=-2, dim2=-1) # B x C x N
-    if aggregation == 'mean':
-        aggregation_fn = masked_mean
-    elif aggregation == 'max':
-        aggregation_fn = masked_amax
-    elif aggregation == 'min':
-        aggregation_fn = masked_amin
-    elif aggregation == 'var':
-        aggregation_fn = masked_var
-    elif aggregation == 'sum':
-        aggregation_fn = masked_sum
-        nobj = nobj_avg
+    aggregation_fn, nobj = get_aggregation_fn(aggregation, nobj, nobj_avg)
 
     # sum_diag_part = aggregation_fn(diag_part, nobj, dim=2, keepdims=True) # B x C x 1
     if weight is not None:
@@ -223,6 +248,23 @@ def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None,
         sum_rows = aggregation_fn(inputs, nobj, dim=3) # B x C x N
         sum_cols = aggregation_fn(inputs, nobj, dim=2) # B x C x N
         sum_all = aggregation_fn(inputs, nobj, dim=(2,3)) # B x C
+
+    aggregates = {'x': inputs, 'diag_part': diag_part, 'sum_rows': sum_rows, 'sum_cols': sum_cols,
+                  'sum_diag_part': sum_diag_part, 'sum_all': sum_all}
+    if folklore:
+        aggregates['folklore'] = aggregation_fn(torch.nn.LeakyReLU()(inputs.unsqueeze(-2) + inputs.unsqueeze(-3).permute(0,1,2,4,3)), nobj, dim=-1)
+    return aggregates
+
+def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None, skip_order_zero=False, folklore=False):
+    inputs = inputs.permute(0, 3, 1, 2)
+    B, C, N, N = inputs.shape
+
+    aggregates = eops_2_to_2_aggregates(inputs, nobj, nobj_avg, aggregation, weight, folklore)
+    diag_part = aggregates['diag_part']
+    sum_rows = aggregates['sum_rows']
+    sum_cols = aggregates['sum_cols']
+    sum_diag_part = aggregates['sum_diag_part']
+    sum_all = aggregates['sum_all']
 
     ops = [None] * (17 if folklore else 16)
 
@@ -246,7 +288,7 @@ def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None,
     ops[15] = torch.diag_embed(sum_all.unsqueeze(-1).expand(-1, -1, N))
 
     if folklore:
-        ops[16] = aggregation_fn(torch.nn.LeakyReLU()(inputs.unsqueeze(-2) + inputs.unsqueeze(-3).permute(0,1,2,4,3)), nobj, dim=-1)
+        ops[16] = aggregates['folklore']
 
     if skip_order_zero:
         ops = torch.stack(ops[6:], dim=2)
@@ -254,6 +296,62 @@ def eops_2_to_2(inputs, nobj=None, nobj_avg=49, aggregation='mean', weight=None,
         ops = torch.stack(ops[1:], dim=2)
 
     return ops
+
+# How each basis operation ops[k] of eops_2_to_2 is built from its aggregate (value at [i,j], i = row, j = column):
+# 'full': genuinely N x N; 'i': v[i]; 'j': v[j]; 'diag': v[i] if i==j; 'const': c; 'diag_const': c if i==j
+EOPS_2_TO_2_STRUCTURE = {1: ('full', 'x'), 2: ('full_T', 'x'), 3: ('diag', 'diag_part'), 4: ('j', 'diag_part'), 5: ('i', 'diag_part'),
+                         6: ('diag', 'sum_cols'), 7: ('j', 'sum_cols'), 8: ('i', 'sum_cols'),
+                         9: ('diag', 'sum_rows'), 10: ('j', 'sum_rows'), 11: ('i', 'sum_rows'),
+                         12: ('const', 'sum_diag_part'), 13: ('diag_const', 'sum_diag_part'),
+                         14: ('const', 'sum_all'), 15: ('diag_const', 'sum_all'), 16: ('full', 'folklore')}
+
+def eops_2_to_2_mix(inputs, coefs, aggregations, nobj=None, nobj_avg=49, weight=None, mults=None, folklore=False):
+    '''
+    Equivalent to torch.einsum('dsb,ndbij->nijs', coefs, ops), where ops concatenates over the letters of the config
+    eops_2_to_2(inputs, ..., aggregation=aggregations[l], skip_order_zero=(l>0)) * mults[l],
+    but only the N x N operations are materialized: all others are mixed over channels first and broadcast afterwards.
+    inputs: B x N x N x C, coefs: C x S x K, aggregations: one aggregation per config letter,
+    mults: None or a list with None or a B x C x K_l multiplier for each letter.
+    The multipliers of ops 1 and 2 are ignored: Eq2to2 fixes them to 1.
+    Returns: B x N x N x S
+    '''
+    inputs = inputs.permute(0, 3, 1, 2)
+
+    full = []
+    terms = {'i': ([], []), 'j': ([], []), 'diag': ([], []), 'const': ([], []), 'diag_const': ([], [])}
+    k = 0
+    for l, aggregation in enumerate(aggregations):
+        aggregates = eops_2_to_2_aggregates(inputs, nobj, nobj_avg, aggregation, weight, folklore)
+        aggregates['sum_diag_part'] = aggregates['sum_diag_part'].squeeze(-1) # B x C
+        mult = mults[l] if mults is not None else None
+        op_ids = list(range(1 if l == 0 else 6, 16)) + ([16] if folklore else [])
+        for local, op_id in enumerate(op_ids):
+            kind, name = EOPS_2_TO_2_STRUCTURE[op_id]
+            value = aggregates[name]
+            if kind in ['full', 'full_T']:
+                if mult is not None and op_id == 16:
+                    value = value * mult[:, :, local, None, None]
+                full.append(torch.einsum('bdji,ds->bijs' if kind == 'full_T' else 'bdij,ds->bijs', value, coefs[:, :, k + local]))
+            else:
+                if mult is not None:
+                    value = value * (mult[:, :, local, None] if value.dim() == 3 else mult[:, :, local])
+                terms[kind][0].append(value)
+                terms[kind][1].append(k + local)
+        k += len(op_ids)
+
+    mixed = {}
+    for kind, (values, idx) in terms.items():
+        values = torch.stack(values, dim=2)
+        if values.dim() == 4:
+            mixed[kind] = torch.einsum('bdkn,dsk->bns', values, coefs[:, :, idx]) # B x N x S
+        else:
+            mixed[kind] = torch.einsum('bdk,dsk->bs', values, coefs[:, :, idx]) # B x S
+
+    for term in full[1:]:
+        full[0] = full[0] + term
+    output = full[0] + (mixed['i'] + mixed['const'].unsqueeze(1)).unsqueeze(2) + mixed['j'].unsqueeze(1)
+    output.diagonal(dim1=1, dim2=2).add_((mixed['diag'] + mixed['diag_const'].unsqueeze(1)).transpose(1, 2))
+    return output
 
 # def eset_ops_1_to_3(inputs):
 #     N, D, m = inputs.shape
