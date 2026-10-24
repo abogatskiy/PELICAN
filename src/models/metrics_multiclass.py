@@ -13,8 +13,8 @@ def metrics(predict, targets, loss_fn, prefix, logger=None, backg_class=8):
     roc, eB30s, eS30s, eB50s, eS50s, eB995s, eS995s, tpr10s, fpr10s, tpr1s, fpr1s = ROC(predict, targets, backg_class=backg_class)
     targets = targets.argmax(dim=1)
     predict = predict.argmax(dim=1)
-    conf_matrix = confusion_matrix(targets, predict, normalize='true')
-    report = classification_report(targets, predict, target_names=[str(i) for i in range(num_classes)])
+    conf_matrix = confusion_matrix(targets, predict, labels=list(range(num_classes)), normalize='true')
+    report = classification_report(targets, predict, labels=list(range(num_classes)), target_names=[str(i) for i in range(num_classes)], zero_division=0)
     metrics = {'loss': loss, 'accuracy': accuracy}
     metrics.update({f'AUC_macro': auc_macro})
     metrics.update({f'AUC | {c}': auc for c, auc in enumerate(auc_ovr)})
