@@ -1,6 +1,5 @@
 
 datadir: ../data/v0
-task: train
 nobj: 80
 nobj_avg: 49
 num_epoch: 35

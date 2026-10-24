@@ -12,7 +12,7 @@ num_channels_m:
     - 11
   - 
     - 11
-num_channels_2to2: 
+num_channels_eq: 
   - 7
   - 7
   - 7

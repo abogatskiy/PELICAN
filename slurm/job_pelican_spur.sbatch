@@ -24,27 +24,27 @@ conda activate py310
 A=(v0_3_1s-{a..z})
 
 #spurions
-# CUBLAS_WORKSPACE_CONFIG=:16:8 python3 ../train_pelican_cov.py --datadir=../data/btW_6_d/nofilter   \
-#     --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --task=train --target=contained_daughter_sum_Pmu --num-epoch=35 --batch-size=128 \
-#     --num-train=-1 --num-valid=60000 --nobj=48 --nobj-avg=21 --optim=adamw --lr-decay-type=warm \
+# CUBLAS_WORKSPACE_CONFIG=:16:8 pelican train --task regression --datadir=../data/btW_6_d/nofilter \
+#     --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --target=contained_daughter_sum_Pmu --num-epoch=35 --batch-size=128 \
+#     --num-train=-1 --num-valid=60000 --nobj=48 --nobj-avg=21 --optim=adamw --lr-schedule=warm \
 #     --lr-init=0.0025 --lr-final=1e-6 --scale=1 --drop-rate=0.025 --drop-rate-out=0.025 --weight-decay=0.005 \
-#     --reproducible --no-fix-data --config=M --config-out=M --no-test\
-#     --no-add-beams --stabilizer=so2 --method=spurions --seed=$SLURM_ARRAY_TASK_ID
+#     --reproducible --no-fix-data --agg=M --agg-out=M --no-self-test \
+#     --stabilizer=so2 --method=spurions --seed=$SLURM_ARRAY_TASK_ID --runs-dir=./runs
 
 # QG
-# CUBLAS_WORKSPACE_CONFIG=:16:8 python3 ../train_pelican_classifier.py --datadir=../data/QG \
+# CUBLAS_WORKSPACE_CONFIG=:16:8 pelican train --datadir=../data/QG \
 #     --nobj=80 --nobj-avg=49 --num-epoch=35 --num-train=-1 --num-valid=60000 --batch-size=512 \
-#     --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --optim=adamw --lr-decay-type=warm --activation=leakyrelu \
+#     --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --optim=adamw --lr-schedule=warm --activation=leakyrelu \
 #     --factorize --masked --scale=1 --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.01 --drop-rate-out=0.01 --weight-decay=0. \
-#     --reproducible --no-fix-data --no-summarize --config=M --config-out=M \
+#     --reproducible --no-fix-data --no-summarize --agg=M --agg-out=M \
 #     --stabilizer=1 --method=input --seed=$SLURM_ARRAY_TASK_ID \
-#     #--task=eval --testfile=../data/QG/QG_jets_valid_new.h5 
+#     #--task=eval --testfile=../data/QG/QG_jets_valid_new.h5 --runs-dir=./runs
 
 # toptag
-# CUBLAS_WORKSPACE_CONFIG=:16:8 python3 ../train_pelican_classifier.py --datadir=../data/v0 \
+# CUBLAS_WORKSPACE_CONFIG=:16:8 pelican train --datadir=../data/v0 \
 #     --nobj=80 --nobj-avg=49 --num-epoch=35 --num-train=-1 --num-valid=60000 --batch-size=100 \
-#     --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --optim=adamw --lr-decay-type=warm --activation=leakyrelu \
+#     --prefix="${A[$SLURM_ARRAY_TASK_ID]}" --optim=adamw --lr-schedule=warm --activation=leakyrelu \
 #     --factorize --masked --scale=1 --lr-init=0.0025 --lr-final=1e-6 --drop-rate=0.01 --drop-rate-out=0.01 --weight-decay=0.005 \
-#     --reproducible --no-fix-data --no-summarize --config=M --config-out=M \
+#     --reproducible --no-fix-data --no-summarize --agg=M --agg-out=M \
 #     --stabilizer=1 --method=spurions --seed=$SLURM_ARRAY_TASK_ID \
-#     #--task=eval --testfile=../data/QG/QG_jets_valid_new.h5 
+#     #--task=eval --testfile=../data/QG/QG_jets_valid_new.h5 --runs-dir=./runs

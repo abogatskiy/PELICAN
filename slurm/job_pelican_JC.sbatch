@@ -44,13 +44,13 @@ conda activate py312
 
 # A=(jc_0-{a..z}) --prefix="${A[$SLURM_ARRAY_TASK_ID]}"
 
-# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=4 ../train_pelican_classifier.py --yaml=../config/48k.yaml --yaml=../config/jc.yaml --num-channels-scalar=20 --cuda --log-every=1000 --save-every=1000 --alpha=5 --stabilizer=so2 --method=spurions --prefix=jc_2-a --no-RAMdataset --datadir=${data_path}/JetClass --task=eval --num-test=1000000 --num-workers=2
+# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=4 -m pelican eval --config=../config/48k.yaml --config=../config/jc.yaml --num-channels-scalar=20 --cuda --log-every=1000 --save-every=1000 --stabilizer=so2 --method=spurions --prefix=jc_2-a --no-ram-dataset --datadir=${data_path}/JetClass --num-test=1000000 --num-workers=2 --runs-dir=./runs
 
-CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --yaml=../config/JCxl.yaml --yaml=../config/jc.yaml --cuda --batch-size=100 --log-every=1000 --save-every=1000 --alpha=5 --stabilizer=so2 --method=spurions --prefix=jc_6-a --no-RAMdataset --datadir=${data_path}/JetClass --load
+CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 -m pelican train --config=../config/JCxl.yaml --config=../config/jc.yaml --cuda --batch-size=100 --log-every=1000 --save-every=1000 --stabilizer=so2 --method=spurions --prefix=jc_6-a --no-ram-dataset --datadir=${data_path}/JetClass --load --runs-dir=./runs
 
-# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --yaml=../config/208k.yaml --yaml=../config/jc2p.yaml --nobj=90 --cuda --alpha=5 --stabilizer=so2 --method=spurions --prefix=jc_5-a --no-RAMdataset --datadir=${data_path}/JetClass --num-workers=4 --task=eval
+# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 -m pelican eval --config=../config/208k.yaml --config=../config/jc2p.yaml --nobj=90 --cuda --stabilizer=so2 --method=spurions --prefix=jc_5-a --no-ram-dataset --datadir=${data_path}/JetClass --num-workers=4 --runs-dir=./runs
 
-# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --yaml=../config/208k.yaml --yaml=../config/jc10p.yaml --nobj=80 --cuda --alpha=5 --stabilizer=so2 --method=spurions --prefix=jc_5_10p-a --no-RAMdataset --datadir=${data_path}/JetClass --num-workers=4
+# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 -m pelican train --config=../config/208k.yaml --config=../config/jc10p.yaml --nobj=80 --cuda --stabilizer=so2 --method=spurions --prefix=jc_5_10p-a --no-ram-dataset --datadir=${data_path}/JetClass --num-workers=4 --runs-dir=./runs
 
 
-# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 ../train_pelican_classifier.py --datadir=../data/JetClass --yaml=../config/jc.yaml --yaml=../config/48k.yaml --num-channels-scalar=20 --cuda --log-every=1 --save-every=-1 --alpha=5 --stabilizer=so2 --method=spurions --no-RAMdataset --num-train=1024 --num-valid=1024 --num-epoch=5 --prefix=jc_test_1 --num-test=10000
+# CUBLAS_WORKSPACE_CONFIG=:16:8 torchrun --nnodes=1 --nproc-per-node=8 -m pelican train --datadir=../data/JetClass --config=../config/jc.yaml --config=../config/48k.yaml --num-channels-scalar=20 --cuda --log-every=1 --save-every=-1 --stabilizer=so2 --method=spurions --no-ram-dataset --num-train=1024 --num-valid=1024 --num-epoch=5 --prefix=jc_test_1 --num-test=10000 --runs-dir=./runs

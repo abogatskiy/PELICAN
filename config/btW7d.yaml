@@ -1,6 +1,5 @@
 
 datadir: ../data/btW_7_d
-task: train
 nobj: 60
 nobj_avg: 35
 batch_size: 128
