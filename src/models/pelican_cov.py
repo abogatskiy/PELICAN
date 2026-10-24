@@ -14,7 +14,7 @@ class PELICANRegression(nn.Module):
     def __init__(self,  rank1_width_multiplier, num_channels_scalar, num_channels_m, num_channels_2to2, num_channels_out, num_channels_m_out, num_targets,
                  stabilizer='so13',  method='spurions', activate_agg_in=False, activate_lin_in=True,
                  activate_agg=False, activate_lin=True, activation='leakyrelu', config='s', config_out='s', average_nobj=20, factorize=True, masked=True,
-                 activate_agg_out=True, activate_lin_out=False, mlp_out=True,
+                 activate_agg_out=True, activate_lin_out=False, mlp_out=True, mlp_out_activate_last=True,
                  scale=1, irc_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None,  
                  dataset='', device=torch.device('cpu'), dtype=None):
         super().__init__()
@@ -106,7 +106,7 @@ class PELICANRegression(nn.Module):
         # We have produced one feature vector per each of the N particles, and now we apply an MLP to each of those to get the final PELICAN weights
         if mlp_out:
             self.mlp_out_1 = BasicMLP(self.num_channels_out + [num_targets*(1 if self.method.startswith('s') else min(4,self.rank2_dim))], 
-                                      activation=activation, dropout = False, batchnorm = False, device=device, dtype=dtype)
+                                      activation=activation, activate_last=mlp_out_activate_last, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
         self.apply(init_weights)
 

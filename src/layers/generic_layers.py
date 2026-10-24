@@ -97,7 +97,7 @@ class BasicMLP(nn.Module):
     NB: the ir_safe flag is a vestige of an old implementation of IR-safety, currently unused.
     """
 
-    def __init__(self, num_channels, activation='leakyrelu', ir_safe=False, batchnorm=False, dropout=False, drop_rate=0.25, device=torch.device('cpu'), dtype=torch.float):
+    def __init__(self, num_channels, activation='leakyrelu', activate_last=True, ir_safe=False, batchnorm=False, dropout=False, drop_rate=0.25, device=torch.device('cpu'), dtype=torch.float):
         super(BasicMLP, self).__init__()
 
         self.num_channels = num_channels
@@ -121,6 +121,9 @@ class BasicMLP(nn.Module):
         self.activations = nn.ModuleList()
         for i in range(self.num_hidden + 1):
             self.activations.append(activation_fn)
+        # activate_last=False leaves the outputs of the last linear layer as they are (e.g. for logits)
+        if not activate_last:
+            self.activations[-1] = nn.Identity()
         
         if batchnorm: self.batchnormlayer = nn.BatchNorm2d(self.num_out)
         if dropout: self.dropoutlayer = nn.Dropout(drop_rate)

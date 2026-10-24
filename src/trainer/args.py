@@ -220,6 +220,8 @@ def setup_argparse():
                         )
     parser.add_argument('--mlp-out', action=argparse.BooleanOptionalAction, default=True,
                     help='Include an output MLP (default = True)')
+    parser.add_argument('--mlp-out-activate-last', action=argparse.BooleanOptionalAction, default=True,
+                    help='Apply the activation function after the last layer of the output MLP too, i.e. to the final outputs. True reproduces models trained before this option existed (default = True)')
     parser.add_argument('--num-channels-out', nargs='*', type=int, 
                         # default=[16], 
                         # default=[25], 

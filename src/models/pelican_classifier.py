@@ -16,7 +16,7 @@ class PELICANClassifier(nn.Module):
                  stabilizer='so13', method='input', num_classes=2,
                  activate_agg_in=False, activate_lin_in=True,
                  activate_agg=False, activate_lin=True, activation='leakyrelu', config='s', config_out='s', average_nobj=49, factorize=False, masked=True,
-                 activate_agg_out=True, activate_lin_out=False, mlp_out=True,
+                 activate_agg_out=True, activate_lin_out=False, mlp_out=True, mlp_out_activate_last=True,
                  scale=1, irc_safe=False, dropout = False, drop_rate=0.1, drop_rate_out=0.1, batchnorm=None, dataset='',
                  device=torch.device('cpu'), dtype=None):
         super().__init__()
@@ -115,7 +115,7 @@ class PELICANClassifier(nn.Module):
         
         # We have produced a permutation-invariant feature vector, and now we apply an MLP with 2 output channels to it to get the final classification weights
         if mlp_out:
-            self.mlp_out = BasicMLP(self.num_channels_out + [num_classes], activation=activation, dropout = False, batchnorm = False, device=device, dtype=dtype)
+            self.mlp_out = BasicMLP(self.num_channels_out + [num_classes], activation=activation, activate_last=mlp_out_activate_last, dropout = False, batchnorm = False, device=device, dtype=dtype)
 
         self.apply(init_weights)
 
