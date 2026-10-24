@@ -152,7 +152,7 @@ def main():
     # Instantiate the training class
     trainer = Trainer(args, dataloaders, model, loss_fn, metrics,
                       minibatch_metrics, minibatch_metrics_string, optimizer, scheduler,
-                      restart_epochs, device_id, device, dtype)
+                      restart_epochs, device_id, device, dtype, classification=True)
     
     if not args.task.startswith('eval'):
         # Load from checkpoint file (if one exists)

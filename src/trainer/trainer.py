@@ -14,9 +14,10 @@ class Trainer:
     Class to train network. Includes checkpoints, optimizer, scheduler,
     """
     def __init__(self, args, dataloaders, model, loss_fn, metrics_fn, minibatch_metrics_fn, minibatch_metrics_string_fn, 
-                 optimizer, scheduler, restart_epochs, device_id, device, dtype):
+                 optimizer, scheduler, restart_epochs, device_id, device, dtype, classification=False):
         np.set_printoptions(precision=5)
         self.args = args
+        self.classification = classification
         self.dataloaders = dataloaders
         self.model = model
         self.loss_fn = loss_fn
@@ -281,9 +282,9 @@ class Trainer:
     def _get_target(self, data):
         """
         Get the learning target.
-        If a stats dictionary is included, return a normalized learning target.
-        """        
-        target_type = torch.long if self.args.target=='is_signal' else self.dtype
+        Classification targets (class indices or one-hot labels) are returned as integers.
+        """
+        target_type = torch.long if self.classification else self.dtype
         targets = data[self.args.target].to(self.device, target_type)
         return targets
 
