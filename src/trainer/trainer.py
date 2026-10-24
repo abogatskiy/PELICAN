@@ -386,10 +386,8 @@ class Trainer:
 
         datastrings = {'train': 'Training  ', 'test': 'Testing   ', 'valid': 'Validation'}
 
-        if epoch >= 0:
-            suffix = 'final'
-        else:
-            suffix = 'best'
+        # Files of the best model are suffixed 'best', those of the final model (and of training epochs) 'final'
+        suffix = 'best' if description == 'Best' else 'final'
 
         prefix = self.args.predictfile + '.' + suffix + '.' + dataset
         metrics, logstring = None, 'Metrics skipped because target is None!'
@@ -431,27 +429,23 @@ class Trainer:
                     file_.write("\n")  # Next line.
 
             if self.summarize:
-                if description == 'Best': dataset = 'Best_' + dataset
-                if description == 'Final': dataset = 'Final_' + dataset
+                tag = description + '_' + dataset if description in ['Best', 'Final'] else dataset
                 for name, metric in metrics.items():
                     if not isinstance(metric, np.ndarray):
-                        self.writer.add_scalar(dataset+'/'+name, metric, epoch)
+                        self.writer.add_scalar(tag+'/'+name, metric, epoch)
                     else:
                         if metric.size==1:
-                            self.writer.add_scalar(dataset+'/'+name, metric, epoch)
+                            self.writer.add_scalar(tag+'/'+name, metric, epoch)
                         else:
                             for i, m in enumerate(metric.flatten()):
-                                self.writer.add_scalar(dataset+'/'+name+'_'+str(i), m, epoch)
+                                self.writer.add_scalar(tag+'/'+name+'_'+str(i), m, epoch)
 
 
-        if self.args.predict and (repeat is None):
+        if self.args.predict:
             file = self.args.predictfile + '.' + suffix + '.' + dataset + '.pt'
             logger.info('Saving predictions to file: {}'.format(file))
             if targets is not None:
                 predict.update({'targets': targets})
             torch.save(predict, file)
-        
-        if repeat is not None:
-            logger.info('Predictions already saved above')
 
         return metrics, logstring
