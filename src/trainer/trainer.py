@@ -104,7 +104,7 @@ class Trainer:
     def load_state(self, checkfile):
         logger.info('Loading from checkpoint!')
 
-        checkpoint = torch.load(checkfile, map_location=self.device)
+        checkpoint = torch.load(checkfile, map_location=self.device, weights_only=False)
         self.model.load_state_dict(checkpoint['model_state'])
         if self.optimizer is not None:
             self.optimizer.load_state_dict(checkpoint['optimizer_state'])
@@ -143,7 +143,7 @@ class Trainer:
         # Evaluate final model
         if final:
             # Load checkpoint model to make predictions
-            checkpoint = torch.load(self.args.checkfile, map_location=self.device)
+            checkpoint = torch.load(self.args.checkfile, map_location=self.device, weights_only=False)
             final_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['model_state'])
             logger.info(f'Getting predictions for final model {self.args.checkfile} (epoch {final_epoch}).')
@@ -157,7 +157,7 @@ class Trainer:
         # Evaluate best model as determined by validation error
         if best:
             # Load best model to make predictions
-            checkpoint = torch.load(self.args.bestfile, map_location=self.device)
+            checkpoint = torch.load(self.args.bestfile, map_location=self.device, weights_only=False)
             best_epoch = checkpoint['epoch']
             self.model.load_state_dict(checkpoint['model_state'])
             if (not final) or (final and not best_epoch == final_epoch):
