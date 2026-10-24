@@ -29,7 +29,7 @@ class JetDataset(Dataset):
 
             # Shuffle the dataset before initializing the dataloader
             # (mainly so that if num_pts<len_data we get a random subset and not just the first num_pts events)
-            if randomize_subset and (balance or num_pts < len_data):
+            if randomize_subset and (balance or self.num_pts < len_data):
                 # This can be used to balance batches in binary datasets:
                 # The dataset is re-ordered so that the true labels have the form [0,1,0,1,0,1,...]
                 # Assuming shuffle=False in the dataloader, this will guarantee balanced minibatches
