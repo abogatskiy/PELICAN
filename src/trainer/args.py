@@ -10,13 +10,6 @@ def setup_argparse():
 
     parser.add_argument('--yaml', type=str, default=None, action='append')
 
-    parser.add_argument('--host', default='worker1172')
-    parser.add_argument('--password', default='asoetuh')
-    parser.add_argument('--port', default='35719')
-    parser.add_argument('--storage', default='local', help="specify location of storage to use for Optuna (\'remote\' | \'local\' | specify path) (default: local)")
-    parser.add_argument('--sampler', default='random')
-    parser.add_argument('--pruner', default='median')
-
     parser.add_argument('--fix-data', action=argparse.BooleanOptionalAction, default=False,
                         help='Fix the seed for the random choice of training samples in the train_pelican script')
 
@@ -49,8 +42,6 @@ def setup_argparse():
                         help='Decay learning rate every minibatch instead of epoch.')
     parser.add_argument('--sgd-restart', type=int, default=-1, metavar='int',
                         help='Restart SGD optimizer every (lr_decay)^p epochs, where p=sgd_restart. (-1 to disable) (default: -1)')
-    parser.add_argument('--optuna-test', action=argparse.BooleanOptionalAction, default=False,
-                        help='Run best epoch\'s model on testing set at the end of an Optuna trial.')
 
     parser.add_argument('--optim', type=str, default='adamw', metavar='str',
                         help='Set optimizer. (SGD, AMSgrad, Adam, AdamW, RMSprop)')
@@ -98,8 +89,6 @@ def setup_argparse():
     # Job prefix is used to name checkpoint/best file
     parser.add_argument('--prefix', '--jobname', type=str, default='nosave',
                         help='Prefix to set load, save, and logfile. (default: nosave)')
-    parser.add_argument('--study-name', type=str, default='nosave',
-                        help='Name for the optuna study. (default: nosave)')
 
     # Allow to manually specify file to load
     parser.add_argument('--loadfile', type=str, default='',

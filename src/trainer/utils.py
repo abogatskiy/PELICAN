@@ -140,24 +140,18 @@ def init_file_paths(args):
 
     return args
 
-def logging_printout(args, trial=None):
+def logging_printout(args):
     
     # Printouts of various inputs before training (and after logger is initialized with correct logfile path)
     logger.info('Initializing simulation based upon argument string:')
     logger.info(' '.join([arg for arg in sys.argv]))
     logger.info('Log, best, checkpoint, load files: {} {} {} {}'.format(args.logfile, args.bestfile, args.checkfile, args.loadfile))
     logger.info('Learning target, datadir: {} {}'.format(args.target, args.datadir))
-    git_status = _git_version()
+    _git_version()
 
 
     logger.info('Values of all model arguments:')
     logger.info('{}'.format(args))
-    if trial:    
-        logger.info('Params of Optuna trial:')
-        for key, val in trial.params.items():
-            logger.info(f'\'{key}\': {val}')
-
-    return git_status
 
 
 #### Initialize optimizer ####

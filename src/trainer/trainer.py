@@ -240,7 +240,7 @@ class Trainer:
         if not self.args.lr_minibatch:
             self.scheduler.step()
 
-    def train(self, trial=None, metric_to_report='loss'):
+    def train(self):
         start_epoch = self.epoch
         start_minibatch = self.minibatch
         for epoch in range(start_epoch, self.args.num_epoch + 1):
@@ -266,14 +266,6 @@ class Trainer:
                 self._save_checkpoint(valid_metrics)
             synchronize()
             
-            if trial:
-                trial.set_user_attr("best_epoch", self.best_epoch)
-                trial.set_user_attr("best_metrics", self.best_metrics)
-                trial.report(min(valid_metrics[metric_to_report], 1), epoch - 1)
-                if trial.should_prune():
-                    import optuna
-                    raise optuna.exceptions.TrialPruned()
-
             logger.info(f'FINISHED Epoch {epoch}\n_________________________\n')
             
         if self.summarize: self.writer.close()

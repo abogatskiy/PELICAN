@@ -20,8 +20,6 @@ PELICAN is a network that takes 4-momentum inputs (e.g. jet constituents) and us
 * scikit-learn
 * pyyaml
 * tensorboard (if using --summarize)
-* optuna (if using the optuna script)
-* psycopg2-binary (if using optuna with a distributed file sharing system)
 
 ### Installing
 
