@@ -17,14 +17,31 @@ def masked_mean(x, nobj, dim=None, keepdims=False):
     x = x / nobj
     return x
 
+def particle_mask(x, nobj, dim):
+    '''
+    Mask of the entries of x (batch first) that belong to real particles along every axis in dim,
+    assuming the particles of each event occupy its first nobj slots, followed by padding.
+    '''
+    nobj = nobj.view([-1] + [1] * (x.dim() - 1))
+    mask = torch.ones((), dtype=torch.bool, device=x.device)
+    for d in ([dim] if type(dim)==int else dim):
+        shape = [1] * x.dim()
+        shape[d] = x.shape[d]
+        mask = mask & (torch.arange(x.shape[d], device=x.device).view(shape) < nobj)
+    return mask
+
 def masked_amax(x, nobj, dim=None, keepdims=False):
-    x = torch.amax(x, dim=dim, keepdims=keepdims)
-    x = x - nobj.log().view([-1]+[1,]*(len(x.shape)-1))
+    x = x.masked_fill(~particle_mask(x, nobj, dim), -torch.inf).amax(dim=dim, keepdims=keepdims)
+    nobj = nobj.view([-1]+[1,]*(len(x.shape)-1))
+    # events without particles give 0
+    x = torch.where(nobj > 0, x - nobj.log(), 0.)
     return x
 
 def masked_amin(x, nobj, dim=None, keepdims=False):
-    x = torch.amin(x, dim=dim, keepdims=keepdims)
-    x = x + nobj.log().view([-1]+[1,]*(len(x.shape)-1))
+    x = x.masked_fill(~particle_mask(x, nobj, dim), torch.inf).amin(dim=dim, keepdims=keepdims)
+    nobj = nobj.view([-1]+[1,]*(len(x.shape)-1))
+    # events without particles give 0
+    x = torch.where(nobj > 0, x + nobj.log(), 0.)
     return x
 
 def masked_var(x, nobj, dim=None, keepdims=False):
