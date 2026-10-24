@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pelican"
+version = "2.0.0"
+description = "PELICAN: Permutation Equivariant, Lorentz Invariant/Covariant Aggregator Network for particle physics"
+readme = "README.md"
+license = { file = "LICENSE.md" }
+authors = [{ name = "Alexander Bogatskiy" }, { name = "Jan T. Offermann" }, { name = "Timothy Hoffman" }, { name = "Xiaoyang Liu" }]
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0",
+    "numpy",
+    "h5py",
+    "scikit-learn",
+    "pyyaml",
+    "rich>=13",
+]
+
+[project.optional-dependencies]
+optuna = ["optuna>=3", "psycopg2-binary"]
+tensorboard = ["tensorboard"]
+dev = ["pytest"]
+all = ["pelican[optuna,tensorboard,dev]"]
+
+[project.scripts]
+pelican = "pelican.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["pelican*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

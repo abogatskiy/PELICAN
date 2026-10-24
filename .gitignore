@@ -1,16 +1,10 @@
 .tmp/
-/log/
-/predict/
-/model/
-
+.claude/
 /data/*
 !/data/sample_data
 
 /slurm/out
 /slurm/err
-/slurm/log*
-/slurm/predict
-/slurm/model
 
 *.egg-info/
 __pycache__/
@@ -23,3 +17,14 @@ __pycache__/
 .ipynb_checkpoints
 *.sbatch~
 backup.gz
+
+/runs/
+/slurm/runs/
+
+# outputs of the pre-package scripts
+/log/
+/model/
+/predict/
+/slurm/log*
+/slurm/predict
+/slurm/model
