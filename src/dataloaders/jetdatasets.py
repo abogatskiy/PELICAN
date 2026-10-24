@@ -11,7 +11,7 @@ class JetDataset(Dataset):
     """
     PyTorch dataset.
     """
-    def __init__(self, filename, num_pts=-1, randomize_subset=True, balance=True, RAMdataset=False):
+    def __init__(self, filename, num_pts=-1, randomize_subset=True, balance=True, balance_key='is_signal', RAMdataset=False):
 
         self.filename = filename
         self.RAMdataset = RAMdataset
@@ -36,8 +36,10 @@ class JetDataset(Dataset):
                 # TODO ideally this should be achieved by a custom sampler, not here
                 if balance:
                     # We want to shuffle things, but make sure that we keep our signal-to-background ratio
-                    # We will assume there are only two possible values (0,1) of "is_signal". #TODO: We could consider generalizing/extending this, for multi-label classification problems.
-                    signal_flags = f['is_signal'][:] # This will read the entire column into RAM, which is a potential limitation
+                    # We will assume there are only two possible values (0,1) of the label in balance_key (one-hot labels are converted to class indices). #TODO: We could consider generalizing/extending this, for multi-label classification problems.
+                    signal_flags = f[balance_key][:] # This will read the entire column into RAM, which is a potential limitation
+                    if signal_flags.ndim > 1:
+                        signal_flags = signal_flags.argmax(axis=1)
                     signal_idxs = np.where(signal_flags==1)[0]
                     backgd_idxs = np.where(signal_flags==0)[0]
 

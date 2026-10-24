@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 from torch.utils.data import ConcatDataset
 from . import JetDataset
 
-def initialize_datasets(args, datadir='../../data/sample_data', splits = ['train', 'test', 'valid'], num_pts=None, testfile='', balance=True, RAMdataset=True):
+def initialize_datasets(args, datadir='../../data/sample_data', splits = ['train', 'test', 'valid'], num_pts=None, testfile='', balance=True, balance_key='is_signal', RAMdataset=True):
     """
     Initialize datasets.
     splits: We will consider all HDF5 files in datadir with one of these keywords in the filename
@@ -73,7 +73,7 @@ def initialize_datasets(args, datadir='../../data/sample_data', splits = ['train
 
     ### ------ 5: Initialize datasets ------ ###
     # Now initialize datasets based upon loaded data
-    torch_datasets = {split: ConcatDatasetChild([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance, RAMdataset=RAMdataset_splits[split]) for idx, filename in enumerate(datasets[split]) if num_pts_per_file[split][idx]!=0]) for split in splits if len(datasets[split])>0}
+    torch_datasets = {split: ConcatDatasetChild([JetDataset(filename, num_pts=num_pts_per_file[split][idx], randomize_subset=randomize_subset[split], balance=balance, balance_key=balance_key, RAMdataset=RAMdataset_splits[split]) for idx, filename in enumerate(datasets[split]) if num_pts_per_file[split][idx]!=0]) for split in splits if len(datasets[split])>0}
 
     # Now, update the number of training/test/validation sets in args
     if 'train' in torch_datasets.keys():

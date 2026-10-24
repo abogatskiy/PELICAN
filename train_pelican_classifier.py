@@ -87,7 +87,7 @@ def main():
         splits = ['test']
     else:
         splits = ['train', 'test', 'valid']
-    args, datasets = initialize_datasets(args, args.datadir, splits, num_pts=None, testfile=args.testfile, balance=(args.num_classes==2), RAMdataset=args.RAMdataset)
+    args, datasets = initialize_datasets(args, args.datadir, splits, num_pts=None, testfile=args.testfile, balance=(args.num_classes==2), balance_key=args.target, RAMdataset=args.RAMdataset)
 
     # Construct PyTorch dataloaders from datasets
     collate = lambda data: collate_fn(data, scale=args.scale, nobj=args.nobj)
