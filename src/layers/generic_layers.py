@@ -499,12 +499,14 @@ def dot11(p1, p2):
     return 2 * prod[..., 0] - prod.sum(dim=-1)
 
 def fn(x, alphas, mode):
+    # (base^a - 1) / a, written as expm1(a * log(base)) / a so that it stays accurate as a -> 0
+    a = 1e-6 + alphas ** 2
     if mode=='log':
-        x = ((1 + x).abs().pow(1e-6 + alphas ** 2) - 1) / (1e-6 + alphas ** 2)
+        x = torch.expm1(a * (1 + x).abs().log()) / a
     elif mode=='slog':
-        x = ((1 + x.abs()).pow(1e-6 + alphas ** 2) - 1) / (1e-6 + alphas ** 2) * x.sign()
+        x = torch.expm1(a * torch.log1p(x.abs())) / a * x.sign()
     elif mode=='angle':
-        x = ((1e-5 + x.abs()).pow(1e-6 + alphas ** 2) - 1) / (1e-6 + alphas ** 2)
+        x = torch.expm1(a * (1e-5 + x.abs()).log()) / a
     elif mode=='arcsinh':
         x = (x * 2 * alphas).arcsinh() / (1e-6 + alphas.abs())
     return x
