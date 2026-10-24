@@ -68,10 +68,9 @@ class UI:
     def header(self, cfg, model, n_params, sizes, device):
         if not self.main:
             return
-        rows = [('run', cfg.run_dir), ('model', f'{cfg.model} ({cfg.task}), {n_params:,} parameters'),
-                ('symmetry', f"stabilizer {cfg.stabilizer}" + ('' if cfg.canonicalize else ', no canonicalization')
-                 + (', IRC safe' if cfg.irc_safe else '')),
-                ('encoder', cfg.encoder), ('data', ', '.join(f'{k} {v:,}' for k, v in sizes.items())),
+        rows = [('run', cfg.run_dir), ('model', f'PELICAN ({cfg.task}), {n_params:,} parameters'),
+                ('symmetry', f"stabilizer {cfg.stabilizer} via {cfg.method}" + (', IRC safe' if cfg.irc_safe else '')),
+                ('data', ', '.join(f'{k} {v:,}' for k, v in sizes.items())),
                 ('device', f"{device}{' (float64)' if cfg.double else ''}")]
         if self.interactive:
             t = Table.grid(padding=(0, 2))
