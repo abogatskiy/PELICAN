@@ -5,7 +5,7 @@ from itertools import islice
 from .scheduler import GradualWarmupScheduler, GradualCooldownScheduler
 import os
 from datetime import datetime
-from math import inf, ceil
+from math import inf
 import logging
 logger = logging.getLogger(__name__)
 
@@ -187,9 +187,10 @@ class Trainer:
             logger.info('Warm learning rate restart at epoch {}!'.format(epoch))
             self.scheduler.last_epoch = 1
             idx = restart_epochs.index(epoch)
-            self.scheduler.T_max = restart_epochs[idx + 1] - restart_epochs[idx]
+            next_restart = restart_epochs[idx + 1] if idx + 1 < len(restart_epochs) else self.args.num_epoch + 1
+            self.scheduler.T_max = next_restart - restart_epochs[idx]
             if self.args.lr_minibatch:
-                self.scheduler.T_max *= ceil(self.args.num_train / (self.args.back_batch_size if self.args.back_batch_size is not None else self.args.batch_size))
+                self.scheduler.T_max *= len(self.dataloaders['train'])
             self.scheduler.step(0)
 
     def _log_minibatch(self, batch_idx, loss, targets, predict, batch_t, fwd_t, bwd_t, epoch_t):
