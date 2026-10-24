@@ -116,11 +116,10 @@ class BasicMLP(nn.Module):
         if self.num_hidden > 0:
             self.linear.append(nn.Linear(num_channels[-2], self.num_out, bias=not ir_safe))
 
-        activation_fn = get_activation_fn(activation)
-
+        # One activation module per layer, so that parametric activations (e.g. PReLU) aren't shared between layers
         self.activations = nn.ModuleList()
         for i in range(self.num_hidden + 1):
-            self.activations.append(activation_fn)
+            self.activations.append(get_activation_fn(activation))
         # activate_last=False leaves the outputs of the last linear layer as they are (e.g. for logits)
         if not activate_last:
             self.activations[-1] = nn.Identity()
@@ -179,8 +178,7 @@ class MessageNet(nn.Module):
         
         self.linear = nn.ModuleList([nn.Linear(num_channels[i], num_channels[i+1], bias=not ir_safe) for i in range(depth)])
 
-        activation_fn = get_activation_fn(activation)
-        self.activations = nn.ModuleList([activation_fn for i in range(depth)])
+        self.activations = nn.ModuleList([get_activation_fn(activation) for i in range(depth)])
         
         # if depth == 0: self.batchnorm = False
         if self.batchnorm == True:
