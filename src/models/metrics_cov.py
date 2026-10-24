@@ -72,12 +72,19 @@ def cart2cyl(cart, include_r=False):
         sph = torch.stack((eta, phi), dim=-1)
     return sph
 
+def masked_invalid(x, targets):
+    """
+    Sets to nan the entries of x for events whose target has no 3-momentum (e.g. background events with a zero target),
+    where angles and relative deviations are undefined, so that nan-aware quantiles skip them
+    """
+    return x.masked_fill(targets[...,1:4].norm(dim=-1) == 0, torch.nan)
+
 def AngleDeviation(predict, targets):
     """
     Measures the (always positive) angle between any two 3D vectors and returns the 68% quantile over the batch
     """
-    angles = Angle3D(predict[...,1:4], targets[...,1:4])
-    return  torch.quantile(angles, 0.68, dim=0)
+    angles = masked_invalid(Angle3D(predict[...,1:4], targets[...,1:4]), targets)
+    return  torch.nanquantile(angles, 0.68, dim=0)
 
 def PhiSigma(predict, targets):
     """
@@ -115,18 +122,18 @@ def MassSigma(predict, targets):
     """
     half of the 68% interquantile range over of relative deviation in mass
     """
-    rel = ((normsq4(predict).abs().sqrt()-normsq4(targets).abs().sqrt())/normsq4(targets).abs().sqrt())
+    rel = masked_invalid((normsq4(predict).abs().sqrt()-normsq4(targets).abs().sqrt())/normsq4(targets).abs().sqrt(), targets)
     return iqr(rel, dim=0)  # mass relative error
 
 def pTSigma(predict, targets):
     """
      half of the 68% interquantile range of relative deviation in pT
     """
-    rel = ((predict[...,[1,2]].norm(dim=-1)-targets[...,[1,2]].norm(dim=-1))/targets[...,[1,2]].norm(dim=-1))
+    rel = masked_invalid((predict[...,[1,2]].norm(dim=-1)-targets[...,[1,2]].norm(dim=-1))/targets[...,[1,2]].norm(dim=-1), targets)
     return iqr(rel, dim=0)  # pT relative error
 
 def dRSigma(predict, targets):
-    return torch.quantile(dR(predict, targets), 0.68, dim=0)
+    return torch.nanquantile(masked_invalid(dR(predict, targets), targets), 0.68, dim=0)
 
 def loss_fn_col(predict, targets):
     return (dot4(predict,targets)**2 - dot4(predict,predict)*dot4(targets,targets) + 1e-6).abs().pow(0.5).mean()
@@ -159,7 +166,7 @@ def loss_fn_psi(predict,targets):
     return Angle3D(predict[...,1:4], targets[...,1:4]).mean()
 
 def loss_fn_dR(predict,targets):
-    return dR(predict,targets).mean()
+    return masked_invalid(dR(predict,targets), targets).nanmean()
 
 def loss_fn_pT(predict,targets):
     return (predict[...,1:3].norm(dim=-1) - targets[...,1:3].norm(dim=-1)).abs().mean()
@@ -171,4 +178,4 @@ def mass(x):
 
 def iqr(x, rng=(0.16, 0.84), dim=0):
     rng = sorted(rng)
-    return ((torch.quantile(x,rng[1], dim=dim) - torch.quantile(x,rng[0],dim=dim)) * 0.5)
+    return ((torch.nanquantile(x,rng[1], dim=dim) - torch.nanquantile(x,rng[0],dim=dim)) * 0.5)
