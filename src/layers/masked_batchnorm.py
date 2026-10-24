@@ -44,7 +44,6 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
             device,
             dtype
         )
-        self.zero = torch.tensor(0, device=device, dtype=dtype)
 
     def forward(self, inp, mask):
         self._check_input_dim(inp)
@@ -59,7 +58,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
 
         mask_bool = mask
         n = mask.sum()
-        mask = mask / n
+        mask = mask.to(inp.dtype) / n
         mask = mask.unsqueeze(-1).expand(inp.shape)
 
         if self.training and self.track_running_stats:
@@ -93,7 +92,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
         if self.affine:
             inp = inp * self.weight[None, None, :] + self.bias[None, None, :]
 
-        inp = torch.where(mask, inp, self.zero)
+        inp = torch.where(mask_bool, inp, inp.new_zeros(()))
 
         return inp
 
@@ -119,7 +118,6 @@ class MaskedBatchNorm2d(nn.BatchNorm2d):
             device,
             dtype
         )
-        self.zero = torch.tensor(0, device=device, dtype=dtype)
 
     def forward(self, inp, mask):
         self._check_input_dim(inp)
@@ -134,7 +132,7 @@ class MaskedBatchNorm2d(nn.BatchNorm2d):
         
         mask_bool = mask
         n = mask.sum()
-        mask = mask / n
+        mask = mask.to(inp.dtype) / n
 
         if self.training and self.track_running_stats:
             if self.num_batches_tracked is not None:
@@ -168,7 +166,7 @@ class MaskedBatchNorm2d(nn.BatchNorm2d):
         if self.affine:
             inp = inp * self.weight[None, None, None, :] + self.bias[None, None, None, :]
 
-        inp = torch.where(mask_bool, inp, self.zero)
+        inp = torch.where(mask_bool, inp, inp.new_zeros(()))
 
         return inp
 class MaskedBatchNorm3d(nn.BatchNorm3d):
@@ -193,7 +191,6 @@ class MaskedBatchNorm3d(nn.BatchNorm3d):
             device,
             dtype
         )
-        self.zero = torch.tensor(0, device=device, dtype=dtype)
 
     def forward(self, inp, mask):
         self._check_input_dim(inp)
@@ -208,7 +205,7 @@ class MaskedBatchNorm3d(nn.BatchNorm3d):
         
         mask_bool = mask
         n = mask.sum(dim=(0,1,2,3))
-        mask = mask / n
+        mask = mask.to(inp.dtype) / n
 
         if self.training and self.track_running_stats:
             if self.num_batches_tracked is not None:
@@ -242,6 +239,6 @@ class MaskedBatchNorm3d(nn.BatchNorm3d):
         if self.affine:
             inp = inp * self.weight[None, None, None, None, :] + self.bias[None, None, None, None, :]
 
-        inp = torch.where(mask_bool, inp, self.zero)
+        inp = torch.where(mask_bool, inp, inp.new_zeros(()))
 
         return inp
