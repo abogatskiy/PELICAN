@@ -207,7 +207,7 @@ def gpu_test(model, data, t0):
 	device = model.device
 	t1 = datetime.now()
 	logging.info(f'{"Collation time:":<80} {(t1-t0).total_seconds()}s')
-	if model.device=='gpu':
+	if model.device.type == 'cuda':
 		mem_init = torch.cuda.memory_allocated(device)
 		logging.info(f'{"Initial GPU memory allocation:":<80} {mem_init}')
 		output = model(data)
@@ -223,7 +223,7 @@ def gpu_test(model, data, t0):
 		logging.info(f'{"Memory after backward pass:":<80} {mem_bwd}')
 		logging.info(f'{"Total batch time:":<80} {(t3-t0).total_seconds()}s')
 		del output
-		with torch.no_grad:
+		with torch.no_grad():
 			t4 = datetime.now()
 			mem_init = torch.cuda.memory_allocated(device)
 			logging.info(f'{"Initial GPU memory allocation:":<80} {mem_init}')
