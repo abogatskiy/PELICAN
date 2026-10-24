@@ -225,6 +225,7 @@ class PELICANRegression(nn.Module):
             4-momenta of the particles
         """
         device, dtype = self.device, self.dtype
+        data = dict(data) # the steps below add entries, which must not leak into the caller's batch
 
         if self.method.startswith('s'):
             data = self.add_spurions(data)

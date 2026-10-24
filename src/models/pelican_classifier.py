@@ -213,6 +213,7 @@ class PELICANClassifier(nn.Module):
             4-momenta of the particles
         """
         device, dtype = self.device, self.dtype
+        data = dict(data) # the steps below add entries, which must not leak into the caller's batch
 
         if self.dataset == "jc":
             data = add_pid_jc(data)
