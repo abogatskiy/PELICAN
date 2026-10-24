@@ -149,10 +149,12 @@ class Trainer:
             logger.info(f'Getting predictions for final model {self.args.checkfile} (epoch {final_epoch}).')
 
             # Loop over splits, predict, and output/log predictions
+            final_results = {}
             for split in splits:
                 predict, targets = self.predict(set=split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                 if self.device_id <= 0:
-                    best_metrics, logstring = self.log_predict(predict, targets, split, description='Final')
+                    metrics, logstring = self.log_predict(predict, targets, split, description='Final')
+                    final_results[split] = (predict, targets, metrics, logstring)
                 synchronize()
         # Evaluate best model as determined by validation error
         if best:
@@ -166,13 +168,15 @@ class Trainer:
                 for split in splits:
                     predict, targets = self.predict(split, distributed=distributed, ir_data=ir_data, c_data=c_data, expand_data=expand_data)
                     if self.device_id <= 0:
-                        best_metrics, logstring = self.log_predict(predict, targets, split, description='Best')
+                        self.log_predict(predict, targets, split, description='Best')
                     synchronize()
 
             elif best_epoch == final_epoch:
                 logger.info('BEST MODEL IS SAME AS FINAL')
                 if self.device_id <= 0:
-                    self.log_predict(predict, targets, split, description='Best', repeat=[best_metrics, logstring])
+                    for split in splits:
+                        predict, targets, metrics, logstring = final_results[split]
+                        self.log_predict(predict, targets, split, description='Best', repeat=[metrics, logstring])
         logger.info('Inference phase complete!\n')
 
     def _warm_restart(self, epoch):
