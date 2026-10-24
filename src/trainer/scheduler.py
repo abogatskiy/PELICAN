@@ -78,8 +78,8 @@ class GradualCooldownScheduler(_LRScheduler):
         after_scheduler: original scheduler that works until cooldown_epoch (eg. ReduceLROnPlateau)
     """
 
-    def __init__(self, optimizer, lr_final, cooldown_epoch, cooldown_length, after_scheduler):
-        self.gamma = 0.5
+    def __init__(self, optimizer, lr_final, cooldown_epoch, cooldown_length, after_scheduler, steps_per_epoch=1):
+        self.gamma = 0.5 ** (1/steps_per_epoch)  # 0.5 is the LR decay factor per epoch
         self.lr_final = lr_final
         self.cooldown_epoch = cooldown_epoch
         self.cooldown_length = cooldown_length

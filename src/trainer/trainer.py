@@ -49,21 +49,14 @@ class Trainer:
     def _wrap_scheduler(self, scheduler):
         if self.args.num_epoch < self.args.warmup:
             return scheduler
+        # Number of scheduler steps per epoch
+        steps_per_epoch = len(self.dataloaders['train']) if self.args.lr_minibatch else 1
         if self.args.warmup > 0:
-            scheduler = GradualWarmupScheduler(self.optimizer, 1, len(self.dataloaders['train'])*self.args.warmup, after_scheduler=scheduler)
-        if self.args.cooldown > 0:
-            if self.args.lr_decay_type == 'warm':
-                coodlown_start = (self.args.num_epoch - self.args.warmup - self.args.cooldown)*len(self.dataloaders['train'])
-                cooldown_length = self.args.cooldown*len(self.dataloaders['train'])
-                scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
-            elif self.args.lr_decay_type == 'flat':
-                coodlown_start = (self.args.num_epoch - self.args.warmup - self.args.cooldown)*len(self.dataloaders['train'])
-                cooldown_length = self.args.cooldown*len(self.dataloaders['train'])
-                scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
-            elif self.args.lr_decay_type == 'cos':
-                coodlown_start = (self.args.num_epoch - self.args.warmup - self.args.cooldown)*len(self.dataloaders['train'])
-                cooldown_length = self.args.cooldown*len(self.dataloaders['train'])
-                scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler)
+            scheduler = GradualWarmupScheduler(self.optimizer, 1, steps_per_epoch*self.args.warmup, after_scheduler=scheduler)
+        if self.args.cooldown > 0 and self.args.lr_decay_type in ['warm', 'flat', 'cos']:
+            coodlown_start = (self.args.num_epoch - self.args.warmup - self.args.cooldown)*steps_per_epoch
+            cooldown_length = self.args.cooldown*steps_per_epoch
+            scheduler = GradualCooldownScheduler(self.optimizer, self.args.lr_final, coodlown_start, cooldown_length, scheduler, steps_per_epoch)
         return scheduler
 
     def _save_checkpoint(self, valid_metrics=None):
