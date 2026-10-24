@@ -41,7 +41,10 @@ def build(task='classification', stabilizer='so2', method='spurions', irc_safe=F
     torch.manual_seed(0)
     m = PelicanModel(task=task, stabilizer=stabilizer, method=method, irc_safe=irc_safe, **tk).double()
     # One training-mode pass so batchnorm running stats are non-trivial, then evaluate deterministically.
-    m.train(); m(make_jets(B=8, seed=123, N=nobj)); m.eval()
+    warmup = make_jets(B=8, seed=123, N=nobj)
+    if tk.get('num_scalars'):
+        warmup['scalars'] = torch.randn(8, nobj, tk['num_scalars']) * warmup['particle_mask'].unsqueeze(-1)
+    m.train(); m(warmup); m.eval()
     return m
 
 

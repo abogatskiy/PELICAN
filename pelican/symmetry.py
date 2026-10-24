@@ -63,6 +63,16 @@ def get_stabilizer(name):
     return STABILIZERS[name]
 
 
+def symmetry_vectors(stabilizer, method):
+    """
+    4-vectors whose common stabilizer is the model's symmetry group: the spurions, except that with --method input
+    'se2' uses E - p_z, which fixes (1,0,0,1) rather than its spurion (1,0,0,-1).
+    """
+    if method == 'input' and stabilizer.name == 'se2':
+        return (_NP,)
+    return stabilizer.spurions
+
+
 def _invariant_components(p, name):
     """Per-particle components left invariant by the stabilizer (--method input), or None if there are none."""
     dtype, device = p.dtype, p.device

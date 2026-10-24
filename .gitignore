@@ -28,3 +28,4 @@ backup.gz
 /slurm/log*
 /slurm/predict
 /slurm/model
+!/tests/data/*.pt

@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..symmetry import get_stabilizer, pair_invariants, dot4
+from ..symmetry import get_stabilizer, pair_invariants, symmetry_vectors, dot4
 from ..softdrop import CATree, SDMultiplicity
 from ..nn import EqLayer, EqNet, MessageNet, InputEncoder, embedding_init, init_weights, mlp
 
@@ -30,6 +30,7 @@ class PelicanModel(nn.Module):
         self.num_targets = num_targets
         self.stabilizer = get_stabilizer(stabilizer)
         self.method = method
+        self.symmetry_vectors = symmetry_vectors(self.stabilizer, method)     # their stabilizer is the model's symmetry group
         self.spurions = method == 'spurions' and self.stabilizer.num_spurions > 0
         # With spurions the inputs are plain dot products; otherwise the stabilizer decides which products enter.
         self.invariants = 'so13' if method == 'spurions' else stabilizer

@@ -21,7 +21,7 @@ def run_selftest(model, batch, task):
         P[i, :n] = P[i, torch.randperm(n)]
     results['permutation'] = ((net({**batch, 'Pmu': P})['predict'] - out).abs().max() / scale).item()
 
-    alg = stabilizer_algebra(net.stabilizer.spurions).to(batch['Pmu'].device)
+    alg = stabilizer_algebra(net.symmetry_vectors).to(batch['Pmu'].device)
     Lam = random_group_element(alg.cpu(), 0.5).to(batch['Pmu'].device, batch['Pmu'].dtype)
     out2 = net({**batch, 'Pmu': batch['Pmu'] @ Lam.T})['predict']
     expected = out if task == 'classification' else out @ Lam.T.to(out.dtype)
