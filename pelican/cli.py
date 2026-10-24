@@ -1,4 +1,4 @@
-"""Command-line entry point: pelican {train,eval,optuna,info} [options]. See `pelican <command> --help`."""
+"""Command-line entry point: pelican {train,eval,info} [options]. See `pelican <command> --help`."""
 import logging
 import os
 import random
@@ -66,8 +66,8 @@ def set_seed(cfg):
         torch.use_deterministic_algorithms(True)
 
 
-def setup(cfg, splits, trial=None):
-    """Everything shared by train/eval/optuna: run folder, logging, seed, device, data, model, trainer."""
+def setup(cfg, splits):
+    """Everything shared by train/eval: run folder, logging, seed, device, data, model, trainer."""
     rank, world = D.init_distributed()
     main = rank == 0
     if main:
@@ -88,19 +88,19 @@ def setup(cfg, splits, trial=None):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[device.index])
     ui = UI(console, main=main, log_every=cfg.log_every)
     ui.header(cfg, model, n_params, {s: len(l.dataset) for s, l in loaders.items()}, device)
-    return Trainer(cfg, model, make_task(cfg), loaders, device, ui, trial=trial)
+    return Trainer(cfg, model, make_task(cfg), loaders, device, ui)
 
 
-def cmd_train(cfg, trial=None):
+def cmd_train(cfg):
     if os.path.exists(os.path.join(cfg.run_dir, 'checkpoint.pt')) and not cfg.load:
         raise SystemExit(f'{cfg.run_dir} already has a checkpoint: pass --load to resume, or choose another --prefix')
-    trainer = setup(cfg, ('train', 'valid', 'test'), trial=trial)
+    trainer = setup(cfg, ('train', 'valid', 'test'))
     if cfg.self_test and trainer.main:
         from .selftest import run_selftest
         from .train.trainer import _to
         run_selftest(trainer.model, _to(next(iter(trainer.loaders['train'])), trainer.device, trainer.net.dtype), cfg.task)
     best_epoch, best_metrics = trainer.fit()
-    results = trainer.evaluate(('test',)) if trial is None or cfg.optuna_test else {}
+    results = trainer.evaluate(('test',))
     D.cleanup()
     return best_epoch, best_metrics, results
 
@@ -131,9 +131,6 @@ def main(argv=None):
             cmd_eval(cfg)
         elif cfg.command == 'info':
             cmd_info(cfg)
-        elif cfg.command == 'optuna':
-            from .search import run_study
-            run_study(cfg)
     except ValueError as e:      # configuration errors raised while building the model
         logger.error(str(e))
         raise SystemExit(1)

@@ -12,7 +12,7 @@ project CARDINAL (../CARDINAL-private), so the two can later be merged into one 
 ## Commands
 
 ```bash
-pip install -e ".[all]"                       # package + optuna, tensorboard, pytest (env: conda py310)
+pip install -e ".[all]"                       # package + tensorboard, pytest (env: conda py310)
 pytest                                        # synthetic data, ~10 s; MPS tests skip without MPS
 pytest tests/test_models.py -k regression     # a subset
 pelican train --datadir data/v0 --config config/toptag.yaml --config config/48k.yaml --prefix NAME [--mps|--cpu]
@@ -28,7 +28,7 @@ python scripts/convert_checkpoint.py model/NAME.pt   # old-script checkpoints ->
 - `pelican/nn/`: `equivariant.py` (`EqLayer` for orders 1/2 -> 0/1/2 + `EqNet`, fast pair-output path), `encoders.py` (`InputEncoder`, `powerlog`), `layers.py` (`mlp`, `MessageNet`), `norms.py` (masked batchnorm).
 - `pelican/softdrop.py`: Lorentz-invariant Soft Drop multiplicity, the normalization of IRC-safe mean aggregations.
 - `pelican/legacy.py` + `scripts/convert_checkpoint.py`: conversion of checkpoints written by the pre-package scripts.
-- Shared with CARDINAL (keep identical apart from package names): `pelican/data/`, `pelican/train/` (trainer, tasks, optim, ui, distributed, metrics), `pelican/lorentz.py`, `pelican/nn/{layers,norms}.py`, `pelican/cli.py` and `pelican/config.py` (except the model-specific parts), `pelican/search.py`, `pelican/selftest.py`, `scripts/export_predictions.py`, `slurm/optuna_copydb.py`.
+- Shared with CARDINAL (keep identical apart from package names): `pelican/data/`, `pelican/train/` (trainer, tasks, optim, ui, distributed, metrics), `pelican/lorentz.py`, `pelican/nn/{layers,norms}.py`, `pelican/cli.py` and `pelican/config.py` (except the model-specific parts), `pelican/selftest.py`, `scripts/export_predictions.py`. CARDINAL's optuna support (`search.py`, the `optuna` command, the trainer's trial hooks) was deliberately left out.
 
 ## Design points that span files
 

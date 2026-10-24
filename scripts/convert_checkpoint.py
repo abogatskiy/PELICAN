@@ -56,7 +56,7 @@ def convert(path, prefix=None, runs_dir='runs', force=False):
     for name, ckpt in ckpts.items():
         torch.save({'model_state': states[name], 'epoch': ckpt.get('epoch', 0),
                     'best_epoch': ckpt.get('best_epoch', ckpt.get('epoch', 0)), 'best_metrics': ckpt.get('best_metrics'),
-                    'config': {k: v for k, v in vars(cfg).items() if k != 'password'}}, os.path.join(run_dir, name))
+                    'config': dict(vars(cfg))}, os.path.join(run_dir, name))
     print(f"{path} -> {run_dir} ({', '.join(ckpts)}); ignored old options: {', '.join(sorted(ignored)) or 'none'}")
     return run_dir
 

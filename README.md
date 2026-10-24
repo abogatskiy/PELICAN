@@ -16,8 +16,7 @@ PELICAN supports classification (`--task classification`, e.g. top tagging) and 
 
 ```bash
 pip install -e .                 # core: torch, numpy, h5py, scikit-learn, pyyaml, rich
-pip install -e ".[optuna]"       # + hyperparameter search (optuna, psycopg2-binary)
-pip install -e ".[all]"          # + optuna, tensorboard, pytest
+pip install -e ".[all]"          # + tensorboard, pytest
 ```
 
 This installs the `pelican` command. `python -m pelican` works the same way.
@@ -124,12 +123,9 @@ overwrite a run that already has a checkpoint; use `--load` to resume it or pick
 Checkpoints of the pre-package scripts (`model/<name>.pt`, `model/<name>_best.pt`) can be converted into a run folder
 with `python scripts/convert_checkpoint.py model/<name>.pt`, then evaluated with `pelican eval runs/<name>`.
 
-## Hyperparameter search, clusters and multiple GPUs
+## Clusters and multiple GPUs
 
-`pelican optuna --study-name NAME [options]` runs Optuna trials. Each trial is an ordinary run in
-`runs/NAME-trial<k>/`, and the search space is defined in `pelican/search.py`. With `--storage remote`, trials
-coordinate through a postgres server; see `slurm/OptunaRustyReadme.md` and `slurm/run_db.sh` (the password defaults
-to `$PELICAN_OPTUNA_PASSWORD`). `slurm/optuna_copydb.py` copies a study between remote and local storage. `scripts/export_predictions.py runs/<prefix>` converts a run's saved predictions to HDF5.
+`scripts/export_predictions.py runs/<prefix>` converts a run's saved predictions to HDF5.
 
 Multi-GPU training uses `torchrun --nproc_per_node=4 -m pelican train ...`. Example slurm jobs are in `slurm/`; on a
 cluster, install the package into the job's environment once with `pip install -e .`.

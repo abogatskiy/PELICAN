@@ -43,8 +43,8 @@ def _to(batch, device, dtype):
 
 
 class Trainer:
-    def __init__(self, cfg, model, task, loaders, device, ui, trial=None):
-        self.cfg, self.task, self.loaders, self.device, self.ui, self.trial = cfg, task, loaders, device, ui, trial
+    def __init__(self, cfg, model, task, loaders, device, ui):
+        self.cfg, self.task, self.loaders, self.device, self.ui = cfg, task, loaders, device, ui
         self.model = model
         self.net = model.module if hasattr(model, 'module') else model       # unwrapped (DDP)
         self.run_dir = cfg.run_dir
@@ -63,7 +63,7 @@ class Trainer:
     def _state(self):
         return {'model_state': self.net.state_dict(), 'optimizer_state': self.optimizer.state_dict(),
                 'scheduler_state': self.scheduler.state_dict(), 'epoch': self.epoch, 'best_epoch': self.best_epoch,
-                'best_metrics': self.best_metrics, 'config': {k: v for k, v in vars(self.cfg).items() if k != 'password'}}
+                'best_metrics': self.best_metrics, 'config': dict(vars(self.cfg))}
 
     def save(self, name):
         if self.main:
@@ -107,8 +107,6 @@ class Trainer:
                     self.save('best.pt')
                 self._log_epoch(epoch, train_metrics, valid_metrics, time.time() - t0, best)
             D.barrier()
-            if self.trial is not None:
-                self._report_trial(epoch, valid_metrics)
         if self.writer:
             self.writer.close()
         return self.best_epoch, self.best_metrics
@@ -169,13 +167,6 @@ class Trainer:
             for split, m in (('train', train), ('valid', valid)):
                 for k, v in m.items():
                     self.writer.add_scalar(f'{split}/{k}', v, epoch)
-
-    def _report_trial(self, epoch, valid_metrics):
-        import optuna
-        value = D.broadcast_object(valid_metrics[self.cfg.metric] if self.main else None)
-        self.trial.report(value, epoch)
-        if self.trial.should_prune():
-            raise optuna.exceptions.TrialPruned()
 
     # ------------------------------------------------------------------ evaluation
     @torch.no_grad()

@@ -20,10 +20,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-optuna = ["optuna>=3", "psycopg2-binary"]
 tensorboard = ["tensorboard"]
 dev = ["pytest"]
-all = ["pelican[optuna,tensorboard,dev]"]
+all = ["pelican[tensorboard,dev]"]
 
 [project.scripts]
 pelican = "pelican.cli:main"

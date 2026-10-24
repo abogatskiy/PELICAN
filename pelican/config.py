@@ -25,7 +25,8 @@ RENAMED = {'config': 'agg', 'config_out': 'agg_out', 'num_channels_2to2': 'num_c
 REMOVED = {'rank1_width_multiplier', 'dropout', 'quiet', 'textlog', 'verbose', 'alpha', 'lr_decay', 'sgd_restart', 'read_pid',
            'force_download', 'weight_init', 'summarize_csv', 'workdir', 'logdir', 'modeldir', 'predictdir', 'loadfile',
            'checkfile', 'bestfile', 'logfile', 'predictfile', 'lr_minibatch', 'log_level', 'save', 'dtype', 'add_beams',
-           'sig', 'softmasked', 'ir_safe', 'c_safe'}
+           'sig', 'softmasked', 'ir_safe', 'c_safe', 'host', 'port', 'password', 'storage', 'sampler', 'pruner', 'study_name',
+           'optuna_test', 'n_trials', 'metric'}
 # Internal keys that are never read from YAML.
 _INTERNAL = {'command', 'config', 'run'}
 
@@ -116,19 +117,6 @@ def _add_arguments(p):
     g.add_argument('--clip-grad', type=float, default=0.0, help='clip the gradient norm to this value (0: off)')
     g.add_argument('--loss', default='m:0.05,3d:0.01', help='regression loss as name:weight pairs')
 
-    g = p.add_argument_group('optuna')
-    g.add_argument('--study-name', default='pelican')
-    g.add_argument('--storage', default='local', help="local (sqlite file), remote (postgres at --host/--port) or a URL")
-    g.add_argument('--host', default='localhost')
-    g.add_argument('--port', default='35719')
-    g.add_argument('--password', default=os.environ.get('PELICAN_OPTUNA_PASSWORD', 'asoetuh'),
-                   help='postgres password (default: $PELICAN_OPTUNA_PASSWORD)')
-    g.add_argument('--sampler', default='random', choices=['random', 'tpe'])
-    g.add_argument('--pruner', default='median', choices=['median', 'hyperband', 'none'])
-    g.add_argument('--n-trials', type=int, default=200)
-    g.add_argument('--optuna-test', action=BOOL, default=False, help='evaluate each trial\'s best model on the test set')
-    g.add_argument('--metric', default='loss', help='validation metric to optimize (minimized for loss, maximized otherwise)')
-
 
 def build_parser():
     parser = argparse.ArgumentParser(prog='pelican', description='PELICAN: Permutation Equivariant, Lorentz Invariant/Covariant Aggregator Network')
@@ -138,7 +126,6 @@ def build_parser():
     sub.add_parser('train', parents=[common], help='train a model, then evaluate it on the test set')
     ev = sub.add_parser('eval', parents=[common], help='evaluate a trained run on the test set')
     ev.add_argument('run', nargs='?', default=None, help='run folder (default: <runs-dir>/<prefix>)')
-    sub.add_parser('optuna', parents=[common], help='hyperparameter search')
     sub.add_parser('info', parents=[common], help='print the model and its parameter count')
     return parser
 
@@ -202,7 +189,7 @@ def validate(cfg):
             raise SystemExit(f"--{key.replace('_', '-')} must be a single letter from '{AGGREGATIONS}', got '{v}'")
     if cfg.task == 'regression' and not cfg.mlp_out:
         raise SystemExit('regression needs the output MLP (--mlp-out)')
-    if cfg.command in ('train', 'optuna') and cfg.warmup + cfg.cooldown >= cfg.num_epoch:
+    if cfg.command == 'train' and cfg.warmup + cfg.cooldown >= cfg.num_epoch:
         n = cfg.warmup + cfg.cooldown + 1
         logger.warning(f'num_epoch ({cfg.num_epoch}) must exceed warmup + cooldown; using {n}')
         cfg.num_epoch = n
@@ -213,5 +200,5 @@ def validate(cfg):
 
 
 def save_config(cfg, path):
-    values = {k: v for k, v in sorted(vars(cfg).items()) if k not in _INTERNAL | {'run_dir', 'password'}}
+    values = {k: v for k, v in sorted(vars(cfg).items()) if k not in _INTERNAL | {'run_dir'}}
     Path(path).write_text(yaml.safe_dump(values, sort_keys=False))
