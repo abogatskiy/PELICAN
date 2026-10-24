@@ -28,6 +28,30 @@ from .masked_batchnorm import MaskedBatchNorm3d
 #             output = output * mask
 #         return output
 
+AGGREGATIONS = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
+
+def parse_config(config):
+    '''
+    config is a single letter from smxnSMXN choosing the aggregation (sum, mean, max, min).
+    Upper case additionally scales the aggregated basis operations by (nobj/average_nobj)^alpha with trainable alphas.
+    Returns the aggregation name and whether it is scaled.
+    '''
+    if len(config) != 1 or config.lower() not in AGGREGATIONS:
+        raise ValueError("config must be a single letter from smxnSMXN", config)
+    return AGGREGATIONS[config.lower()], config.isupper()
+
+def nobj_multiplier(nobj, alphas, average_nobj):
+    mult = (nobj).view([-1] + [1] * (alphas.dim() - 1))**alphas
+    return mult / (average_nobj**alphas)
+
+def mixing_coefs(layer):
+    if layer.factorize:
+        return layer.coefs00.unsqueeze(1) * layer.coefs10.unsqueeze(-1) + layer.coefs01.unsqueeze(0) * layer.coefs11.unsqueeze(-1)
+    return layer.coefs
+
+# In all layers below, self.alphas is a list with one entry (None for lower case configs),
+# which keeps the parameter name alphas.0 that existing checkpoints use.
+
 class Eq2to0(nn.Module):
     def __init__(self, in_dim, out_dim, activate_agg=False, activate_lin=True, activation = 'leakyrelu', config='s', factorize=True, average_nobj=49, device=torch.device('cpu'), dtype=torch.float):
         super(Eq2to0, self).__init__()
@@ -37,16 +61,12 @@ class Eq2to0(nn.Module):
         self.activate_lin = activate_lin
         self.activation_fn = get_activation_fn(activation)
         self.config = config
+        self.aggregation, self.scaled = parse_config(config)
         self.factorize = factorize
 
         self.average_nobj = average_nobj                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
-        self.basis_dim = 2 * len(config)
-        self.alphas = nn.ParameterList([None] * len(config))
-        for i, char in enumerate(config):
-            if char in ['M', 'X', 'N']:
-                self.alphas[i] = nn.Parameter(torch.rand(1, in_dim, 2, device=device, dtype=dtype))
-            elif char=='S':
-                self.alphas[i] = nn.Parameter(torch.rand(1, in_dim, 2, device=device, dtype=dtype))
+        self.basis_dim = 2
+        self.alphas = nn.ParameterList([nn.Parameter(torch.rand(1, in_dim, 2, device=device, dtype=dtype)) if self.scaled else None])
 
         self.out_dim = out_dim
         self.in_dim = in_dim
@@ -67,33 +87,14 @@ class Eq2to0(nn.Module):
         inputs: N x D x m x m
         Returns: N x D x m
         '''
-        d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
-
-        ops = []
-        for i, char in enumerate(self.config):
-            if char in ['s', 'm', 'x', 'n']:
-                op = self.ops_func(inputs, nobj=nobj, nobj_avg=self.average_nobj, aggregation=d[char], weight=irc_weight)
-            elif char in ['S', 'M', 'X', 'N']:
-                op = self.ops_func(inputs, nobj=nobj, nobj_avg=self.average_nobj, aggregation=d[char.lower()], weight=irc_weight)
-                mult = (nobj).view([-1,1,1])**self.alphas[i]
-                mult = mult / (self.average_nobj** self.alphas[i])
-                op = op * mult            
-            else:
-                raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
-            ops.append(op)
-
-
-        ops = torch.cat(ops, dim=2)
+        ops = self.ops_func(inputs, nobj=nobj, nobj_avg=self.average_nobj, aggregation=self.aggregation, weight=irc_weight)
+        if self.scaled:
+            ops = ops * nobj_multiplier(nobj, self.alphas[0], self.average_nobj)
 
         if self.activate_agg:
             ops = self.activation_fn(ops)
 
-        if self.factorize:
-            coefs = self.coefs00.unsqueeze(1) * self.coefs10.unsqueeze(-1) + self.coefs01.unsqueeze(0) * self.coefs11.unsqueeze(-1)
-        else:
-            coefs = self.coefs
-
-        output = torch.einsum('dsb,ndb->ns', coefs, ops)
+        output = torch.einsum('dsb,ndb->ns', mixing_coefs(self), ops)
 
         output = output + self.bias
 
@@ -114,15 +115,11 @@ class Eq1to2(nn.Module):
         self.activate_lin = activate_lin
         self.activation_fn = get_activation_fn(activation)
         self.config = config
+        self.aggregation, self.scaled = parse_config(config)
         self.factorize = factorize
 
         self.average_nobj = average_nobj                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
-        self.alphas = nn.ParameterList([None] * len(config))
-        for i, char in enumerate(config):
-            if char in ['M', 'X', 'N']:
-                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 5, 1, 1, device=device, dtype=dtype))
-            elif char=='S':
-                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 5, 1, 1, device=device, dtype=dtype))
+        self.alphas = nn.ParameterList([nn.Parameter(torch.zeros(1, in_dim, 5, 1, 1, device=device, dtype=dtype)) if self.scaled else None])
 
         self.ops_func = eops_1_to_2
         # Mix the basis without materializing it (see eops_1_to_2_mix) whenever that gives the same result
@@ -141,44 +138,23 @@ class Eq1to2(nn.Module):
 
     def forward(self, inputs, mask=None, nobj=None, softmask_ir=None, irc_weight=None):
         '''
-        inputs: B x N x N x C
-        Returns: B x N x C
+        inputs: B x N x C
+        Returns: B x N x N x C
         '''
-        d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
+        coefs = mixing_coefs(self)
+        mult = nobj_multiplier(nobj, self.alphas[0], self.average_nobj) if self.scaled else None # B x C x 5 x 1 x 1
 
-        if self.factorize:
-            coefs = self.coefs00.unsqueeze(1) * self.coefs10.unsqueeze(-1) + self.coefs01.unsqueeze(0) * self.coefs11.unsqueeze(-1)
+        if self.fast_basis and not self.activate_agg and softmask_ir is None:
+            output = eops_1_to_2_mix(inputs, coefs, nobj, self.average_nobj, aggregation=self.aggregation, weight=irc_weight,
+                                     mult=None if mult is None else mult[..., 0, 0])
         else:
-            coefs = self.coefs
-
-        if self.fast_basis and not self.activate_agg and softmask_ir is None and len(self.config) == 1 and self.config.lower() in d:
-            char = self.config
-            mult = None
-            if char in ['S', 'M', 'X', 'N']:
-                mult = (nobj).view([-1,1,1,1,1])**self.alphas[0]
-                mult = mult / (self.average_nobj** self.alphas[0])
-                mult = mult[..., 0, 0]
-            output = eops_1_to_2_mix(inputs, coefs, nobj, self.average_nobj, aggregation=d[char.lower()], weight=irc_weight, mult=mult)
-        else:
-            ops = []
-            for i, char in enumerate(self.config):
-                if char in ['s', 'm', 'x', 'n']:
-                    op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char], weight=irc_weight)
-                elif char in ['S', 'M', 'X', 'N']:
-                    op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()], weight=irc_weight)
-                    mult = (nobj).view([-1,1,1,1,1])**self.alphas[i]
-                    mult = mult / (self.average_nobj** self.alphas[i])
-                    op = op * mult
-                else:
-                    raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
-                if softmask_ir is not None:
-                    op = torch.cat([op[:,:,:3], op[:,:,3:] * softmask_ir], dim=2)
-                ops.append(op)
-            ops = torch.cat(ops, dim=2)
-
+            ops = self.ops_func(inputs, nobj, self.average_nobj, aggregation=self.aggregation, weight=irc_weight)
+            if mult is not None:
+                ops = ops * mult
+            if softmask_ir is not None:
+                ops = torch.cat([ops[:,:,:3], ops[:,:,3:] * softmask_ir], dim=2)
             if self.activate_agg:
                 ops = self.activation_fn(ops)
-
             output = torch.einsum('dsb,ndbij->nijs', coefs, ops)
 
         output = output + self.bias.view(1,1,-1)
@@ -202,15 +178,11 @@ class Eq2to1(nn.Module):
         self.activate_lin = activate_lin
         self.activation_fn = get_activation_fn(activation)
         self.config = config
+        self.aggregation, self.scaled = parse_config(config)
         self.factorize = factorize
 
         self.average_nobj = average_nobj                 # 50 is the mean number of particles per event in the toptag dataset; ADJUST FOR YOUR DATASET
-        self.alphas = nn.ParameterList([None] * len(config))
-        for i, char in enumerate(config):
-            if char in ['M', 'X', 'N']:
-                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 5, 1, device=device, dtype=dtype))
-            elif char=='S':
-                self.alphas[i] = nn.Parameter(torch.zeros(1, in_dim, 5, 1, device=device, dtype=dtype))
+        self.alphas = nn.ParameterList([nn.Parameter(torch.zeros(1, in_dim, 5, 1, device=device, dtype=dtype)) if self.scaled else None])
 
         self.ops_func = eops_2_to_1
 
@@ -230,33 +202,16 @@ class Eq2to1(nn.Module):
         inputs: B x N x N x C
         Returns: B x N x C
         '''
-        d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
-
-        ops = []
-        for i, char in enumerate(self.config):
-            if char in ['s', 'm', 'x', 'n']:
-                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char], weight=irc_weight)
-            elif char in ['S', 'M', 'X', 'N']:
-                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()], weight=irc_weight)
-                mult = (nobj).view([-1,1,1,1])**self.alphas[i]
-                mult = mult / (self.average_nobj** self.alphas[i])
-                op = op * mult
-            else:
-                raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
-            if softmask_ir is not None:
-                op = torch.cat([op[:,:,:3], op[:,:,3:] * softmask_ir], dim=2)
-            ops.append(op)
-        ops = torch.cat(ops, dim=2)
+        ops = self.ops_func(inputs, nobj, self.average_nobj, aggregation=self.aggregation, weight=irc_weight)
+        if self.scaled:
+            ops = ops * nobj_multiplier(nobj, self.alphas[0], self.average_nobj)
+        if softmask_ir is not None:
+            ops = torch.cat([ops[:,:,:3], ops[:,:,3:] * softmask_ir], dim=2)
 
         if self.activate_agg:
             ops = self.activation_fn(ops)
 
-        if self.factorize:
-            coefs = self.coefs00.unsqueeze(1) * self.coefs10.unsqueeze(-1) + self.coefs01.unsqueeze(0) * self.coefs11.unsqueeze(-1)
-        else:
-            coefs = self.coefs
-
-        output = torch.einsum('dsb,ndbi->nis', coefs, ops)
+        output = torch.einsum('dsb,ndbi->nis', mixing_coefs(self), ops)
 
         output = output + self.bias.view(1,1,-1)
 
@@ -276,21 +231,15 @@ class Eq2to2(nn.Module):
         self.activate_lin = activate_lin
         self.activation_fn = get_activation_fn(activation)
         self.config = config
+        self.aggregation, self.scaled = parse_config(config)
         self.factorize=factorize
         self.folklore = folklore
 
         self.average_nobj = average_nobj
-        self.basis_dim = (16 if folklore else 15) + (11 if folklore else 10) * (len(config) - 1)
-        # self.basis_dim = 6
+        self.basis_dim = 16 if folklore else 15
 
-        self.alphas = nn.ParameterList([None] * len(config))
-        self.dummy_alphas = torch.zeros(1, in_dim, 5, 1, 1, device=device, dtype=dtype)
-        # countM = 0
-        for i, char in enumerate(config):
-            if char in ['M', 'X', 'N']:
-                self.alphas[i] = nn.Parameter(torch.rand(1, in_dim, 11 if folklore else 10,  1, 1, device=device, dtype=dtype))
-            elif char=='S':
-                self.alphas[i] = nn.Parameter(torch.rand(1, in_dim, 11 if folklore else 10,  1, 1, device=device, dtype=dtype))
+        # The first 5 basis operations don't aggregate, so only the remaining ones get scaled
+        self.alphas = nn.ParameterList([nn.Parameter(torch.rand(1, in_dim, self.basis_dim - 5, 1, 1, device=device, dtype=dtype)) if self.scaled else None])
 
         self.out_dim = out_dim
         self.in_dim = in_dim
@@ -314,51 +263,22 @@ class Eq2to2(nn.Module):
         self.to(device=device, dtype=dtype)
 
     def forward(self, inputs, mask=None, nobj=None, softmask_ir=None, irc_weight=None):
-
-        d = {'s': 'sum', 'm': 'mean', 'x': 'max', 'n': 'min'}
-
-        mults = []
-        for i, char in enumerate(self.config):
-            if char.lower() not in ['s', 'm', 'x', 'n']:
-                raise ValueError("args.config must consist of the following letters: smxnSMXN", self.config)
-            mult = None
-            if char in ['S', 'M', 'X', 'N']:
-                if i==0:
-                    alphas = torch.cat([self.dummy_alphas, self.alphas[0]], dim=2)
-                else:
-                    alphas = self.alphas[i]
-                mult = (nobj).view([-1,1,1,1,1])**alphas
-                mult = mult / (self.average_nobj**alphas)
-            mults.append(mult)
-
-        if self.factorize:
-            coefs = self.coefs00.unsqueeze(1) * self.coefs10.unsqueeze(-1) + self.coefs01.unsqueeze(0) * self.coefs11.unsqueeze(-1)
-        else:
-            coefs = self.coefs
+        coefs = mixing_coefs(self)
+        mult = nobj_multiplier(nobj, self.alphas[0], self.average_nobj) if self.scaled else None # B x C x (basis_dim-5) x 1 x 1
 
         if self.fast_basis and not self.activate_agg and softmask_ir is None:
-            output = eops_2_to_2_mix(inputs, coefs, [d[char.lower()] for char in self.config], nobj, self.average_nobj, weight=irc_weight,
-                                     mults=[None if mult is None else mult[..., 0, 0] for mult in mults], folklore=self.folklore)
+            output = eops_2_to_2_mix(inputs, coefs, nobj, self.average_nobj, aggregation=self.aggregation, weight=irc_weight,
+                                     mult=None if mult is None else mult[..., 0, 0], folklore=self.folklore)
         else:
-            ops=[]
-            for i, char in enumerate(self.config):
-                op = self.ops_func(inputs, nobj, self.average_nobj, aggregation=d[char.lower()], weight=irc_weight, skip_order_zero=False if i==0 else True, folklore = self.folklore)
-                if mults[i] is not None:
-                    op = op * mults[i]
-                if softmask_ir is not None:
-                    s = op.shape
-                    softmask_ir = torch.cat([
-                                            torch.ones([s[0],1,3,s[-2],s[-1]], device=op.device), 
-                                            softmask_ir.expand([s[0],1,12,s[-2],s[-1]])
-                                            ], 2)
-                    op = op*softmask_ir
-                ops.append(op)
-
-            ops = torch.cat(ops, dim=2)
-
+            ops = self.ops_func(inputs, nobj, self.average_nobj, aggregation=self.aggregation, weight=irc_weight, folklore=self.folklore)
+            if mult is not None:
+                ops = torch.cat([ops[:, :, :5], ops[:, :, 5:] * mult], dim=2)
+            if softmask_ir is not None:
+                s = ops.shape
+                ops = ops * torch.cat([torch.ones([s[0],1,3,s[-2],s[-1]], device=ops.device),
+                                       softmask_ir.expand([s[0],1,12,s[-2],s[-1]])], 2)
             if self.activate_agg:
                 ops = self.activation_fn(ops)
-
             output = torch.einsum('dsb,ndbij->nijs', coefs, ops)
 
         diag_eye = torch.eye(inputs.shape[1], device=self.device, dtype=self.dtype).unsqueeze(0).unsqueeze(-1)

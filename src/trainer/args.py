@@ -252,10 +252,10 @@ def setup_argparse():
     parser.add_argument('--batchnorm', type=str, default='b',
                     help='Enable batch/instance normalization at the end of each MessageNet (batch | instance | None) (default = b)')
 
-    parser.add_argument('--config', type=str, default='M',
-                    help='Configuration for aggregation functions in Net2to2 (any combination of letters s,S,m,M,x,X,n,N (default = M)')
-    parser.add_argument('--config-out', type=str, default='M',
-                    help='Configuration for aggregation functions in Eq2to0 (any combination of letters s,S,m,M,x,X,n,N (default = M)')
+    parser.add_argument('--config', type=str, default='M', choices=list('smxnSMXN'),
+                    help='Aggregation function in Net2to2: one of the letters s,S,m,M,x,X,n,N (default = M)')
+    parser.add_argument('--config-out', type=str, default='M', choices=list('smxnSMXN'),
+                    help='Aggregation function in Eq2to0/Eq2to1 and Eq1to2: one of the letters s,S,m,M,x,X,n,N (default = M)')
     parser.add_argument('--activate-agg', action=argparse.BooleanOptionalAction, default=False,
                     help='Apply an activation function right after permutation-equvariant Eq2to2 aggregation (default = False)')
     parser.add_argument('--activate-lin', action=argparse.BooleanOptionalAction, default=True,

@@ -137,7 +137,7 @@ class PELICANRegression(nn.Module):
         nobj = particle_mask.sum(-1, keepdim=True)
 
         if self.irc_safe:
-            if ('m' in self.config or 'M' in self.config) or ('m' in self.config_out or 'M' in self.config_out):
+            if 'm' in [self.config.lower(), self.config_out.lower()]:
                 nobj = SDMultiplicity(CATree(rank2_inputs, nobj, ycut=1000, eps=10e-8)).unsqueeze(-1).to(device=nobj.device)
         
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.

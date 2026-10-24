@@ -82,24 +82,35 @@ def check_eq1to2(config, factorize, use_weight, activate_lin, seed=0):
 
 def test_eq2to2():
     for seed, (config, factorize, use_weight, activate_lin) in enumerate(itertools.product(
-            ['s', 'm', 'x', 'n', 'M', 'S', 'sM', 'Mx'], [True, False], [False, True], [True, False])):
+            ['s', 'm', 'x', 'n', 'M', 'S', 'X', 'N'], [True, False], [False, True], [True, False])):
         check_eq2to2(config, factorize, use_weight, activate_lin, seed=seed)
 
 
 def test_eq2to2_folklore():
-    for seed, (config, use_weight) in enumerate(itertools.product(['s', 'M', 'sM'], [False, True])):
+    for seed, (config, use_weight) in enumerate(itertools.product(['s', 'M'], [False, True])):
         check_eq2to2(config, True, use_weight, True, folklore=True, seed=seed)
 
 
 def test_eq1to2():
     for seed, (config, factorize, use_weight, activate_lin) in enumerate(itertools.product(
-            ['s', 'm', 'x', 'n', 'M', 'S'], [True, False], [False, True], [True, False])):
+            ['s', 'm', 'x', 'n', 'M', 'S', 'X', 'N'], [True, False], [False, True], [True, False])):
         check_eq1to2(config, factorize, use_weight, activate_lin, seed=seed)
 
 
 def test_state_dict_unchanged():
-    expected = {'alphas.0', 'coefs00', 'coefs01', 'coefs10', 'coefs11', 'bias', 'diag_bias', 'alphas.1'}
-    assert set(Eq2to2(C_IN, C_OUT, config='MS', factorize=True).state_dict().keys()) == expected
+    expected = {'alphas.0', 'coefs00', 'coefs01', 'coefs10', 'coefs11', 'bias', 'diag_bias'}
+    assert set(Eq2to2(C_IN, C_OUT, config='M', factorize=True).state_dict().keys()) == expected
+    assert set(Eq2to2(C_IN, C_OUT, config='s', factorize=True).state_dict().keys()) == expected - {'alphas.0'}
+
+
+def test_multi_letter_config_rejected():
+    for layer in [Eq2to2, Eq1to2]:
+        for config in ['sM', '', 'q']:
+            try:
+                layer(C_IN, C_OUT, config=config)
+            except ValueError:
+                continue
+            raise AssertionError(f'{layer.__name__} accepted config {config!r}')
 
 
 if __name__ == '__main__':
@@ -107,4 +118,5 @@ if __name__ == '__main__':
     test_eq2to2_folklore()
     test_eq1to2()
     test_state_dict_unchanged()
+    test_multi_letter_config_rejected()
     print('All tests passed')
