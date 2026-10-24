@@ -314,7 +314,7 @@ def add_pid_jc(data, mask=None):
     charge_onehot = onehot(data['part_charge']+1,num_classes=3)
     pid_onehot = torch.stack([data['part_isChargedHadron'], data['part_isElectron'], data['part_isMuon'], data['part_isNeutralHadron'], data['part_isPhoton'], data['d0val'], data['d0err'], data['dzval'], data['dzerr']], dim=-1)
     if 'scalars' in data.keys():
-        data['scalars'] = torch.cat([data['scalars'],charge_onehot,pid_onehot])
+        data['scalars'] = torch.cat([data['scalars'],charge_onehot,pid_onehot], dim=-1)
     else:
         data['scalars'] = torch.cat([charge_onehot,pid_onehot],dim=-1)
     return data
