@@ -6,8 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PELICAN: Permutation Equivariant, Lorentz Invariant/Covariant Aggregator Network (arXiv:2211.00454). A finished,
 published model: pairwise dot products of the constituents -> input encoder -> rank-2 permutation-equivariant blocks ->
-pooling. The package must not change what trained models compute; its infrastructure is shared with the sibling
-project CARDINAL (../CARDINAL-private), so the two can later be merged into one library.
+pooling. The package must not change what trained models compute.
 
 ## Commands
 
